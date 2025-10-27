@@ -1,0 +1,48 @@
+spring:
+  application:
+    name: task-calendar-backend
+  
+  # 数据源配置
+  datasource:
+    url: jdbc:mysql://localhost:3306/task_calendar?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8
+    username: root
+    password: 123456
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  
+  # MyBatis Plus配置
+  mybatis-plus:
+    configuration:
+      map-underscore-to-camel-case: true
+      log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    global-config:
+      db-config:
+        id-type: auto
+        logic-delete-field: deleted
+        logic-delete-value: 1
+        logic-not-delete-value: 0
+  
+  # Spring AI配置
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY:your-openai-api-key}
+      chat:
+        options:
+          model: gpt-3.5-turbo
+          temperature: 0.7
+  
+  # JWT配置
+  jwt:
+    secret: task-calendar-secret-key-2024
+    expiration: 86400000  # 24小时
+
+# 服务器配置
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+# 日志配置
+logging:
+  level:
+    com.taskcalendar: debug
+    org.springframework.security: debug

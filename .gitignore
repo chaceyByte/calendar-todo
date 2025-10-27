@@ -1,0 +1,111 @@
+# Java项目忽略规则
+## 编译输出
+/target/
+/target/**
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+## 打包忽略
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+## 运行时数据文件
+*.log
+*.tmp
+*.temp
+logs/
+log/
+*.log.*
+
+## IDE文件
+### IntelliJ IDEA
+.idea/
+*.iws
+*.iml
+*.ipr
+
+### Eclipse
+.classpath
+.project
+.settings/
+bin/
+
+### NetBeans
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+
+### VS Code
+.vscode/
+
+## 操作系统文件
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Vue项目忽略规则
+## 依赖目录
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+## 构建输出
+dist/
+build/
+.cache/
+.parcel-cache/
+
+## 环境变量文件
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+## 日志文件
+*.log
+
+## 编辑器目录和文件
+.vscode/
+.idea/
+*.swp
+*.swo
+
+## 测试覆盖率目录
+coverage/
+.nyc_output/
+
+## 依赖锁定文件 (可选，根据团队规范)
+# package-lock.json
+# yarn.lock
+
+## 临时文件
+.tmp/
+temp/
+
+## 其他
+*.tgz
+*.tar.gz
+
+# 数据库文件 (如果使用本地数据库)
+*.db
+*.sqlite
+*.sqlite3
+
+# 本地配置文件
+local.config.js
+local.config.ts
