@@ -78,7 +78,7 @@ public class TaskController {
     }
     
     @DeleteMapping("/{id}")
-    public ApiResponse<Void> deleteTask(
+    public ApiResponse<String> deleteTask(
             @RequestHeader("Authorization") String token,
             @PathVariable Long id) {
         Long userId = getUserIdFromToken(token);
@@ -92,7 +92,7 @@ public class TaskController {
         }
         
         taskService.removeById(id);
-        return ApiResponse.success("任务删除成功");
+        return ApiResponse.success("任务删除成功", null);
     }
     
     private Long getUserIdFromToken(String token) {

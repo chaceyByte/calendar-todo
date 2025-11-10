@@ -64,7 +64,7 @@ public class TagController {
     }
     
     @DeleteMapping("/{id}")
-    public ApiResponse<Void> deleteTag(
+    public ApiResponse<String> deleteTag(
             @RequestHeader("Authorization") String token,
             @PathVariable Long id) {
         Long userId = getUserIdFromToken(token);
@@ -78,7 +78,7 @@ public class TagController {
         }
         
         tagService.removeById(id);
-        return ApiResponse.success("标签删除成功");
+        return ApiResponse.success("标签删除成功", null);
     }
     
     private Long getUserIdFromToken(String token) {

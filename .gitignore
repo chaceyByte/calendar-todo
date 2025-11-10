@@ -6,6 +6,26 @@
 !**/src/main/**/target/
 !**/src/test/**/target/
 
+# 更精确的Maven构建输出忽略
+backend/target/
+backend/target/**
+!backend/target/classes/META-INF/
+backend/target/classes/!META-INF/MANIFEST.MF
+
+# Spring Boot特定文件
+backend/target/classes/application*.yml
+backend/target/classes/application*.properties
+backend/target/classes/static/
+backend/target/classes/templates/
+
+# Maven构建相关
+backend/target/maven-archiver/
+backend/target/maven-status/
+backend/target/surefire-reports/
+backend/target/test-classes/
+backend/target/*.jar
+backend/target/*.war
+
 ## 打包忽略
 *.jar
 *.war
@@ -69,6 +89,11 @@ build/
 .cache/
 .parcel-cache/
 
+# Vite构建输出
+frontend/dist/
+frontend/.vite/
+frontend/node_modules/
+
 ## 环境变量文件
 .env
 .env.local
@@ -89,9 +114,10 @@ build/
 coverage/
 .nyc_output/
 
-## 依赖锁定文件 (可选，根据团队规范)
+## 依赖锁定文件 (建议提交)
 # package-lock.json
 # yarn.lock
+# pnpm-lock.yaml
 
 ## 临时文件
 .tmp/
@@ -109,3 +135,10 @@ temp/
 # 本地配置文件
 local.config.js
 local.config.ts
+
+# 其他构建产物
+*.class
+*.exe
+*.dll
+*.so
+*.dylib
