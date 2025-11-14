@@ -84,7 +84,8 @@
                 <template #dropdown>
                   <el-dropdown-menu>
                     <el-dropdown-item @click="editTask(task)">编辑</el-dropdown-item>
-                    <el-dropdown-item @click="pauseTask(task.id)">暂停</el-dropdown-item>
+                    <el-dropdown-item @click="addToStaging(task)">添加到暂存</el-dropdown-item>
+                    <el-dropdown-item @click="() => handlePauseTask(task.id)">暂停</el-dropdown-item>
                     <el-dropdown-item @click="addTagsToTask(task)">添加标签</el-dropdown-item>
                     <el-dropdown-item @click="deleteTask(task.id)" divided>删除</el-dropdown-item>
                   </el-dropdown-menu>
@@ -94,7 +95,7 @@
             
             <div class="task-body">
               <p class="task-description">{{ task.description }}</p>
-              <div v-if="task.tags.length > 0" class="task-tags">
+              <div v-if="task.tags && task.tags.length > 0" class="task-tags">
                 <el-tag 
                   v-for="tag in task.tags" 
                   :key="tag" 
@@ -181,7 +182,7 @@
         <el-icon><edit /></el-icon>
         编辑
       </div>
-      <div class="menu-item" @click="pauseTask(taskContextMenu.task.id)">
+      <div class="menu-item" @click="() => handlePauseTask(taskContextMenu.task.id)">
         <el-icon><video-pause /></el-icon>
         暂停
       </div>
@@ -198,11 +199,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
 import dayjs from 'dayjs'
 import { 
   Plus, Clock, Close, More, Edit, VideoPause, PriceTag, Delete 
 } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { useTaskStore } from '@/stores/task'
 
 interface Task {
   id: number
@@ -226,39 +229,10 @@ const columns: Column[] = [
   { id: 'completed', title: '已完成' }
 ]
 
-// 模拟任务数据
-const tasks = ref<Task[]>([
-  {
-    id: 1,
-    title: '项目架构设计',
-    description: '设计整体项目架构和技术选型',
-    status: 'completed',
-    progress: 100,
-    tags: ['架构', '设计'],
-    createdAt: '2024-01-10',
-    updatedAt: '2024-01-15'
-  },
-  {
-    id: 2,
-    title: '前端页面开发',
-    description: '开发前端页面和交互功能',
-    status: 'in-progress',
-    progress: 60,
-    tags: ['前端', 'Vue'],
-    createdAt: '2024-01-12',
-    updatedAt: '2024-01-20'
-  },
-  {
-    id: 3,
-    title: '后端API开发',
-    description: '开发后端RESTful API接口',
-    status: 'planning',
-    progress: 0,
-    tags: ['后端', 'API'],
-    createdAt: '2024-01-15',
-    updatedAt: '2024-01-15'
-  }
-])
+const taskStore = useTaskStore()
+
+// 直接使用store中的任务数据
+const tasks = computed(() => taskStore.tasks)
 
 const stagingTasks = ref<Task[]>([])
 const showStaging = ref(false)
@@ -287,7 +261,7 @@ const taskContextMenu = reactive({
 })
 
 const getTasksByStatus = (status: string) => {
-  return tasks.value.filter(task => task.status === status)
+  return tasks.value?.filter(task => task.status === status) || []
 }
 
 const toggleStagingPanel = () => {
@@ -299,12 +273,12 @@ const showAddTaskDialog = (columnId?: string) => {
   taskDialog.isEdit = false
   taskDialog.visible = true
   
-  // 重置表单
+  // 重置表单，确保状态默认为"planning"
   Object.assign(taskForm, {
     id: 0,
     title: '',
     description: '',
-    status: taskDialog.targetColumn,
+    status: 'planning',
     progress: 0,
     tags: []
   })
@@ -316,40 +290,42 @@ const editTask = (task: Task) => {
   Object.assign(taskForm, { ...task })
 }
 
-const saveTask = () => {
+const saveTask = async () => {
   if (!taskForm.title.trim()) {
     ElMessage.warning('请输入任务标题')
     return
   }
 
-  if (taskDialog.isEdit) {
-    // 编辑任务
-    const index = tasks.value.findIndex(t => t.id === taskForm.id)
-    if (index !== -1) {
-      tasks.value[index] = {
-        ...tasks.value[index],
-        ...taskForm,
-        updatedAt: dayjs().format('YYYY-MM-DD')
+  try {
+    if (taskDialog.isEdit) {
+      // 编辑任务
+      await taskStore.updateTask(taskForm.id, {
+        title: taskForm.title,
+        description: taskForm.description,
+        status: taskForm.status as any,
+        progress: taskForm.progress
+      })
+      ElMessage.success('任务更新成功')
+    } else {
+      // 添加新任务
+      const newTask = {
+        title: taskForm.title,
+        description: taskForm.description,
+        status: taskForm.status as any,
+        progress: 0,
+        tags: []
       }
+      await taskStore.addTask(newTask)
+      ElMessage.success('任务添加成功')
     }
-    ElMessage.success('任务更新成功')
-  } else {
-    // 添加新任务
-    const newTask: Task = {
-      id: Date.now(),
-      title: taskForm.title,
-      description: taskForm.description,
-      status: taskForm.status as any,
-      progress: 0,
-      tags: [],
-      createdAt: dayjs().format('YYYY-MM-DD'),
-      updatedAt: dayjs().format('YYYY-MM-DD')
-    }
-    tasks.value.push(newTask)
-    ElMessage.success('任务添加成功')
+    
+    // 刷新任务列表
+    await loadTasks()
+    taskDialog.visible = false
+  } catch (error) {
+    console.error('操作失败:', error)
+    ElMessage.error('操作失败，请重试')
   }
-  
-  taskDialog.visible = false
 }
 
 // 拖拽功能
@@ -367,78 +343,104 @@ const handleDragOver = (e: DragEvent) => {
   }
 }
 
-const handleDrop = (e: DragEvent, targetStatus: string) => {
+const handleDrop = async (e: DragEvent, targetStatus: string) => {
   e.preventDefault()
   
   if (!dragTask.value) return
   
   const { task, source } = dragTask.value
   
-  if (source === 'staging') {
-    // 从暂存队列移动到看板
-    moveTaskFromStaging(task, targetStatus)
-  } else {
-    // 在看板内移动
-    moveTaskToColumn(task, targetStatus)
+  try {
+    if (source === 'staging') {
+      // 从暂存队列移动到看板
+      await moveTaskFromStaging(task, targetStatus)
+    } else {
+      // 在看板内移动
+      await moveTaskToColumn(task, targetStatus)
+    }
+  } catch (error) {
+    console.error('拖拽操作失败:', error)
+    ElMessage.error('操作失败，请重试')
   }
   
   dragTask.value = null
 }
 
-const moveTaskToColumn = (task: Task, targetStatus: string) => {
-  const index = tasks.value.findIndex(t => t.id === task.id)
-  if (index !== -1) {
-    tasks.value[index].status = targetStatus as any
-    tasks.value[index].updatedAt = dayjs().format('YYYY-MM-DD')
+
+
+const moveTaskFromStaging = async (task: Task, targetStatus: string) => {
+  try {
+    // 从暂存队列移除
+    await removeFromStaging(task.id)
     
-    // 如果移动到已完成，设置进度为100%
-    if (targetStatus === 'completed') {
-      tasks.value[index].progress = 100
-    }
+    // 更新任务状态到目标列
+    await taskStore.updateTask(task.id, {
+      status: targetStatus as any,
+      progress: targetStatus === 'completed' ? 100 : task.progress
+    })
+    
+    // 刷新任务列表
+    await loadTasks()
+    ElMessage.success('任务已移动到看板')
+  } catch (error) {
+    console.error('移动任务失败:', error)
+    ElMessage.error('移动任务失败，请重试')
   }
 }
 
-const moveTaskFromStaging = (task: Task, targetStatus: string) => {
-  // 从暂存队列移除
-  stagingTasks.value = stagingTasks.value.filter(t => t.id !== task.id)
-  
-  // 添加到看板
-  tasks.value.push({
-    ...task,
-    status: targetStatus as any,
-    createdAt: dayjs().format('YYYY-MM-DD'),
-    updatedAt: dayjs().format('YYYY-MM-DD')
-  })
+const removeFromStaging = async (taskId: number) => {
+  try {
+    // 调用后端API
+    await taskStore.removeFromStaging(taskId)
+    
+    // 刷新暂存队列显示
+    await loadStagingTasks()
+    ElMessage.success('任务已从暂存队列移除')
+  } catch (error) {
+    console.error('从暂存移除失败:', error)
+    ElMessage.error('从暂存移除失败，请重试')
+  }
 }
 
-const removeFromStaging = (taskId: number) => {
-  stagingTasks.value = stagingTasks.value.filter(t => t.id !== taskId)
-}
-
-// 任务操作
-const pauseTask = (taskId: number) => {
-  ElMessageBox.confirm('确定要暂停这个任务吗？', '确认暂停', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'warning'
-  }).then(() => {
-    const task = tasks.value.find(t => t.id === taskId)
-    if (task) {
-      task.status = 'paused'
-      ElMessage.success('任务已暂停')
+// 添加任务到暂存队列
+const addToStaging = async (task: Task) => {
+  try {
+    // 检查是否已经在暂存队列中
+    if (!stagingTasks.value.find(t => t.id === task.id)) {
+      // 调用后端API
+      await taskStore.addToStaging(task.id)
+      
+      // 刷新暂存队列显示
+      await loadStagingTasks()
+      ElMessage.success('任务已添加到暂存队列')
+    } else {
+      ElMessage.warning('任务已在暂存队列中')
     }
-  })
+  } catch (error) {
+    console.error('添加到暂存失败:', error)
+    ElMessage.error('添加到暂存失败，请重试')
+  }
 }
 
-const deleteTask = (taskId: number) => {
-  ElMessageBox.confirm('确定要删除这个任务吗？', '确认删除', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'warning'
-  }).then(() => {
-    tasks.value = tasks.value.filter(t => t.id !== taskId)
+
+
+const deleteTask = async (taskId: number) => {
+  try {
+    await ElMessageBox.confirm('确定要删除这个任务吗？', '确认删除', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    
+    await taskStore.deleteTask(taskId)
+    await loadTasks()
     ElMessage.success('任务删除成功')
-  })
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除失败:', error)
+      ElMessage.error('删除失败，请重试')
+    }
+  }
 }
 
 const addTagsToTask = (task: Task) => {
@@ -477,9 +479,73 @@ const formatDate = (date: string) => {
   return dayjs(date).format('MM-DD')
 }
 
+// 加载任务列表
+const loadTasks = async () => {
+  try {
+    await taskStore.fetchTasks()
+    // 现在tasks已经直接引用了store中的数据，无需额外赋值
+  } catch (error) {
+    console.error('加载任务失败:', error)
+    ElMessage.error('加载任务失败')
+  }
+}
+
+// 加载暂存队列
+const loadStagingTasks = async () => {
+  try {
+    const stagingTasksData = await taskStore.fetchStagingTasks()
+    stagingTasks.value = stagingTasksData
+  } catch (error) {
+    console.error('加载暂存队列失败:', error)
+    ElMessage.error('加载暂存队列失败')
+  }
+}
+
+// 更新移动任务功能，使其调用API
+// 处理暂停任务
+const handlePauseTask = async (taskId: number) => {
+  try {
+    await taskStore.pauseTask(taskId)
+    // 刷新任务列表和暂存队列显示
+    await loadTasks()
+    await loadStagingTasks()
+    ElMessage.success('任务已暂停')
+  } catch (error) {
+    console.error('暂停任务失败:', error)
+    ElMessage.error('暂停任务失败，请重试')
+  }
+}
+
+const moveTaskToColumn = async (task: Task, targetStatus: string) => {
+  try {
+    // 检查任务是否在暂存队列中
+    const isFromStaging = stagingTasks.value.some(t => t.id === task.id)
+    
+    if (isFromStaging) {
+      // 从暂存队列移动到看板
+      await moveTaskFromStaging(task, targetStatus)
+      // 刷新暂存队列显示
+      await loadStagingTasks()
+    } else {
+      // 在看板内移动
+      await taskStore.updateTask(task.id, {
+        status: targetStatus as any,
+        progress: targetStatus === 'completed' ? 100 : task.progress
+      })
+      await loadTasks()
+    }
+  } catch (error) {
+    console.error('移动任务失败:', error)
+    ElMessage.error('移动任务失败')
+  }
+}
+
 onMounted(() => {
   document.addEventListener('keydown', handleKeydown)
   document.addEventListener('click', closeTaskContextMenu)
+  // 初始化时加载任务和暂存队列
+  loadTasks()
+  loadStagingTasks()
 })
 
 onUnmounted(() => {

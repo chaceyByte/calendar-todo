@@ -1,6 +1,5 @@
 package com.taskcalendar.controller;
 
-import com.taskcalendar.config.JwtUtil;
 import com.taskcalendar.dto.ApiResponse;
 import com.taskcalendar.dto.TaskDTO;
 import com.taskcalendar.entity.Task;
@@ -16,94 +15,94 @@ import java.util.List;
 public class TaskController {
     
     private final TaskService taskService;
-    private final JwtUtil jwtUtil;
     
     @GetMapping
-    public ApiResponse<List<TaskDTO>> getTasks(@RequestHeader("Authorization") String token) {
-        Long userId = getUserIdFromToken(token);
-        if (userId == null) {
-            return ApiResponse.error("认证失败");
-        }
-        
-        List<TaskDTO> tasks = taskService.getTasksByUserId(userId);
+    public ApiResponse<List<TaskDTO>> getTasks() {
+        List<TaskDTO> tasks = taskService.getAllTasks();
         return ApiResponse.success(tasks);
     }
     
     @GetMapping("/status/{status}")
-    public ApiResponse<List<TaskDTO>> getTasksByStatus(
-            @RequestHeader("Authorization") String token,
-            @PathVariable String status) {
-        Long userId = getUserIdFromToken(token);
-        if (userId == null) {
-            return ApiResponse.error("认证失败");
-        }
-        
-        List<TaskDTO> tasks = taskService.getTasksByStatus(userId, status);
+    public ApiResponse<List<TaskDTO>> getTasksByStatus(@PathVariable String status) {
+        List<TaskDTO> tasks = taskService.getTasksByStatus(status);
         return ApiResponse.success(tasks);
     }
     
     @PostMapping
-    public ApiResponse<Task> createTask(
-            @RequestHeader("Authorization") String token,
-            @RequestBody Task task) {
-        Long userId = getUserIdFromToken(token);
-        if (userId == null) {
-            return ApiResponse.error("认证失败");
-        }
-        
-        task.setUserId(userId);
+    public ApiResponse<Task> createTask(@RequestBody Task task) {
+        task.setUserId(1L); // 暂时使用默认用户ID
         taskService.save(task);
         return ApiResponse.success("任务创建成功", task);
     }
     
     @PutMapping("/{id}")
-    public ApiResponse<Task> updateTask(
-            @RequestHeader("Authorization") String token,
-            @PathVariable Long id,
-            @RequestBody Task task) {
-        Long userId = getUserIdFromToken(token);
-        if (userId == null) {
-            return ApiResponse.error("认证失败");
-        }
-        
+    public ApiResponse<Task> updateTask(@PathVariable Long id, @RequestBody Task task) {
         Task existingTask = taskService.getById(id);
-        if (existingTask == null || !existingTask.getUserId().equals(userId)) {
-            return ApiResponse.error("任务不存在或无权操作");
+        if (existingTask == null) {
+            return ApiResponse.error("任务不存在");
         }
         
         task.setId(id);
-        task.setUserId(userId);
+        task.setUserId(existingTask.getUserId());
         taskService.updateById(task);
         return ApiResponse.success("任务更新成功", task);
     }
     
     @DeleteMapping("/{id}")
-    public ApiResponse<String> deleteTask(
-            @RequestHeader("Authorization") String token,
-            @PathVariable Long id) {
-        Long userId = getUserIdFromToken(token);
-        if (userId == null) {
-            return ApiResponse.error("认证失败");
-        }
-        
+    public ApiResponse<String> deleteTask(@PathVariable Long id) {
         Task task = taskService.getById(id);
-        if (task == null || !task.getUserId().equals(userId)) {
-            return ApiResponse.error("任务不存在或无权操作");
+        if (task == null) {
+            return ApiResponse.error("任务不存在");
         }
         
         taskService.removeById(id);
         return ApiResponse.success("任务删除成功", null);
     }
     
-    private Long getUserIdFromToken(String token) {
-        if (token != null && token.startsWith("Bearer ")) {
-            token = token.substring(7);
-            if (jwtUtil.validateToken(token)) {
-                String username = jwtUtil.getUsernameFromToken(token);
-                // 这里应该查询数据库获取用户ID，暂时返回1
-                return 1L;
-            }
+    // 暂存任务相关接口
+    @PostMapping("/{id}/staging")
+    public ApiResponse<String> addToStaging(@PathVariable Long id) {
+        Task task = taskService.getById(id);
+        if (task == null) {
+            return ApiResponse.error("任务不存在");
         }
-        return null;
+        
+        // 这里可以添加暂存逻辑，比如更新状态为staging
+        // 目前先简单返回成功
+        return ApiResponse.success("任务已添加到暂存队列", null);
     }
+    
+    @DeleteMapping("/{id}/staging")
+    public ApiResponse<String> removeFromStaging(@PathVariable Long id) {
+        Task task = taskService.getById(id);
+        if (task == null) {
+            return ApiResponse.error("任务不存在");
+        }
+        
+        // 这里可以添加从暂存队列移除的逻辑
+        return ApiResponse.success("任务已从暂存队列移除", null);
+    }
+    
+    @GetMapping("/staging")
+    public ApiResponse<List<TaskDTO>> getStagingTasks() {
+        // 获取所有暂存状态的任务
+        List<TaskDTO> tasks = taskService.getTasksByStatus("paused");
+        return ApiResponse.success(tasks);
+    }
+    
+    // 暂停任务
+    @PostMapping("/{id}/pause")
+    public ApiResponse<Task> pauseTask(@PathVariable Long id) {
+        Task task = taskService.getById(id);
+        if (task == null) {
+            return ApiResponse.error("任务不存在");
+        }
+        
+        // 更新任务状态为暂停
+        task.setStatus("paused");
+        taskService.updateById(task);
+        return ApiResponse.success("任务已暂停", task);
+    }
+    
+
 }

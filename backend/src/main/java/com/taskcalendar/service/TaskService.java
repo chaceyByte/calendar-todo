@@ -21,9 +21,26 @@ public class TaskService extends ServiceImpl<TaskMapper, Task> {
         return tasks.stream().map(this::convertToDTO).collect(Collectors.toList());
     }
     
+    public List<TaskDTO> getAllTasks() {
+        List<Task> tasks = lambdaQuery()
+                .orderByDesc(Task::getCreatedAt)
+                .list();
+        
+        return tasks.stream().map(this::convertToDTO).collect(Collectors.toList());
+    }
+    
     public List<TaskDTO> getTasksByStatus(Long userId, String status) {
         List<Task> tasks = lambdaQuery()
                 .eq(Task::getUserId, userId)
+                .eq(Task::getStatus, status)
+                .orderByDesc(Task::getCreatedAt)
+                .list();
+        
+        return tasks.stream().map(this::convertToDTO).collect(Collectors.toList());
+    }
+    
+    public List<TaskDTO> getTasksByStatus(String status) {
+        List<Task> tasks = lambdaQuery()
                 .eq(Task::getStatus, status)
                 .orderByDesc(Task::getCreatedAt)
                 .list();
