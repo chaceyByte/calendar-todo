@@ -92,3 +92,37 @@ INSERT IGNORE INTO tasks (id, title, description, status, progress, priority, st
 
 INSERT IGNORE INTO task_tags (task_id, tag_id) VALUES 
 (1, 4), (2, 1), (3, 2), (4, 3), (5, 5);
+
+-- 活动记录表
+CREATE TABLE IF NOT EXISTS activity_records (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '活动记录ID',
+    task_id BIGINT NOT NULL COMMENT '任务ID',
+    start_time DATETIME NOT NULL COMMENT '开始时间',
+    end_time DATETIME COMMENT '结束时间',
+    activity_type VARCHAR(20) NOT NULL COMMENT '活动类型',
+    description TEXT COMMENT '活动描述',
+    duration_minutes INT COMMENT '持续时间（分钟）',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    INDEX idx_task_id (task_id),
+    INDEX idx_start_time (start_time),
+    INDEX idx_task_start (task_id, start_time),
+    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='活动记录表';
+
+-- 插入活动记录测试数据
+INSERT IGNORE INTO activity_records (id, task_id, start_time, end_time, activity_type, description, duration_minutes) VALUES 
+(1, 1, '2024-01-10 09:00:00', '2024-01-10 10:30:00', 'CREATED', '任务创建', 90),
+(2, 1, '2024-01-10 10:30:00', '2024-01-15 18:00:00', 'STARTED', '开始任务', 6750),
+(3, 1, '2024-01-15 18:00:00', '2024-01-15 18:00:00', 'COMPLETED', '任务完成', 0),
+(4, 2, '2024-01-12 09:00:00', '2024-01-12 10:00:00', 'CREATED', '任务创建', 60),
+(5, 2, '2024-01-12 10:00:00', '2024-01-14 16:00:00', 'STARTED', '开始任务', 3120),
+(6, 2, '2024-01-14 16:00:00', '2024-01-16 09:00:00', 'PAUSED', '任务暂停', 1140),
+(7, 2, '2024-01-16 09:00:00', '2024-01-18 17:00:00', 'RESUMED', '任务恢复', 1920),
+(8, 3, '2024-01-15 09:00:00', '2024-01-15 10:00:00', 'CREATED', '任务创建', 60),
+(9, 4, '2024-01-05 09:00:00', '2024-01-05 10:00:00', 'CREATED', '任务创建', 60),
+(10, 4, '2024-01-05 10:00:00', '2024-01-12 18:00:00', 'STARTED', '开始任务', 6000),
+(11, 4, '2024-01-12 18:00:00', '2024-01-12 18:00:00', 'COMPLETED', '任务完成', 0),
+(12, 5, '2024-01-20 09:00:00', '2024-01-20 10:00:00', 'CREATED', '任务创建', 60),
+(13, 2, '2024-01-17 14:00:00', '2024-01-17 16:00:00', 'WORK', '前端页面开发', 120),
+(14, 2, '2024-01-18 09:00:00', '2024-01-18 11:30:00', 'MEETING', '前端需求评审会议', 150),
+(15, 2, '2024-01-18 14:00:00', '2024-01-18 17:00:00', 'WORK', '前端页面开发', 180);

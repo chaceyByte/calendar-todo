@@ -84,9 +84,15 @@
                 <template #dropdown>
                   <el-dropdown-menu>
                     <el-dropdown-item @click="editTask(task)">编辑</el-dropdown-item>
+                    <el-dropdown-item @click="showActivityDrawer(task)">
+                      <el-icon><view /></el-icon>
+                      查看活动记录
+                    </el-dropdown-item>
                     <el-dropdown-item @click="addToStaging(task)">添加到暂存</el-dropdown-item>
-                    <el-dropdown-item @click="() => handlePauseTask(task.id)">暂停</el-dropdown-item>
+                    <el-dropdown-item v-if="task.status !== 'paused'" @click="() => handlePauseTask(task.id)">暂停</el-dropdown-item>
+                    <el-dropdown-item v-if="task.status === 'paused'" @click="() => handleResumeTask(task.id)">恢复</el-dropdown-item>
                     <el-dropdown-item @click="addTagsToTask(task)">添加标签</el-dropdown-item>
+                    <el-dropdown-item @click="showManualActivityDialog(task)">添加活动记录</el-dropdown-item>
                     <el-dropdown-item @click="deleteTask(task.id)" divided>删除</el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
@@ -116,6 +122,17 @@
                 :show-text="false" 
                 :stroke-width="2"
               />
+            </div>
+            
+            <!-- 活动状态指示器 -->
+            <div class="task-activity-indicator" @click="showActivityDrawer(task)">
+              <div class="activity-status" :class="getActivityStatusClass(task)">
+                <el-icon><timer /></el-icon>
+                <span class="activity-text">{{ getActivityStatusText(task) }}</span>
+              </div>
+              <div class="activity-time" v-if="getCurrentActivity(task.id)">
+                {{ formatActivityTime(getCurrentActivity(task.id)) }}
+              </div>
             </div>
           </div>
           
@@ -195,6 +212,142 @@
         删除
       </div>
     </div>
+
+    <!-- 添加标签对话框 -->
+    <el-dialog 
+      v-model="tagDialog.visible" 
+      title="添加标签"
+      width="400px"
+    >
+      <el-form label-width="80px">
+        <el-form-item label="选择标签">
+          <el-select
+            v-model="tagDialog.selectedTags"
+            multiple
+            filterable
+            default-first-option
+            placeholder="选择标签"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="tag in availableTags"
+              :key="tag.id"
+              :label="tag.name"
+              :value="tag.id"
+            >
+              <span style="float: left">{{ tag.name }}</span>
+              <span style="float: right; color: #8492a6; font-size: 13px">{{ tag.taskCount || 0 }} 个任务</span>
+            </el-option>
+          </el-select>
+        </el-form-item>
+      </el-form>
+      
+      <template #footer>
+        <el-button @click="tagDialog.visible = false">取消</el-button>
+        <el-button type="primary" @click="saveTagsToTask">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 活动记录抽屉 -->
+    <el-drawer
+      v-model="activityDrawer.visible"
+      :title="`${activityDrawer.taskTitle} - 活动记录`"
+      direction="rtl"
+      size="400px"
+    >
+      <div class="activity-timeline">
+        <el-timeline>
+          <el-timeline-item
+            v-for="activity in activities"
+            :key="activity.id"
+            :timestamp="formatDateTime(activity.startTime)"
+            :type="getActivityTimelineType(activity.activityType)"
+          >
+            <div class="activity-content">
+              <div class="activity-title">
+                {{ activityStore.getActivityTypeDescription(activity.activityType) }}
+              </div>
+              <div class="activity-description" v-if="activity.description">
+                {{ activity.description }}
+              </div>
+              <div class="activity-duration" v-if="activity.durationMinutes">
+                持续时间: {{ activityStore.formatDuration(activity.durationMinutes) }}
+              </div>
+            </div>
+          </el-timeline-item>
+        </el-timeline>
+      </div>
+      
+      <!-- 活动统计 -->
+      <div class="activity-stats" v-if="activities.length > 0">
+        <el-card>
+          <template #header>活动统计</template>
+          <div class="stat-item">
+            <span>总活动时间:</span>
+            <span class="stat-value">
+              {{ activityStore.formatDuration(getTotalActivityTime()) }}
+            </span>
+          </div>
+          <div class="stat-item">
+            <span>实际工作天数:</span>
+            <span class="stat-value">{{ getWorkDaysCount() }} 天</span>
+          </div>
+        </el-card>
+      </div>
+      
+      <div class="activity-actions">
+        <el-button type="primary" @click="showManualActivityDialog({ id: activityDrawer.taskId })">
+          添加活动记录
+        </el-button>
+      </div>
+    </el-drawer>
+
+    <!-- 手动添加活动记录对话框 -->
+    <el-dialog 
+      v-model="manualActivityDialog.visible" 
+      title="添加活动记录"
+      width="500px"
+    >
+      <el-form :model="manualActivityDialog.form" label-width="100px">
+        <el-form-item label="活动类型">
+          <el-select v-model="manualActivityDialog.form.activityType" style="width: 100%">
+            <el-option label="工作" value="WORK" />
+            <el-option label="会议" value="MEETING" />
+            <el-option label="学习" value="STUDY" />
+            <el-option label="其他" value="OTHER" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="开始时间">
+          <el-date-picker
+            v-model="manualActivityDialog.form.startTime"
+            type="datetime"
+            placeholder="选择开始时间"
+            style="width: 100%"
+          />
+        </el-form-item>
+        <el-form-item label="结束时间">
+          <el-date-picker
+            v-model="manualActivityDialog.form.endTime"
+            type="datetime"
+            placeholder="选择结束时间"
+            style="width: 100%"
+          />
+        </el-form-item>
+        <el-form-item label="描述">
+          <el-input
+            v-model="manualActivityDialog.form.description"
+            type="textarea"
+            :rows="3"
+            placeholder="描述活动内容"
+          />
+        </el-form-item>
+      </el-form>
+      
+      <template #footer>
+        <el-button @click="manualActivityDialog.visible = false">取消</el-button>
+        <el-button type="primary" @click="saveManualActivity">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -202,10 +355,12 @@
 import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
 import dayjs from 'dayjs'
 import { 
-  Plus, Clock, Close, More, Edit, VideoPause, PriceTag, Delete 
+  Plus, Clock, Close, More, Edit, VideoPause, PriceTag, Delete, Timer, View
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useTaskStore } from '@/stores/task'
+import { useTagStore } from '@/stores/tag'
+import { useActivityStore } from '@/stores/activity'
 
 interface Task {
   id: number
@@ -230,9 +385,12 @@ const columns: Column[] = [
 ]
 
 const taskStore = useTaskStore()
+const tagStore = useTagStore()
+const activityStore = useActivityStore()
 
 // 直接使用store中的任务数据
 const tasks = computed(() => taskStore.tasks)
+const availableTags = ref([])
 
 const stagingTasks = ref<Task[]>([])
 const showStaging = ref(false)
@@ -259,6 +417,32 @@ const taskContextMenu = reactive({
   y: 0,
   task: {} as Task
 })
+
+const tagDialog = reactive({
+  visible: false,
+  selectedTags: [] as number[],
+  currentTaskId: 0
+})
+
+// 活动记录相关状态
+const activityDrawer = reactive({
+  visible: false,
+  taskId: 0,
+  taskTitle: ''
+})
+
+const manualActivityDialog = reactive({
+  visible: false,
+  taskId: 0,
+  form: {
+    activityType: 'WORK',
+    startTime: '',
+    endTime: '',
+    description: ''
+  }
+})
+
+const activities = ref([])
 
 const getTasksByStatus = (status: string) => {
   return tasks.value?.filter(task => task.status === status) || []
@@ -444,13 +628,28 @@ const deleteTask = async (taskId: number) => {
 }
 
 const addTagsToTask = (task: Task) => {
-  ElMessage.info('添加标签功能开发中')
+  tagDialog.currentTaskId = task.id
+  // 将标签名称转换为标签ID
+  tagDialog.selectedTags = (task.tags || []).map(tagName => {
+    const tag = availableTags.value.find(t => t.name === tagName)
+    return tag ? tag.id : 0
+  }).filter(id => id > 0)
+  tagDialog.visible = true
 }
 
-const removeTagFromTask = (taskId: number, tag: string) => {
-  const task = tasks.value.find(t => t.id === taskId)
-  if (task) {
-    task.tags = task.tags.filter(t => t !== tag)
+const removeTagFromTask = async (taskId: number, tagName: string) => {
+  try {
+    const task = tasks.value.find(t => t.id === taskId)
+    if (task) {
+      // 调用API移除标签
+      await taskStore.removeTagFromTask(taskId, tagName)
+      // 更新本地状态
+      task.tags = task.tags.filter(t => t !== tagName)
+      ElMessage.success('标签已移除')
+    }
+  } catch (error) {
+    console.error('移除标签失败:', error)
+    ElMessage.error('移除标签失败，请重试')
   }
 }
 
@@ -487,6 +686,16 @@ const loadTasks = async () => {
   } catch (error) {
     console.error('加载任务失败:', error)
     ElMessage.error('加载任务失败')
+  }
+}
+
+// 加载可用标签
+const loadAvailableTags = async () => {
+  try {
+    availableTags.value = await tagStore.fetchTags()
+  } catch (error) {
+    console.error('加载标签失败:', error)
+    ElMessage.error('加载标签失败')
   }
 }
 
@@ -540,12 +749,218 @@ const moveTaskToColumn = async (task: Task, targetStatus: string) => {
   }
 }
 
+// 保存标签到任务
+const saveTagsToTask = async () => {
+  try {
+    await taskStore.updateTaskTags(tagDialog.currentTaskId, tagDialog.selectedTags)
+    
+    // 更新本地任务状态 - 将标签ID转换为标签名称
+    const task = tasks.value.find(t => t.id === tagDialog.currentTaskId)
+    if (task) {
+      task.tags = tagDialog.selectedTags.map(tagId => {
+        const tag = availableTags.value.find(t => t.id === tagId)
+        return tag ? tag.name : ''
+      }).filter(name => name !== '')
+    }
+    
+    tagDialog.visible = false
+    ElMessage.success('标签已更新')
+  } catch (error) {
+    console.error('更新标签失败:', error)
+    ElMessage.error('更新标签失败，请重试')
+  }
+}
+
+// 活动记录相关方法
+const showActivityDrawer = async (task: Task) => {
+  activityDrawer.taskId = task.id
+  activityDrawer.taskTitle = task.title
+  activityDrawer.visible = true
+  
+  try {
+    activities.value = await activityStore.getTaskActivities(task.id)
+  } catch (error) {
+    console.error('获取活动记录失败:', error)
+    ElMessage.error('获取活动记录失败')
+  }
+}
+
+const showManualActivityDialog = (task: Task) => {
+  manualActivityDialog.taskId = task.id
+  manualActivityDialog.form = {
+    activityType: 'WORK',
+    startTime: '',
+    endTime: '',
+    description: ''
+  }
+  manualActivityDialog.visible = true
+}
+
+const saveManualActivity = async () => {
+  try {
+    if (!manualActivityDialog.form.startTime || !manualActivityDialog.form.endTime) {
+      ElMessage.warning('请选择开始和结束时间')
+      return
+    }
+    
+    if (new Date(manualActivityDialog.form.startTime) >= new Date(manualActivityDialog.form.endTime)) {
+      ElMessage.warning('结束时间必须晚于开始时间')
+      return
+    }
+    
+    await activityStore.addManualActivity({
+      taskId: manualActivityDialog.taskId,
+      activityType: manualActivityDialog.form.activityType,
+      startTime: manualActivityDialog.form.startTime,
+      endTime: manualActivityDialog.form.endTime,
+      description: manualActivityDialog.form.description
+    })
+    
+    // 刷新活动记录
+    activities.value = await activityStore.getTaskActivities(manualActivityDialog.taskId)
+    
+    manualActivityDialog.visible = false
+    ElMessage.success('活动记录已添加')
+  } catch (error) {
+    console.error('添加活动记录失败:', error)
+    ElMessage.error('添加活动记录失败，请重试')
+  }
+}
+
+const handleResumeTask = async (taskId: number) => {
+  try {
+    await taskStore.resumeTask(taskId)
+    await loadTasks()
+    ElMessage.success('任务已恢复')
+  } catch (error) {
+    console.error('恢复任务失败:', error)
+    ElMessage.error('恢复任务失败，请重试')
+  }
+}
+
+// 获取任务当前活动
+const getCurrentActivity = (taskId: number) => {
+  return activityStore.currentActivities.get(taskId)
+}
+
+// 获取活动状态文本
+const getActivityStatusText = (task: Task) => {
+  const currentActivity = getCurrentActivity(task.id)
+  if (currentActivity) {
+    return activityStore.getActivityTypeDescription(currentActivity.activityType)
+  }
+  
+  // 根据任务状态返回默认文本
+  switch (task.status) {
+    case 'planning':
+      return '计划中'
+    case 'in-progress':
+      return '进行中'
+    case 'completed':
+      return '已完成'
+    case 'paused':
+      return '已暂停'
+    default:
+      return '未知状态'
+  }
+}
+
+// 获取活动状态样式类
+const getActivityStatusClass = (task: Task) => {
+  const currentActivity = getCurrentActivity(task.id)
+  if (currentActivity) {
+    return activityStore.getActivityStatusClass(currentActivity)
+  }
+  
+  // 根据任务状态返回默认样式
+  switch (task.status) {
+    case 'planning':
+      return 'activity-planning'
+    case 'in-progress':
+      return 'activity-in-progress'
+    case 'completed':
+      return 'activity-completed'
+    case 'paused':
+      return 'activity-paused'
+    default:
+      return 'activity-unknown'
+  }
+}
+
+// 格式化活动时间
+const formatActivityTime = (activity: any) => {
+  if (!activity || !activity.startTime) return ''
+  
+  const startTime = new Date(activity.startTime)
+  const now = new Date()
+  const diffMs = now.getTime() - startTime.getTime()
+  const diffMins = Math.floor(diffMs / (1000 * 60))
+  
+  if (diffMins < 60) {
+    return `${diffMins}分钟`
+  } else if (diffMins < 1440) { // 24小时
+    const hours = Math.floor(diffMins / 60)
+    const mins = diffMins % 60
+    return `${hours}小时${mins > 0 ? mins + '分钟' : ''}`
+  } else {
+    return dayjs(startTime).format('MM-DD HH:mm')
+  }
+}
+
+// 格式化日期时间
+const formatDateTime = (dateTime: string) => {
+  return dayjs(dateTime).format('YYYY-MM-DD HH:mm')
+}
+
+// 获取活动时间线类型
+const getActivityTimelineType = (activityType: string) => {
+  switch (activityType) {
+    case 'CREATED':
+      return 'primary'
+    case 'STARTED':
+      return 'success'
+    case 'PAUSED':
+      return 'warning'
+    case 'RESUMED':
+      return 'info'
+    case 'COMPLETED':
+      return 'success'
+    case 'WORK':
+      return 'primary'
+    case 'MEETING':
+      return 'warning'
+    case 'STUDY':
+      return 'info'
+    default:
+      return 'info'
+  }
+}
+
+// 计算总活动时间
+const getTotalActivityTime = () => {
+  return activities.value
+    .filter(a => a.durationMinutes)
+    .reduce((total, activity) => total + (activity.durationMinutes || 0), 0)
+}
+
+// 计算工作天数
+const getWorkDaysCount = () => {
+  const uniqueDays = new Set()
+  activities.value.forEach(activity => {
+    if (activity.startTime) {
+      uniqueDays.add(activity.startTime.split(' ')[0])
+    }
+  })
+  return uniqueDays.size
+}
+
 onMounted(() => {
   document.addEventListener('keydown', handleKeydown)
   document.addEventListener('click', closeTaskContextMenu)
   // 初始化时加载任务和暂存队列
   loadTasks()
   loadStagingTasks()
+  loadAvailableTags()
 })
 
 onUnmounted(() => {
@@ -760,6 +1175,129 @@ onUnmounted(() => {
 
 .menu-item:hover {
   background: #f5f7fa;
+}
+
+/* 活动状态指示器 */
+.task-activity-indicator {
+  margin-top: 8px;
+  padding: 6px 8px;
+  background: #f5f7fa;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.task-activity-indicator:hover {
+  background: #e6f7ff;
+}
+
+.activity-status {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.activity-text {
+  font-weight: 500;
+}
+
+.activity-time {
+  font-size: 11px;
+  color: #909399;
+  margin-top: 2px;
+}
+
+/* 活动状态样式 */
+.activity-planning {
+  color: #909399;
+}
+
+.activity-in-progress {
+  color: #409eff;
+}
+
+.activity-completed {
+  color: #67c23a;
+}
+
+.activity-paused {
+  color: #e6a23c;
+}
+
+.activity-unknown {
+  color: #f56c6c;
+}
+
+.activity-created {
+  color: #409eff;
+}
+
+.activity-started {
+  color: #67c23a;
+}
+
+.activity-resumed {
+  color: #409eff;
+}
+
+.activity-work {
+  color: #409eff;
+}
+
+.activity-meeting {
+  color: #e6a23c;
+}
+
+.activity-study {
+  color: #67c23a;
+}
+
+.activity-other {
+  color: #909399;
+}
+
+/* 活动记录抽屉样式 */
+.activity-timeline {
+  margin-bottom: 20px;
+}
+
+.activity-content {
+  padding-bottom: 10px;
+}
+
+.activity-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.activity-description {
+  font-size: 12px;
+  color: #606266;
+  margin-bottom: 4px;
+}
+
+.activity-duration {
+  font-size: 12px;
+  color: #909399;
+}
+
+.activity-stats {
+  margin-bottom: 20px;
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.stat-value {
+  font-weight: 600;
+}
+
+.activity-actions {
+  text-align: center;
 }
 
 /* 动画 */

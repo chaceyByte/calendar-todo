@@ -1,9 +1,13 @@
 package com.taskcalendar.controller;
 
+import com.taskcalendar.context.CurrentUser;
 import com.taskcalendar.dto.ApiResponse;
 import com.taskcalendar.dto.TaskDTO;
+import com.taskcalendar.dto.UpdateTagsRequest;
 import com.taskcalendar.entity.Task;
+import com.taskcalendar.entity.Tag;
 import com.taskcalendar.service.TaskService;
+import com.taskcalendar.service.TagService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,6 +19,7 @@ import java.util.List;
 public class TaskController {
     
     private final TaskService taskService;
+    private final TagService tagService;
     
     @GetMapping
     public ApiResponse<List<TaskDTO>> getTasks() {
@@ -93,15 +98,77 @@ public class TaskController {
     // 暂停任务
     @PostMapping("/{id}/pause")
     public ApiResponse<Task> pauseTask(@PathVariable Long id) {
+        try {
+            boolean result = taskService.pauseTask(id);
+            if (result) {
+                Task task = taskService.getById(id);
+                return ApiResponse.success("任务已暂停", task);
+            } else {
+                return ApiResponse.error("暂停任务失败");
+            }
+        } catch (Exception e) {
+            return ApiResponse.error("暂停任务失败: " + e.getMessage());
+        }
+    }
+    
+    // 恢复任务
+    @PostMapping("/{id}/resume")
+    public ApiResponse<Task> resumeTask(@PathVariable Long id) {
+        try {
+            boolean result = taskService.resumeTask(id);
+            if (result) {
+                Task task = taskService.getById(id);
+                return ApiResponse.success("任务已恢复", task);
+            } else {
+                return ApiResponse.error("恢复任务失败");
+            }
+        } catch (Exception e) {
+            return ApiResponse.error("恢复任务失败: " + e.getMessage());
+        }
+    }
+    
+    // 更新任务标签
+    @PutMapping("/{id}/tags")
+    public ApiResponse<TaskDTO> updateTaskTags(@PathVariable Long id, @RequestBody UpdateTagsRequest request) {
+        Long userId = CurrentUser.getUserId();
+        
         Task task = taskService.getById(id);
         if (task == null) {
             return ApiResponse.error("任务不存在");
         }
         
-        // 更新任务状态为暂停
-        task.setStatus("paused");
-        taskService.updateById(task);
-        return ApiResponse.success("任务已暂停", task);
+        if (!task.getUserId().equals(userId)) {
+            return ApiResponse.error("无权操作此任务");
+        }
+        
+        try {
+            TaskDTO updatedTask = taskService.updateTaskTags(id, request.getTagIds(), userId);
+            return ApiResponse.success("任务标签更新成功", updatedTask);
+        } catch (Exception e) {
+            return ApiResponse.error("更新任务标签失败: " + e.getMessage());
+        }
+    }
+    
+    // 从任务中移除标签
+    @DeleteMapping("/{id}/tags/{tagName}")
+    public ApiResponse<TaskDTO> removeTagFromTask(@PathVariable Long id, @PathVariable String tagName) {
+        Long userId = CurrentUser.getUserId();
+        
+        Task task = taskService.getById(id);
+        if (task == null) {
+            return ApiResponse.error("任务不存在");
+        }
+        
+        if (!task.getUserId().equals(userId)) {
+            return ApiResponse.error("无权操作此任务");
+        }
+        
+        try {
+            TaskDTO updatedTask = taskService.removeTagFromTask(id, tagName, userId);
+            return ApiResponse.success("标签已移除", updatedTask);
+        } catch (Exception e) {
+            return ApiResponse.error("移除标签失败: " + e.getMessage());
+        }
     }
     
 

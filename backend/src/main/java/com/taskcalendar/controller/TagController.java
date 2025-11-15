@@ -1,7 +1,8 @@
 package com.taskcalendar.controller;
 
-import com.taskcalendar.config.JwtUtil;
+import com.taskcalendar.context.CurrentUser;
 import com.taskcalendar.dto.ApiResponse;
+import com.taskcalendar.dto.TagWithCountDTO;
 import com.taskcalendar.entity.Tag;
 import com.taskcalendar.service.TagService;
 import lombok.RequiredArgsConstructor;
@@ -15,27 +16,18 @@ import java.util.List;
 public class TagController {
     
     private final TagService tagService;
-    private final JwtUtil jwtUtil;
     
     @GetMapping
-    public ApiResponse<List<Tag>> getTags(@RequestHeader("Authorization") String token) {
-        Long userId = getUserIdFromToken(token);
-        if (userId == null) {
-            return ApiResponse.error("认证失败");
-        }
+    public ApiResponse<List<TagWithCountDTO>> getTags() {
+        Long userId = CurrentUser.getUserId();
         
-        List<Tag> tags = tagService.getTagsByUserId(userId);
+        List<TagWithCountDTO> tags = tagService.getTagsWithTaskCount(userId);
         return ApiResponse.success(tags);
     }
     
     @PostMapping
-    public ApiResponse<Tag> createTag(
-            @RequestHeader("Authorization") String token,
-            @RequestBody Tag tag) {
-        Long userId = getUserIdFromToken(token);
-        if (userId == null) {
-            return ApiResponse.error("认证失败");
-        }
+    public ApiResponse<Tag> createTag(@RequestBody Tag tag) {
+        Long userId = CurrentUser.getUserId();
         
         tag.setUserId(userId);
         tagService.save(tag);
@@ -44,13 +36,9 @@ public class TagController {
     
     @PutMapping("/{id}")
     public ApiResponse<Tag> updateTag(
-            @RequestHeader("Authorization") String token,
             @PathVariable Long id,
             @RequestBody Tag tag) {
-        Long userId = getUserIdFromToken(token);
-        if (userId == null) {
-            return ApiResponse.error("认证失败");
-        }
+        Long userId = CurrentUser.getUserId();
         
         Tag existingTag = tagService.getById(id);
         if (existingTag == null || !existingTag.getUserId().equals(userId)) {
@@ -64,13 +52,8 @@ public class TagController {
     }
     
     @DeleteMapping("/{id}")
-    public ApiResponse<String> deleteTag(
-            @RequestHeader("Authorization") String token,
-            @PathVariable Long id) {
-        Long userId = getUserIdFromToken(token);
-        if (userId == null) {
-            return ApiResponse.error("认证失败");
-        }
+    public ApiResponse<String> deleteTag(@PathVariable Long id) {
+        Long userId = CurrentUser.getUserId();
         
         Tag tag = tagService.getById(id);
         if (tag == null || !tag.getUserId().equals(userId)) {
@@ -79,17 +62,5 @@ public class TagController {
         
         tagService.removeById(id);
         return ApiResponse.success("标签删除成功", null);
-    }
-    
-    private Long getUserIdFromToken(String token) {
-        if (token != null && token.startsWith("Bearer ")) {
-            token = token.substring(7);
-            if (jwtUtil.validateToken(token)) {
-                String username = jwtUtil.getUsernameFromToken(token);
-                // 这里应该查询数据库获取用户ID，暂时返回1
-                return 1L;
-            }
-        }
-        return null;
     }
 }

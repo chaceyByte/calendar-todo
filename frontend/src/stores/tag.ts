@@ -5,6 +5,10 @@ export interface Tag {
   id: number;
   name: string;
   color?: string;
+  userId?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  taskCount?: number;
 }
 
 export const useTagStore = defineStore('tag', () => {
@@ -15,11 +19,15 @@ export const useTagStore = defineStore('tag', () => {
     try {
       const response = await fetch('/api/tags', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify(tag),
       });
       if (!response.ok) throw new Error('添加标签失败');
-      const newTag = await response.json();
+      const result = await response.json();
+      if (!result.success) throw new Error(result.message || '添加标签失败');
+      const newTag = result.data;
       tags.value.push(newTag);
     } catch (error) {
       console.error('添加标签失败:', error);
@@ -32,11 +40,15 @@ export const useTagStore = defineStore('tag', () => {
     try {
       const response = await fetch(`/api/tags/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify(updatedTag),
       });
       if (!response.ok) throw new Error('更新标签失败');
-      const updated = await response.json();
+      const result = await response.json();
+      if (!result.success) throw new Error(result.message || '更新标签失败');
+      const updated = result.data;
       const tagIndex = tags.value.findIndex(tag => tag.id === id);
       if (tagIndex !== -1) {
         tags.value[tagIndex] = updated;
@@ -50,8 +62,12 @@ export const useTagStore = defineStore('tag', () => {
   // 删除标签
   const deleteTag = async (id: number) => {
     try {
-      const response = await fetch(`/api/tags/${id}`, { method: 'DELETE' });
+      const response = await fetch(`/api/tags/${id}`, { 
+        method: 'DELETE'
+      });
       if (!response.ok) throw new Error('删除标签失败');
+      const result = await response.json();
+      if (!result.success) throw new Error(result.message || '删除标签失败');
       tags.value = tags.value.filter(tag => tag.id !== id);
     } catch (error) {
       console.error('删除标签失败:', error);
@@ -64,7 +80,9 @@ export const useTagStore = defineStore('tag', () => {
     try {
       const response = await fetch('/api/tags');
       if (!response.ok) throw new Error('获取标签失败');
-      tags.value = await response.json();
+      const result = await response.json();
+      if (!result.success) throw new Error(result.message || '获取标签失败');
+      tags.value = result.data;
       return tags.value;
     } catch (error) {
       console.error('获取标签失败:', error);

@@ -108,8 +108,10 @@ interface Tag {
   id: number
   name: string
   color?: string
+  userId: number
   createdAt: string
-  taskCount: number
+  updatedAt: string
+  taskCount: number  // 后端现在返回这个字段
 }
 
 const tagStore = useTagStore();
@@ -197,7 +199,15 @@ const saveTag = async () => {
 
 const deleteTag = async (tagId: number) => {
   try {
-    await ElMessageBox.confirm('确定要删除这个标签吗？', '确认删除');
+    await ElMessageBox.confirm(
+      '确定要删除这个标签吗？', 
+      '确认删除',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    );
     await tagStore.deleteTag(tagId);
     tags.value = await tagStore.fetchTags();
     ElMessage.success('删除成功');
@@ -205,18 +215,6 @@ const deleteTag = async (tagId: number) => {
     console.error('删除失败:', error);
     ElMessage.error('删除失败');
   }
-  confirmButtonText: '确定',
-      cancelButtonText
-:
-  '取消',
-      type
-:
-  'warning'
-}
-).then(() => {
-  tags.value = tags.value.filter(tag => tag.id !== tagId)
-  ElMessage.success('标签删除成功')
-})
 }
 
 const formatDate = (date: string) => {
