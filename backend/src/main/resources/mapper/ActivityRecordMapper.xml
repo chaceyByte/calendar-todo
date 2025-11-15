@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.taskcalendar.mapper.ActivityRecordMapper">
+
+    <resultMap id="TaskActivitySummaryResultMap"
+               type="com.taskcalendar.mapper.ActivityRecordMapper$TaskActivitySummary">
+        <result column="task_id" property="taskId"/>
+        <result column="task_title" property="taskTitle"/>
+        <result column="total_minutes" property="totalMinutes"/>
+        <result column="status" property="status"/>
+    </resultMap>
+
+    <select id="getDailyTaskActivitySummary" parameterType="java.time.LocalDate"
+            resultMap="TaskActivitySummaryResultMap">
+        SELECT ar.task_id,
+               t.title                               AS task_title,
+               COALESCE(SUM(ar.duration_minutes), 0) AS total_minutes,
+               t.status
+        FROM activity_records ar
+                 JOIN tasks t ON ar.task_id = t.id
+        WHERE DATE (ar.start_time) = #{date}
+        GROUP BY ar.task_id, t.title, t.status
+        ORDER BY total_minutes DESC
+    </select>
+
+    <select id="getWeeklyTaskActivitySummary" parameterType="java.time.LocalDate"
+            resultMap="TaskActivitySummaryResultMap">
+        <![CDATA[
+        SELECT ar.task_id,
+               t.title                               AS task_title,
+               COALESCE(SUM(ar.duration_minutes), 0) AS total_minutes,
+               t.status
+        FROM activity_records ar
+                 JOIN tasks t ON ar.task_id = t.id
+        WHERE DATE (ar.start_time) >= #{weekStart}
+          AND DATE (ar.start_time) <= DATE_ADD(#{weekStart}
+            , INTERVAL 6 DAY)
+        GROUP BY ar.task_id, t.title, t.status
+        ORDER BY total_minutes DESC
+        ]]>
+    </select>
+
+</mapper>
