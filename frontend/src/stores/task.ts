@@ -33,7 +33,7 @@ export const useTaskStore = defineStore('task', () => {
       };
       
       const response = await request.post('/api/tasks', taskData);
-      if (response.code && response.code !== 200) throw new Error(response.message || '添加任务失败');
+      if (response.success === false) throw new Error(response.message || '添加任务失败');
       const result = response;
       const newTask = result.data;
       tasks.value.push(newTask);
@@ -47,7 +47,7 @@ export const useTaskStore = defineStore('task', () => {
   const updateTask = async (id: number, updatedTask: Partial<Task>) => {
     try {
       const response = await request.put(`/api/tasks/${id}`, updatedTask);
-      if (response.code && response.code !== 200) throw new Error(response.message || '更新任务失败');
+      if (response.success === false) throw new Error(response.message || '更新任务失败');
       const result = response;
       const updated = result.data;
       const taskIndex = tasks.value.findIndex(task => task.id === id);
@@ -64,7 +64,7 @@ export const useTaskStore = defineStore('task', () => {
   const deleteTask = async (id: number) => {
     try {
       const response = await request.delete(`/api/tasks/${id}`);
-      if (response.code && response.code !== 200) throw new Error(response.message || '删除任务失败');
+      if (response.success === false) throw new Error(response.message || '删除任务失败');
       tasks.value = tasks.value.filter(task => task.id !== id);
     } catch (error) {
       console.error('删除任务失败:', error);
@@ -76,7 +76,7 @@ export const useTaskStore = defineStore('task', () => {
   const fetchTasks = async () => {
     try {
       const response = await request.get('/api/tasks');
-      if (response.code && response.code !== 200) throw new Error(response.message || '获取任务失败');
+      if (response.success === false) throw new Error(response.message || '获取任务失败');
       const result = response;
       tasks.value = result.data || [];
       return tasks.value;
@@ -90,7 +90,7 @@ export const useTaskStore = defineStore('task', () => {
   const addToStaging = async (taskId: number) => {
     try {
       const response = await request.post(`/api/tasks/${taskId}/staging`);
-      if (response.code && response.code !== 200) throw new Error(response.message || '添加到暂存失败');
+      if (response.success === false) throw new Error(response.message || '添加到暂存失败');
       const result = response;
       return result.data;
     } catch (error) {
@@ -102,7 +102,7 @@ export const useTaskStore = defineStore('task', () => {
   const removeFromStaging = async (taskId: number) => {
     try {
       const response = await request.delete(`/api/tasks/${taskId}/staging`);
-      if (response.code && response.code !== 200) throw new Error(response.message || '从暂存移除失败');
+      if (response.success === false) throw new Error(response.message || '从暂存移除失败');
       const result = response;
       return result.data;
     } catch (error) {
@@ -114,7 +114,7 @@ export const useTaskStore = defineStore('task', () => {
   const fetchStagingTasks = async () => {
     try {
       const response = await request.get('/api/tasks/staging');
-      if (response.code && response.code !== 200) throw new Error(response.message || '获取暂存任务失败');
+      if (response.success === false) throw new Error(response.message || '获取暂存任务失败');
       const result = response;
       return result.data || [];
     } catch (error) {
@@ -127,7 +127,7 @@ export const useTaskStore = defineStore('task', () => {
   const pauseTask = async (id: number) => {
     try {
       const response = await request.post(`/api/tasks/${id}/pause`);
-      if (response.code && response.code !== 200) throw new Error(response.message || '暂停任务失败');
+      if (response.success === false) throw new Error(response.message || '暂停任务失败');
       const result = response;
       const updated = result.data;
       const taskIndex = tasks.value.findIndex(task => task.id === id);
@@ -144,10 +144,7 @@ export const useTaskStore = defineStore('task', () => {
   // 恢复任务
   const resumeTask = async (id: number) => {
     try {
-      const response = await fetch(`/api/tasks/${id}/resume`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
+      const response = await request.post(`/api/tasks/${id}/resume`);
       if (!response.ok) throw new Error('恢复任务失败');
       const result = await response.json();
       const updated = result.data;
@@ -166,7 +163,7 @@ export const useTaskStore = defineStore('task', () => {
   const updateTaskTags = async (taskId: number, tagIds: number[]) => {
     try {
       const response = await request.put(`/api/tasks/${taskId}/tags`, { tagIds });
-      if (response.code && response.code !== 200) throw new Error(response.message || '更新任务标签失败');
+      if (response.success === false) throw new Error(response.message || '更新任务标签失败');
       const result = response;
       const updated = result.data;
       const taskIndex = tasks.value.findIndex(task => task.id === taskId);
@@ -184,7 +181,7 @@ export const useTaskStore = defineStore('task', () => {
   const removeTagFromTask = async (taskId: number, tagName: string) => {
     try {
       const response = await request.delete(`/api/tasks/${taskId}/tags/${encodeURIComponent(tagName)}`);
-      if (response.code && response.code !== 200) throw new Error(response.message || '移除任务标签失败');
+      if (response.success === false) throw new Error(response.message || '移除任务标签失败');
       const result = response;
       const updated = result.data;
       const taskIndex = tasks.value.findIndex(task => task.id === taskId);

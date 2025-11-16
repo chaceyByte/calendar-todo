@@ -312,7 +312,7 @@ public class ActivityService extends ServiceImpl<ActivityRecordMapper, ActivityR
     private DailyReport.ActivityDetail convertToActivityDetail(ActivityRecord activity) {
         DailyReport.ActivityDetail detail = new DailyReport.ActivityDetail();
         detail.setId(activity.getId());
-        detail.setActivityType(getActivityTypeDescription(activity.getActivityType()));
+        detail.setActivityType(activity.getActivityType());
         detail.setDescription(activity.getDescription());
         detail.setStartTime(activity.getStartTime());
         detail.setEndTime(activity.getEndTime());

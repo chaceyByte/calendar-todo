@@ -48,31 +48,58 @@
             { 
               'today': day.isToday,
               'current-month': day.isCurrentMonth,
-              'has-tasks': day.tasks.length > 0
+              'has-tasks': day.tasks.length > 0,
+              'has-activities': day.activities.length > 0
             }
           ]"
           @contextmenu="(e) => handleDayContextMenu(e, day)"
         >
           <div class="day-header">
             <span class="day-number">{{ day.day }}</span>
-            <el-badge 
-              v-if="day.tasks.length > 0" 
-              :value="day.tasks.length" 
-              class="task-badge" 
-            />
+            <div class="day-indicators">
+              <el-badge 
+                v-if="day.tasks.length > 0" 
+                :value="day.tasks.length" 
+                type="primary"
+                class="task-badge" 
+              />
+              <div 
+                v-if="day.totalActivityTime > 0" 
+                class="activity-indicator"
+                :title="`活动时间: ${activityStore.formatDuration(day.totalActivityTime)}`"
+              >
+                <el-icon><clock /></el-icon>
+                <span class="activity-time">{{ formatShortDuration(day.totalActivityTime) }}</span>
+              </div>
+            </div>
           </div>
           
-          <div class="day-tasks">
-            <div 
-              v-for="task in day.tasks.slice(0, 3)" 
-              :key="task.id"
-              :class="['task-item', `status-${task.status}`]"
-              :title="task.title"
-            >
-              {{ task.title }}
+          <div class="day-content">
+            <div class="day-tasks">
+              <div 
+                v-for="task in day.tasks.slice(0, 2)" 
+                :key="task.id"
+                :class="['task-item', `status-${task.status}`]"
+                :title="task.title"
+              >
+                {{ task.title }}
+              </div>
             </div>
-            <div v-if="day.tasks.length > 3" class="more-tasks">
-              +{{ day.tasks.length - 3 }}更多
+            
+            <div class="day-activities">
+              <div 
+                v-for="activity in day.activities.slice(0, 2)" 
+                :key="activity.id"
+                :class="['activity-item', `type-${activity.activityType.toLowerCase()}`]"
+                :title="`${activity.description || activity.activityType} (${formatShortDuration(activity.durationMinutes || 0)})`"
+              >
+                <el-icon><circle /></el-icon>
+                <span class="activity-text">{{ activity.description || activity.activityType }}</span>
+              </div>
+            </div>
+            
+            <div v-if="day.tasks.length > 2 || day.activities.length > 2" class="more-items">
+              +{{ (day.tasks.length - 2) + (day.activities.length - 2) }}更多
             </div>
           </div>
         </div>
@@ -101,7 +128,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import dayjs from 'dayjs'
-import { ArrowLeft, ArrowRight, Document, Files, View } from '@element-plus/icons-vue'
+import { ArrowLeft, ArrowRight, Document, Files, View, Clock, Circle } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
+import { useTaskStore } from '@/stores/task'
+import { useActivityStore } from '@/stores/activity'
 
 interface Task {
   id: number
@@ -111,12 +141,24 @@ interface Task {
   endDate: string
 }
 
+interface ActivityRecord {
+  id: number
+  taskId: number
+  startTime: string
+  endTime?: string
+  activityType: string
+  description?: string
+  durationMinutes?: number
+}
+
 interface CalendarDay {
   date: string
   day: number
   isToday: boolean
   isCurrentMonth: boolean
   tasks: Task[]
+  activities: ActivityRecord[]
+  totalActivityTime: number
 }
 
 const currentDate = ref(dayjs())
@@ -129,13 +171,37 @@ const contextMenu = ref({
 
 const weekDays = ['日', '一', '二', '三', '四', '五', '六']
 
-// 模拟任务数据
-const mockTasks: Task[] = [
-  { id: 1, title: '项目会议', status: 'completed', startDate: '2024-01-15', endDate: '2024-01-15' },
-  { id: 2, title: '前端开发', status: 'in-progress', startDate: '2024-01-10', endDate: '2024-01-20' },
-  { id: 3, title: '数据库设计', status: 'planning', startDate: '2024-01-18', endDate: '2024-01-25' },
-  { id: 4, title: '测试计划', status: 'planning', startDate: '2024-01-22', endDate: '2024-01-28' }
-]
+const taskStore = useTaskStore()
+const activityStore = useActivityStore()
+
+// 任务和活动数据
+const tasks = ref<Task[]>([])
+const activities = ref<ActivityRecord[]>([])
+
+// 加载数据
+const loadData = async () => {
+  try {
+    tasks.value = await taskStore.fetchTasks()
+    
+    // 获取当前月份的活动记录
+    const startOfMonth = currentDate.value.startOf('month').format('YYYY-MM-DD')
+    const endOfMonth = currentDate.value.endOf('month').format('YYYY-MM-DD')
+    
+    // 获取所有任务的活动记录
+    activities.value = []
+    for (const task of tasks.value) {
+      try {
+        const taskActivities = await activityStore.getTaskActivities(task.id)
+        activities.value.push(...taskActivities)
+      } catch (error) {
+        console.error(`获取任务 ${task.id} 的活动记录失败:`, error)
+      }
+    }
+  } catch (error) {
+    console.error('加载数据失败:', error)
+    ElMessage.error('加载数据失败')
+  }
+}
 
 const currentMonthText = computed(() => {
   return currentDate.value.format('YYYY年MM月')
@@ -152,9 +218,21 @@ const calendarDays = computed(() => {
   
   while (currentDay.isBefore(endDate) || currentDay.isSame(endDate)) {
     const dateStr = currentDay.format('YYYY-MM-DD')
-    const dayTasks = mockTasks.filter(task => 
+    
+    // 获取当天的任务
+    const dayTasks = tasks.value.filter(task => 
       currentDay.isSameOrAfter(dayjs(task.startDate)) && 
       currentDay.isSameOrBefore(dayjs(task.endDate))
+    )
+    
+    // 获取当天的活动记录
+    const dayActivities = activities.value.filter(activity => 
+      dayjs(activity.startTime).isSame(currentDay, 'day')
+    )
+    
+    // 计算当天总活动时间
+    const totalActivityTime = dayActivities.reduce((total, activity) => 
+      total + (activity.durationMinutes || 0), 0
     )
     
     days.push({
@@ -162,7 +240,9 @@ const calendarDays = computed(() => {
       day: currentDay.date(),
       isToday: currentDay.isSame(dayjs(), 'day'),
       isCurrentMonth: currentDay.isSame(currentDate.value, 'month'),
-      tasks: dayTasks
+      tasks: dayTasks,
+      activities: dayActivities,
+      totalActivityTime
     })
     
     currentDay = currentDay.add(1, 'day')
@@ -173,10 +253,12 @@ const calendarDays = computed(() => {
 
 const prevMonth = () => {
   currentDate.value = currentDate.value.subtract(1, 'month')
+  loadData()
 }
 
 const nextMonth = () => {
   currentDate.value = currentDate.value.add(1, 'month')
+  loadData()
 }
 
 const handleDayContextMenu = (e: MouseEvent, day: CalendarDay) => {
@@ -215,6 +297,20 @@ const exportWeeklyReport = () => {
   ElMessage.success('导出周报成功')
 }
 
+// 格式化短时间显示
+const formatShortDuration = (minutes: number): string => {
+  if (!minutes || minutes <= 0) return ''
+  
+  const hours = Math.floor(minutes / 60)
+  const mins = minutes % 60
+  
+  if (hours > 0) {
+    return `${hours}h${mins > 0 ? mins + 'm' : ''}`
+  } else {
+    return `${mins}m`
+  }
+}
+
 // 点击其他地方关闭右键菜单
 const handleClickOutside = (e: MouseEvent) => {
   if (contextMenu.value.visible) {
@@ -224,6 +320,7 @@ const handleClickOutside = (e: MouseEvent) => {
 
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
+  loadData()
 })
 
 onUnmounted(() => {
@@ -236,10 +333,14 @@ onUnmounted(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
+  background: #f8fafc;
+  padding: 20px;
+  border-radius: 12px;
 }
 
 .calendar-header {
   margin-bottom: 24px;
+  padding: 0 8px;
 }
 
 .header-controls {
@@ -249,66 +350,84 @@ onUnmounted(() => {
 }
 
 .current-month {
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 600;
-  color: #303133;
+  color: #1f2937;
+  letter-spacing: 0.5px;
 }
 
 .calendar-body {
   flex: 1;
   display: flex;
   flex-direction: column;
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
 }
 
 .week-header {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 1px;
-  margin-bottom: 8px;
+  background: #f1f5f9;
+  padding: 16px 0;
 }
 
 .week-day {
   text-align: center;
-  padding: 12px 0;
-  background: #f5f7fa;
   font-weight: 600;
-  color: #606266;
+  color: #475569;
+  font-size: 14px;
 }
 
 .calendar-grid {
   flex: 1;
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 1px;
-  background: #e4e7ed;
+  grid-auto-rows: minmax(100px, 1fr);
 }
 
 .calendar-day {
-  background: white;
-  min-height: 120px;
-  padding: 8px;
+  padding: 12px;
+  border-right: 1px solid #f1f5f9;
+  border-bottom: 1px solid #f1f5f9;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
 }
 
 .calendar-day:hover {
-  background: #f5f7fa;
-  transform: translateY(-2px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: #f8fafc;
+  z-index: 1;
 }
 
 .calendar-day:not(.current-month) {
-  background: #fafafa;
-  color: #c0c4cc;
+  background: #fafbfc;
+  color: #94a3b8;
 }
 
 .calendar-day.today {
-  background: #ecf5ff;
-  border: 2px solid #409eff;
+  background: #eff6ff;
+}
+
+.calendar-day.today::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 6px;
+  height: 6px;
+  background: #3b82f6;
+  border-radius: 50%;
 }
 
 .calendar-day.has-tasks {
-  border-left: 3px solid #409eff;
+  border-left: 3px solid #3b82f6;
+}
+
+.calendar-day.has-activities {
+  border-right: 3px solid #10b981;
 }
 
 .day-header {
@@ -319,67 +438,173 @@ onUnmounted(() => {
 }
 
 .day-number {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
+  color: #1f2937;
+}
+
+.day-indicators {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.task-badge {
+  transform: scale(0.85);
+}
+
+.activity-indicator {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 11px;
+  color: #10b981;
+  background: #ecfdf5;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-weight: 500;
+}
+
+.activity-time {
+  font-size: 10px;
+}
+
+.day-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  height: calc(100% - 30px);
+  overflow: hidden;
 }
 
 .day-tasks {
-  max-height: 80px;
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
 
 .task-item {
   font-size: 12px;
-  padding: 2px 4px;
-  margin-bottom: 2px;
-  border-radius: 2px;
+  padding: 3px 6px;
+  border-radius: 6px;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.task-item.status-planning {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.task-item.status-in-progress {
+  background: #fed7aa;
+  color: #c2410c;
+}
+
+.task-item.status-completed {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.day-activities {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.activity-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+.activity-item.type-work {
+  background: #e0f2fe;
+  color: #0277bd;
+}
+
+.activity-item.type-meeting {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.activity-item.type-study {
+  background: #f3e8ff;
+  color: #6b21a8;
+}
+
+.activity-item.type-created {
+  background: #e0f2fe;
+  color: #0277bd;
+}
+
+.activity-item.type-started {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.activity-item.type-paused {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.activity-item.type-resumed {
+  background: #e0f2fe;
+  color: #0277bd;
+}
+
+.activity-item.type-completed {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.activity-text {
+  max-width: 80px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.task-item.status-planning {
-  background: #f0f9ff;
-  color: #1890ff;
-}
-
-.task-item.status-in-progress {
-  background: #fef7ec;
-  color: #e6a23c;
-}
-
-.task-item.status-completed {
-  background: #f0f9eb;
-  color: #67c23a;
-}
-
-.more-tasks {
+.more-items {
   font-size: 11px;
-  color: #909399;
+  color: #6b7280;
   text-align: center;
-  margin-top: 4px;
+  padding: 2px 0;
+  font-weight: 500;
 }
 
 .context-menu {
   position: fixed;
   background: white;
-  border: 1px solid #e4e7ed;
-  border-radius: 4px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
   z-index: 2000;
-  min-width: 120px;
+  min-width: 140px;
+  overflow: hidden;
 }
 
 .menu-item {
-  padding: 8px 12px;
+  padding: 10px 14px;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 8px;
-  transition: background-color 0.3s;
+  transition: background-color 0.2s;
+  font-size: 14px;
 }
 
 .menu-item:hover {
-  background: #f5f7fa;
+  background: #f9fafb;
 }
 </style>

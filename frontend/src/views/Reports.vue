@@ -52,20 +52,20 @@
               <el-table :data="dailyReport.taskActivities" style="width: 100%">
                 <el-table-column prop="taskTitle" label="任务" />
                 <el-table-column prop="duration" label="活动时间">
-                  <template #default="row">
-                    {{ activityStore.formatDuration(row.duration) }}
+                  <template #default="scope">
+                    {{ activityStore.formatDuration(scope.row.duration) }}
                   </template>
                 </el-table-column>
                 <el-table-column prop="status" label="状态">
-                  <template #default="row">
-                    <el-tag :type="getStatusType(row.status)">
-                      {{ getStatusText(row.status) }}
+                  <template #default="scope">
+                    <el-tag :type="getStatusType(scope.row.status)">
+                      {{ getStatusText(scope.row.status) }}
                     </el-tag>
                   </template>
                 </el-table-column>
                 <el-table-column label="操作" width="120">
-                  <template #default="row">
-                    <el-button size="small" text @click="viewTaskActivities(row.taskId)">
+                  <template #default="scope">
+                    <el-button size="small" text @click="viewTaskActivities(scope.row.taskId)">
                       查看详情
                     </el-button>
                   </template>
@@ -138,20 +138,20 @@
               <el-table :data="weeklyReport.taskActivities" style="width: 100%">
                 <el-table-column prop="taskTitle" label="任务" />
                 <el-table-column prop="totalDuration" label="总活动时间">
-                  <template #default="row">
-                    {{ activityStore.formatDuration(row.totalDuration) }}
+                  <template #default="scope">
+                    {{ activityStore.formatDuration(scope.row.totalDuration) }}
                   </template>
                 </el-table-column>
                 <el-table-column prop="status" label="状态">
-                  <template #default="row">
-                    <el-tag :type="getStatusType(row.status)">
-                      {{ getStatusText(row.status) }}
+                  <template #default="scope">
+                    <el-tag :type="getStatusType(scope.row.status)">
+                      {{ getStatusText(scope.row.status) }}
                     </el-tag>
                   </template>
                 </el-table-column>
                 <el-table-column label="操作" width="120">
-                  <template #default="row">
-                    <el-button size="small" text @click="viewTaskActivities(row.taskId)">
+                  <template #default="scope">
+                    <el-button size="small" text @click="viewTaskActivities(scope.row.taskId)">
                       查看详情
                     </el-button>
                   </template>
@@ -208,6 +208,21 @@ import { useTaskStore } from '@/stores/task'
 const activityStore = useActivityStore()
 const taskStore = useTaskStore()
 
+// 方法 - 需要在变量声明之前定义
+const getWeekStart = (date: Date) => {
+  const d = new Date(date)
+  const day = d.getDay()
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1) // 调整为周一开始
+  return new Date(d.setDate(diff))
+}
+
+const getWeekEnd = (date: Date) => {
+  const start = getWeekStart(date)
+  const end = new Date(start)
+  end.setDate(start.getDate() + 6)
+  return end
+}
+
 // 报告类型
 const reportTab = ref('daily')
 
@@ -238,21 +253,6 @@ const maxDailyTime = computed(() => {
   })
   return max || 1 // 避免除以0
 })
-
-// 方法
-const getWeekStart = (date: Date) => {
-  const d = new Date(date)
-  const day = d.getDay()
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1) // 调整为周一开始
-  return new Date(d.setDate(diff))
-}
-
-const getWeekEnd = (date: Date) => {
-  const start = getWeekStart(date)
-  const end = new Date(start)
-  end.setDate(start.getDate() + 6)
-  return end
-}
 
 const formatDate = (date: Date | string) => {
   return dayjs(date).format('YYYY-MM-DD')

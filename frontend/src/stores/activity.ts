@@ -81,15 +81,13 @@ export const useActivityStore = defineStore('activity', () => {
   const startActivity = async (taskId: number, activityType: string, description?: string) => {
     try {
       loading.value = true
-      const response = await request.post('/api/activities/start', {
+      const response = await request.post('/activities/start', {
         taskId,
         activityType,
         description
       })
       
-      if (response.success === false) throw new Error(response.message || '开始活动记录失败')
-      
-      const activity: ActivityRecord = response.data
+      const activity: ActivityRecord = response
       activities.value.unshift(activity)
       currentActivities.value.set(taskId, activity)
       
@@ -106,11 +104,9 @@ export const useActivityStore = defineStore('activity', () => {
   const endActivity = async (taskId: number) => {
     try {
       loading.value = true
-      const response = await request.post(`/api/activities/end/${taskId}`)
+      const response = await request.post(`/activities/end/${taskId}`)
       
-      if (response.success === false) throw new Error(response.message || '结束活动记录失败')
-      
-      const activity: ActivityRecord = response.data
+      const activity: ActivityRecord = response
       
       // 更新活动列表中的对应记录
       const index = activities.value.findIndex(a => a.id === activity.id)
@@ -142,11 +138,9 @@ export const useActivityStore = defineStore('activity', () => {
   }) => {
     try {
       loading.value = true
-      const response = await request.post('/api/activities/manual', data)
+      const response = await request.post('/activities/manual', data)
       
-      if (response.code && response.code !== 200) throw new Error(response.message || '添加手动活动记录失败')
-      
-      const activity: ActivityRecord = response.data
+      const activity: ActivityRecord = response
       activities.value.unshift(activity)
       
       return activity
@@ -162,11 +156,9 @@ export const useActivityStore = defineStore('activity', () => {
   const getTaskActivities = async (taskId: number) => {
     try {
       loading.value = true
-      const response = await request.get(`/api/activities/task/${taskId}`)
+      const response = await request.get(`/activities/task/${taskId}`)
       
-      if (response.code && response.code !== 200) throw new Error(response.message || '获取任务活动记录失败')
-      
-      return response.data as ActivityRecord[]
+      return response as ActivityRecord[]
     } catch (error) {
       console.error('获取任务活动记录失败:', error)
       throw error
@@ -178,11 +170,11 @@ export const useActivityStore = defineStore('activity', () => {
   // 获取任务当前活动
   const getCurrentActivity = async (taskId: number) => {
     try {
-      const response = await request.get(`/api/activities/current/${taskId}`)
+      const response = await request.get(`/activities/current/${taskId}`)
       
-      if (response.data) {
-        currentActivities.value.set(taskId, response.data)
-        return response.data as ActivityRecord
+      if (response) {
+        currentActivities.value.set(taskId, response)
+        return response as ActivityRecord
       } else {
         currentActivities.value.delete(taskId)
         return null
@@ -197,13 +189,11 @@ export const useActivityStore = defineStore('activity', () => {
   const getDailyReport = async (date: string) => {
     try {
       loading.value = true
-      const response = await request.get('/api/activities/report/daily', {
+      const response = await request.get('/activities/report/daily', {
         params: { date }
       })
       
-      if (response.code && response.code !== 200) throw new Error(response.message || '获取日报数据失败')
-      
-      dailyReport.value = response.data as DailyReport
+      dailyReport.value = response as DailyReport
       return dailyReport.value
     } catch (error) {
       console.error('获取日报数据失败:', error)
@@ -217,13 +207,11 @@ export const useActivityStore = defineStore('activity', () => {
   const getWeeklyReport = async (weekStart: string) => {
     try {
       loading.value = true
-      const response = await request.get('/api/activities/report/weekly', {
+      const response = await request.get('/activities/report/weekly', {
         params: { weekStart }
       })
       
-      if (response.code && response.code !== 200) throw new Error(response.message || '获取周报数据失败')
-      
-      weeklyReport.value = response.data as WeeklyReport
+      weeklyReport.value = response as WeeklyReport
       return weeklyReport.value
     } catch (error) {
       console.error('获取周报数据失败:', error)
