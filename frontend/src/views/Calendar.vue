@@ -136,9 +136,11 @@ import { useActivityStore } from '@/stores/activity'
 interface Task {
   id: number
   title: string
-  status: 'planning' | 'in-progress' | 'completed'
-  startDate: string
-  endDate: string
+  status: 'planning' | 'in-progress' | 'completed' | 'paused'
+  startDate?: string
+  endDate?: string
+  createdAt: string
+  updatedAt: string
 }
 
 interface ActivityRecord {
@@ -183,10 +185,6 @@ const loadData = async () => {
   try {
     tasks.value = await taskStore.fetchTasks()
     
-    // 获取当前月份的活动记录
-    const startOfMonth = currentDate.value.startOf('month').format('YYYY-MM-DD')
-    const endOfMonth = currentDate.value.endOf('month').format('YYYY-MM-DD')
-    
     // 获取所有任务的活动记录
     activities.value = []
     for (const task of tasks.value) {
@@ -220,10 +218,28 @@ const calendarDays = computed(() => {
     const dateStr = currentDay.format('YYYY-MM-DD')
     
     // 获取当天的任务
-    const dayTasks = tasks.value.filter(task => 
-      currentDay.isSameOrAfter(dayjs(task.startDate)) && 
-      currentDay.isSameOrBefore(dayjs(task.endDate))
-    )
+    const dayTasks = tasks.value.filter(task => {
+      // 处理任务可能没有日期字段的情况
+      const taskStart = task.startDate ? dayjs(task.startDate) : null
+      const taskEnd = task.endDate ? dayjs(task.endDate) : null
+      
+      if (!taskStart && !taskEnd) {
+        // 如果任务没有日期，检查创建日期是否在当前月份
+        const taskCreated = task.createdAt ? dayjs(task.createdAt) : null
+        return taskCreated && taskCreated.isSame(currentDay, 'day')
+      }
+      
+      // 如果有开始或结束日期，检查是否在范围内
+      if (taskStart && taskEnd) {
+        return currentDay.isSameOrAfter(taskStart) && currentDay.isSameOrBefore(taskEnd)
+      } else if (taskStart) {
+        return currentDay.isSameOrAfter(taskStart)
+      } else if (taskEnd) {
+        return currentDay.isSameOrBefore(taskEnd)
+      }
+      
+      return false
+    })
     
     // 获取当天的活动记录
     const dayActivities = activities.value.filter(activity => 

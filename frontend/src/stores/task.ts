@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import request from '@/utils/request';
+import { useActivityStore } from './activity';
 
 export interface Task {
   id: number;
@@ -19,6 +20,7 @@ export interface Task {
 
 export const useTaskStore = defineStore('task', () => {
   const tasks = ref<Task[]>([]);
+  const activityStore = useActivityStore();
 
   // 添加任务
   const addTask = async (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'completed'>) => {
@@ -32,10 +34,15 @@ export const useTaskStore = defineStore('task', () => {
         // 暂时不发送tags字段，因为后端Task实体类不支持
       };
       
-      const response = await request.post('/api/tasks', taskData);
-      if (response.success === false) throw new Error(response.message || '添加任务失败');
-      const result = response;
-      const newTask = result.data;
+      const response = await request.post('/tasks', taskData);
+      const newTask = response;
+      
+      // 添加任务后自动记录创建活动
+      try {
+        await activityStore.startActivity(newTask.id, 'CREATED', '任务创建');
+      } catch (error) {
+        console.log('记录创建活动失败:', error);
+      }
       tasks.value.push(newTask);
     } catch (error) {
       console.error('添加任务失败:', error);
@@ -46,8 +53,7 @@ export const useTaskStore = defineStore('task', () => {
   // 更新任务
   const updateTask = async (id: number, updatedTask: Partial<Task>) => {
     try {
-      const response = await request.put(`/api/tasks/${id}`, updatedTask);
-      if (response.success === false) throw new Error(response.message || '更新任务失败');
+      const response = await request.put(`/tasks/${id}`, updatedTask);
       const result = response;
       const updated = result.data;
       const taskIndex = tasks.value.findIndex(task => task.id === id);
@@ -63,8 +69,7 @@ export const useTaskStore = defineStore('task', () => {
   // 删除任务
   const deleteTask = async (id: number) => {
     try {
-      const response = await request.delete(`/api/tasks/${id}`);
-      if (response.success === false) throw new Error(response.message || '删除任务失败');
+      const response = await request.delete(`/tasks/${id}`);
       tasks.value = tasks.value.filter(task => task.id !== id);
     } catch (error) {
       console.error('删除任务失败:', error);
@@ -113,10 +118,8 @@ export const useTaskStore = defineStore('task', () => {
 
   const fetchStagingTasks = async () => {
     try {
-      const response = await request.get('/api/tasks/staging');
-      if (response.success === false) throw new Error(response.message || '获取暂存任务失败');
-      const result = response;
-      return result.data || [];
+      const response = await request.get('/tasks/staging');
+      return response || [];
     } catch (error) {
       console.error('获取暂存任务失败:', error);
       throw error;
@@ -126,10 +129,15 @@ export const useTaskStore = defineStore('task', () => {
   // 暂停任务
   const pauseTask = async (id: number) => {
     try {
-      const response = await request.post(`/api/tasks/${id}/pause`);
-      if (response.success === false) throw new Error(response.message || '暂停任务失败');
-      const result = response;
-      const updated = result.data;
+      // 先结束当前活动
+      try {
+        await activityStore.endActivity(id);
+      } catch (error) {
+        console.log('没有进行中的活动或结束活动失败:', error);
+      }
+      
+      const response = await request.post(`/tasks/${id}/pause`);
+      const updated = response;
       const taskIndex = tasks.value.findIndex(task => task.id === id);
       if (taskIndex !== -1) {
         tasks.value[taskIndex] = updated;
@@ -144,10 +152,15 @@ export const useTaskStore = defineStore('task', () => {
   // 恢复任务
   const resumeTask = async (id: number) => {
     try {
-      const response = await request.post(`/api/tasks/${id}/resume`);
-      if (!response.ok) throw new Error('恢复任务失败');
-      const result = await response.json();
-      const updated = result.data;
+      const response = await request.post(`/tasks/${id}/resume`);
+      const updated = response;
+      
+      // 恢复任务后开始新的活动
+      try {
+        await activityStore.startActivity(id, 'RESUMED', '任务恢复');
+      } catch (error) {
+        console.log('开始恢复活动失败:', error);
+      }
       const taskIndex = tasks.value.findIndex(task => task.id === id);
       if (taskIndex !== -1) {
         tasks.value[taskIndex] = updated;

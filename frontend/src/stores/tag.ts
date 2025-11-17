@@ -47,8 +47,7 @@ export const useTagStore = defineStore('tag', () => {
   // 删除标签
   const deleteTag = async (id: number) => {
     try {
-      const response = await request.delete(`/api/tags/${id}`);
-      if (response.success === false) throw new Error(response.message || '删除标签失败');
+      const response = await request.delete(`/tags/${id}`);
       tags.value = tags.value.filter(tag => tag.id !== id);
     } catch (error) {
       console.error('删除标签失败:', error);
