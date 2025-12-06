@@ -55,9 +55,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 
 const router = useRouter()
@@ -69,6 +70,12 @@ const loading = ref(false)
 const loginForm = reactive({
   username: '',
   password: ''
+})
+
+// 页面加载时自动填充演示账号
+onMounted(() => {
+  loginForm.username = 'admin'
+  loginForm.password = '123456'
 })
 
 const loginRules: FormRules = {
@@ -91,10 +98,19 @@ const handleLogin = async () => {
   loading.value = true
 
   try {
+    console.log('开始登录，用户名:', loginForm.username)
     await userStore.login(loginForm.username, loginForm.password)
+    console.log('登录成功，准备跳转')
     ElMessage.success('登录成功')
-    router.push('/')
+    
+    // 确保token已保存到localStorage
+    const token = localStorage.getItem('token')
+    console.log('保存的token:', token)
+    
+    // 使用replace而不是push，避免浏览器历史记录问题
+    router.replace('/')
   } catch (error) {
+    console.error('登录错误:', error)
     ElMessage.error('登录失败，请检查用户名和密码')
   } finally {
     loading.value = false

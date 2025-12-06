@@ -8,6 +8,7 @@ const router = createRouter({
       path: '/',
       component: Layout,
       redirect: '/home',
+      meta: { requiresAuth: true },
       children: [
         {
           path: 'home',
@@ -45,9 +46,32 @@ const router = createRouter({
       path: '/login',
       name: 'Login',
       component: () => import('@/views/Login.vue'),
-      meta: { title: '登录' }
+      meta: { title: '登录', requiresAuth: false }
+    },
+    {
+      path: '/register',
+      name: 'Register',
+      component: () => import('@/views/Register.vue'),
+      meta: { title: '注册', requiresAuth: false }
     }
   ]
+})
+
+// 路由守卫
+router.beforeEach((to, from, next) => {
+  // 从localStorage中直接检查token，避免Pinia store初始化问题
+  const token = localStorage.getItem('token')
+  const userInfo = localStorage.getItem('userInfo')
+  
+  // 检查是否需要登录
+  if (to.meta.requiresAuth && !token) {
+    next('/login')
+  } else if (to.path === '/login' && token) {
+    // 如果已登录，访问登录页时跳转到首页
+    next('/')
+  } else {
+    next()
+  }
 })
 
 export default router

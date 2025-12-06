@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import request from '@/utils/request'
 
 export interface UserInfo {
   id: number
@@ -7,6 +8,11 @@ export interface UserInfo {
   nickname: string
   avatar: string
   email?: string
+}
+
+interface LoginResponse {
+  token: string
+  user: UserInfo
 }
 
 export const useUserStore = defineStore('user', () => {
@@ -23,25 +29,42 @@ export const useUserStore = defineStore('user', () => {
     token.value = newToken
   }
 
-  // 登录
-  const login = async (username: string, password: string) => {
-    // 模拟登录，实际应该调用API
-    const mockUser: UserInfo = {
-      id: 1,
-      username: username,
-      nickname: username === 'admin' ? '管理员' : '用户',
-      avatar: 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png',
-      email: `${username}@example.com`
-    }
+  // 注册
+  const register = async (username: string, password: string, nickname: string, email: string) => {
+    const response = await request.post('/api/auth/register', {
+      username,
+      password,
+      nickname,
+      email
+    })
     
-    setUserInfo(mockUser)
-    setToken('mock-token-' + Date.now())
+    const data = response.data || response
+    setUserInfo(data.user)
+    setToken(data.token)
     
     // 保存到localStorage
-    localStorage.setItem('userInfo', JSON.stringify(mockUser))
-    localStorage.setItem('token', token.value)
+    localStorage.setItem('userInfo', JSON.stringify(data.user))
+    localStorage.setItem('token', data.token)
     
-    return Promise.resolve(mockUser)
+    return data.user
+  }
+
+  // 登录
+  const login = async (username: string, password: string) => {
+    const response = await request.post('/api/auth/login', {
+      username,
+      password
+    })
+    
+    const data = response.data || response
+    setUserInfo(data.user)
+    setToken(data.token)
+    
+    // 保存到localStorage
+    localStorage.setItem('userInfo', JSON.stringify(data.user))
+    localStorage.setItem('token', data.token)
+    
+    return data.user
   }
 
   // 退出登录
@@ -68,6 +91,7 @@ export const useUserStore = defineStore('user', () => {
     token,
     setUserInfo,
     setToken,
+    register,
     login,
     logout,
     initUser

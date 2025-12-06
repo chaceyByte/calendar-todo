@@ -32,7 +32,7 @@ spring:
   
   # JWT配置
   jwt:
-    secret: task-calendar-secret-key-2024
+    secret: task-calendar-secret-key-2024-testerforsecretkey
     expiration: 86400000  # 24小时
 
 # 服务器配置
