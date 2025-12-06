@@ -32,22 +32,22 @@
       </template>
 
       <el-table :data="filteredTags" style="width: 100%">
-        <el-table-column prop="name" label="标签名称" min-width="200">
+        <el-table-column prop="name" label="标签名称" min-width="200" width ="600">
           <template #default="{ row }">
             <el-tag :type="getTagType(row.name)">{{ row.name }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="createdAt" label="创建时间" width="180">
+        <el-table-column prop="createdAt" label="创建时间" width="280">
           <template #default="{ row }">
             {{ formatDate(row.createdAt) }}
           </template>
         </el-table-column>
-        <el-table-column prop="taskCount" label="任务数量" width="100">
+        <el-table-column prop="taskCount" label="任务数量" width="200">
           <template #default="{ row }">
             <el-badge :value="row.taskCount" :max="99"/>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="120" fixed="right">
+        <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
             <el-button
                 size="small"
