@@ -104,7 +104,7 @@ export const useActivityStore = defineStore('activity', () => {
   const endActivity = async (taskId: number) => {
     try {
       loading.value = true
-      const response = await request.post(`/activities/end/${taskId}`)
+      const response = await request.post(`/api/activities/end/${taskId}`)
       
       const activity: ActivityRecord = response
       

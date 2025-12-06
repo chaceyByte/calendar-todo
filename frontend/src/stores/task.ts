@@ -34,12 +34,14 @@ export const useTaskStore = defineStore('task', () => {
         // 暂时不发送tags字段，因为后端Task实体类不支持
       };
       
-      const response = await request.post('/tasks', taskData);
-      const newTask = response;
+      const result = await request.post('/api/tasks', taskData);
+      const newTask = result.data || result;
       
       // 添加任务后自动记录创建活动
       try {
-        await activityStore.startActivity(newTask.id, 'CREATED', '任务创建');
+        if (newTask && newTask.id) {
+          await activityStore.startActivity(newTask.id, 'CREATED', '任务创建');
+        }
       } catch (error) {
         console.log('记录创建活动失败:', error);
       }
@@ -53,9 +55,8 @@ export const useTaskStore = defineStore('task', () => {
   // 更新任务
   const updateTask = async (id: number, updatedTask: Partial<Task>) => {
     try {
-      const response = await request.put(`/tasks/${id}`, updatedTask);
-      const result = response;
-      const updated = result.data;
+      const result = await request.put(`/api/tasks/${id}`, updatedTask);
+      const updated = result.data || result;
       const taskIndex = tasks.value.findIndex(task => task.id === id);
       if (taskIndex !== -1) {
         tasks.value[taskIndex] = updated;
@@ -69,7 +70,7 @@ export const useTaskStore = defineStore('task', () => {
   // 删除任务
   const deleteTask = async (id: number) => {
     try {
-      const response = await request.delete(`/tasks/${id}`);
+      await request.delete(`/tasks/${id}`);
       tasks.value = tasks.value.filter(task => task.id !== id);
     } catch (error) {
       console.error('删除任务失败:', error);
@@ -81,9 +82,7 @@ export const useTaskStore = defineStore('task', () => {
   const fetchTasks = async () => {
     try {
       const response = await request.get('/api/tasks');
-      if (response.success === false) throw new Error(response.message || '获取任务失败');
-      const result = response;
-      tasks.value = result.data || [];
+      tasks.value = response.data || response || [];
       return tasks.value;
     } catch (error) {
       console.error('获取任务失败:', error);
@@ -95,9 +94,7 @@ export const useTaskStore = defineStore('task', () => {
   const addToStaging = async (taskId: number) => {
     try {
       const response = await request.post(`/api/tasks/${taskId}/staging`);
-      if (response.success === false) throw new Error(response.message || '添加到暂存失败');
-      const result = response;
-      return result.data;
+      return response.data || response;
     } catch (error) {
       console.error('添加到暂存失败:', error);
       throw error;
@@ -107,9 +104,7 @@ export const useTaskStore = defineStore('task', () => {
   const removeFromStaging = async (taskId: number) => {
     try {
       const response = await request.delete(`/api/tasks/${taskId}/staging`);
-      if (response.success === false) throw new Error(response.message || '从暂存移除失败');
-      const result = response;
-      return result.data;
+      return response.data || response;
     } catch (error) {
       console.error('从暂存移除失败:', error);
       throw error;
@@ -118,8 +113,8 @@ export const useTaskStore = defineStore('task', () => {
 
   const fetchStagingTasks = async () => {
     try {
-      const response = await request.get('/tasks/staging');
-      return response || [];
+      const response = await request.get('/api/tasks/staging');
+      return response.data || response || [];
     } catch (error) {
       console.error('获取暂存任务失败:', error);
       throw error;
@@ -136,12 +131,20 @@ export const useTaskStore = defineStore('task', () => {
         console.log('没有进行中的活动或结束活动失败:', error);
       }
       
-      const response = await request.post(`/tasks/${id}/pause`);
-      const updated = response;
+      const result = await request.post(`/api/tasks/${id}/pause`);
+      const updated = result.data || result;
       const taskIndex = tasks.value.findIndex(task => task.id === id);
       if (taskIndex !== -1) {
         tasks.value[taskIndex] = updated;
       }
+      
+      // 暂停后自动添加到暂存队列
+      try {
+        await addToStaging(id);
+      } catch (error) {
+        console.log('添加到暂存队列失败:', error);
+      }
+      
       return updated;
     } catch (error) {
       console.error('暂停任务失败:', error);
@@ -152,8 +155,8 @@ export const useTaskStore = defineStore('task', () => {
   // 恢复任务
   const resumeTask = async (id: number) => {
     try {
-      const response = await request.post(`/tasks/${id}/resume`);
-      const updated = response;
+      const result = await request.post(`/api/tasks/${id}/resume`);
+      const updated = result.data || result;
       
       // 恢复任务后开始新的活动
       try {
@@ -165,6 +168,14 @@ export const useTaskStore = defineStore('task', () => {
       if (taskIndex !== -1) {
         tasks.value[taskIndex] = updated;
       }
+      
+      // 恢复后从暂存队列移除
+      try {
+        await removeFromStaging(id);
+      } catch (error) {
+        console.log('从暂存队列移除失败:', error);
+      }
+      
       return updated;
     } catch (error) {
       console.error('恢复任务失败:', error);
@@ -175,10 +186,8 @@ export const useTaskStore = defineStore('task', () => {
   // 更新任务标签
   const updateTaskTags = async (taskId: number, tagIds: number[]) => {
     try {
-      const response = await request.put(`/api/tasks/${taskId}/tags`, { tagIds });
-      if (response.success === false) throw new Error(response.message || '更新任务标签失败');
-      const result = response;
-      const updated = result.data;
+      const result = await request.put(`/api/tasks/${taskId}/tags`, { tagIds });
+      const updated = result.data || result;
       const taskIndex = tasks.value.findIndex(task => task.id === taskId);
       if (taskIndex !== -1) {
         tasks.value[taskIndex] = updated;
@@ -193,10 +202,8 @@ export const useTaskStore = defineStore('task', () => {
   // 从任务中移除标签
   const removeTagFromTask = async (taskId: number, tagName: string) => {
     try {
-      const response = await request.delete(`/api/tasks/${taskId}/tags/${encodeURIComponent(tagName)}`);
-      if (response.success === false) throw new Error(response.message || '移除任务标签失败');
-      const result = response;
-      const updated = result.data;
+      const result = await request.delete(`/api/tasks/${taskId}/tags/${encodeURIComponent(tagName)}`);
+      const updated = result.data || result;
       const taskIndex = tasks.value.findIndex(task => task.id === taskId);
       if (taskIndex !== -1) {
         tasks.value[taskIndex] = updated;

@@ -710,7 +710,6 @@ const loadStagingTasks = async () => {
   }
 }
 
-// 更新移动任务功能，使其调用API
 // 处理暂停任务
 const handlePauseTask = async (taskId: number) => {
   try {
@@ -718,7 +717,7 @@ const handlePauseTask = async (taskId: number) => {
     // 刷新任务列表和暂存队列显示
     await loadTasks()
     await loadStagingTasks()
-    ElMessage.success('任务已暂停')
+    ElMessage.success('任务已暂停并添加到暂存队列')
   } catch (error) {
     console.error('暂停任务失败:', error)
     ElMessage.error('暂停任务失败，请重试')
@@ -728,7 +727,8 @@ const handlePauseTask = async (taskId: number) => {
 const moveTaskToColumn = async (task: Task, targetStatus: string) => {
   try {
     // 检查任务是否在暂存队列中
-    const isFromStaging = stagingTasks.value.some(t => t.id === task.id)
+    // 确保 stagingTasks 是数组再使用 some 方法
+    const isFromStaging = Array.isArray(stagingTasks.value) && stagingTasks.value.some(t => t.id === task.id)
     
     if (isFromStaging) {
       // 从暂存队列移动到看板
@@ -830,8 +830,10 @@ const saveManualActivity = async () => {
 const handleResumeTask = async (taskId: number) => {
   try {
     await taskStore.resumeTask(taskId)
+    // 刷新任务列表和暂存队列显示
     await loadTasks()
-    ElMessage.success('任务已恢复')
+    await loadStagingTasks()
+    ElMessage.success('任务已恢复并从暂存队列移除')
   } catch (error) {
     console.error('恢复任务失败:', error)
     ElMessage.error('恢复任务失败，请重试')
