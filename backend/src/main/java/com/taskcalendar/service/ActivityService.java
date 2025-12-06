@@ -7,6 +7,7 @@ import com.taskcalendar.dto.ManualActivityRequest;
 import com.taskcalendar.dto.StartActivityRequest;
 import com.taskcalendar.dto.WeeklyReport;
 import com.taskcalendar.entity.ActivityRecord;
+import com.taskcalendar.entity.Task;
 import com.taskcalendar.mapper.ActivityRecordMapper;
 import com.taskcalendar.mapper.TaskMapper;
 import lombok.RequiredArgsConstructor;
@@ -16,7 +17,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -346,5 +351,146 @@ public class ActivityService extends ServiceImpl<ActivityRecordMapper, ActivityR
             default:
                 return activityType;
         }
+    }
+    
+    // ========== 首页统计相关方法 ==========
+    
+    /**
+     * 获取时间占用最长的前N个任务
+     */
+    public List<Map<String, Object>> getTopTimeConsumingTasks(int limit) {
+        // 查询所有有活动记录的任务，计算总时长
+        List<ActivityRecord> allActivities = lambdaQuery()
+                .isNotNull(ActivityRecord::getDurationMinutes)
+                .orderByDesc(ActivityRecord::getDurationMinutes)
+                .list();
+        
+        // 按任务ID分组并计算总时长
+        Map<Long, Integer> taskTotalDuration = allActivities.stream()
+                .collect(Collectors.groupingBy(
+                        ActivityRecord::getTaskId,
+                        Collectors.summingInt(ActivityRecord::getDurationMinutes)
+                ));
+        
+        // 获取任务信息并按时长排序
+        return taskTotalDuration.entrySet().stream()
+                .sorted(Map.Entry.<Long, Integer>comparingByValue().reversed())
+                .limit(limit)
+                .map(entry -> {
+                    Long taskId = entry.getKey();
+                    Integer totalMinutes = entry.getValue();
+                    Task task = taskMapper.selectById(taskId);
+                    
+                    Map<String, Object> taskData = new HashMap<>();
+                    taskData.put("taskId", taskId);
+                    taskData.put("title", task != null ? task.getTitle() : "未知任务");
+                    taskData.put("totalMinutes", totalMinutes);
+                    taskData.put("totalHours", String.format("%.1f", totalMinutes / 60.0));
+                    taskData.put("status", task != null ? task.getStatus() : "未知");
+                    
+                    // 获取该任务的所有活动类型及各自时长
+                    List<ActivityRecord> taskActivities = allActivities.stream()
+                            .filter(a -> a.getTaskId().equals(taskId))
+                            .collect(Collectors.toList());
+                    
+                    Map<String, Integer> activityTypeDurations = taskActivities.stream()
+                            .collect(Collectors.groupingBy(
+                                    ActivityRecord::getActivityType,
+                                    Collectors.summingInt(ActivityRecord::getDurationMinutes)
+                            ));
+                    
+                    Map<String, String> formattedDurations = new HashMap<>();
+                    activityTypeDurations.forEach((type, minutes) -> {
+                        formattedDurations.put(getActivityTypeDescription(type), 
+                                String.format("%.1f 小时", minutes / 60.0));
+                    });
+                    
+                    taskData.put("activitiesByType", formattedDurations);
+                    return taskData;
+                })
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * 获取最近N天每日处理的任务数量
+     */
+    public Map<String, Object> getDailyProcessedTasks(int days) {
+        LocalDate endDate = LocalDate.now();
+        LocalDate startDate = endDate.minusDays(days - 1);
+        
+        List<LocalDate> dates = new ArrayList<>();
+        for (LocalDate date = startDate; !date.isAfter(endDate); date = date.plusDays(1)) {
+            dates.add(date);
+        }
+        
+        // 查询这段时间内的活动记录
+        List<ActivityRecord> activities = lambdaQuery()
+                .ge(ActivityRecord::getStartTime, startDate.atStartOfDay())
+                .lt(ActivityRecord::getStartTime, endDate.plusDays(1).atStartOfDay())
+                .list();
+        
+        // 按日期分组统计处理任务数
+        Map<LocalDate, Long> dailyProcessedCount = dates.stream()
+                .collect(Collectors.toMap(
+                        date -> date,
+                        date -> activities.stream()
+                                .filter(a -> a.getStartTime().toLocalDate().equals(date))
+                                .map(ActivityRecord::getTaskId)
+                                .distinct()
+                                .count()
+                ));
+        
+        Map<String, Object> result = new HashMap<>();
+        result.put("dates", dates.stream()
+                .map(date -> date.toString())
+                .collect(Collectors.toList()));
+        result.put("processedCounts", dailyProcessedCount.entrySet().stream()
+                .map(entry -> entry.getValue())
+                .collect(Collectors.toList()));
+        result.put("totalProcessed", dailyProcessedCount.values().stream()
+                .mapToLong(count -> count).sum());
+        
+        return result;
+    }
+    
+    /**
+     * 获取最近N天每日创建的任务数量
+     */
+    public Map<String, Object> getDailyCreatedTasks(int days) {
+        LocalDate endDate = LocalDate.now();
+        LocalDate startDate = endDate.minusDays(days - 1);
+        
+        List<LocalDate> dates = new ArrayList<>();
+        for (LocalDate date = startDate; !date.isAfter(endDate); date = date.plusDays(1)) {
+            dates.add(date);
+        }
+        
+        // 查询这段时间内创建的任务
+        List<Task> tasks = taskMapper.selectList(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Task>()
+                        .ge(Task::getCreatedAt, startDate.atStartOfDay())
+                        .lt(Task::getCreatedAt, endDate.plusDays(1).atStartOfDay())
+        );
+        
+        // 按日期分组统计创建任务数
+        Map<LocalDate, Long> dailyCreatedCount = dates.stream()
+                .collect(Collectors.toMap(
+                        date -> date,
+                        date -> tasks.stream()
+                                .filter(t -> t.getCreatedAt().toLocalDate().equals(date))
+                                .count()
+                ));
+        
+        Map<String, Object> result = new HashMap<>();
+        result.put("dates", dates.stream()
+                .map(date -> date.toString())
+                .collect(Collectors.toList()));
+        result.put("createdCounts", dailyCreatedCount.entrySet().stream()
+                .map(entry -> entry.getValue())
+                .collect(Collectors.toList()));
+        result.put("totalCreated", dailyCreatedCount.values().stream()
+                .mapToLong(count -> count).sum());
+        
+        return result;
     }
 }

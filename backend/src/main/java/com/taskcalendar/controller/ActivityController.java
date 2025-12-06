@@ -6,7 +6,9 @@ import com.taskcalendar.dto.ManualActivityRequest;
 import com.taskcalendar.dto.StartActivityRequest;
 import com.taskcalendar.dto.WeeklyReport;
 import com.taskcalendar.entity.ActivityRecord;
+import com.taskcalendar.entity.Task;
 import com.taskcalendar.service.ActivityService;
+import com.taskcalendar.service.TaskService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import javax.validation.Valid;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @RestController
@@ -23,6 +26,7 @@ import java.util.List;
 public class ActivityController {
     
     private final ActivityService activityService;
+    private final TaskService taskService;
     
     /**
      * 开始活动记录
@@ -125,6 +129,64 @@ public class ActivityController {
         } catch (Exception e) {
             log.error("获取周报数据失败", e);
             return ApiResponse.error("获取周报数据失败: " + e.getMessage());
+        }
+    }
+    
+    // ========== 首页统计相关接口 ==========
+    
+    /**
+     * 获取时间占用最长的前5个任务
+     */
+    @GetMapping("/stats/top-time-consuming")
+    public ApiResponse<List<Map<String, Object>>> getTopTimeConsumingTasks() {
+        try {
+            List<Map<String, Object>> tasks = activityService.getTopTimeConsumingTasks(5);
+            return ApiResponse.success("获取时间占用最长的任务成功", tasks);
+        } catch (Exception e) {
+            log.error("获取时间占用最长的任务失败", e);
+            return ApiResponse.error("获取时间占用最长的任务失败: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * 获取最近14天每日处理的任务数量
+     */
+    @GetMapping("/stats/daily-processed")
+    public ApiResponse<Map<String, Object>> getDailyProcessedTasks() {
+        try {
+            Map<String, Object> data = activityService.getDailyProcessedTasks(14);
+            return ApiResponse.success("获取最近14天每日处理的任务数量成功", data);
+        } catch (Exception e) {
+            log.error("获取最近14天每日处理的任务数量失败", e);
+            return ApiResponse.error("获取最近14天每日处理的任务数量失败: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * 获取最近14天每日创建的任务数量
+     */
+    @GetMapping("/stats/daily-created")
+    public ApiResponse<Map<String, Object>> getDailyCreatedTasks() {
+        try {
+            Map<String, Object> data = activityService.getDailyCreatedTasks(14);
+            return ApiResponse.success("获取最近14天每日创建的任务数量成功", data);
+        } catch (Exception e) {
+            log.error("获取最近14天每日创建的任务数量失败", e);
+            return ApiResponse.error("获取最近14天每日创建的任务数量失败: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * 获取按标签分类的任务甘特图数据
+     */
+    @GetMapping("/stats/gantt-by-tags")
+    public ApiResponse<Map<String, Object>> getGanttChartByTags() {
+        try {
+            Map<String, Object> data = taskService.getGanttChartByTags();
+            return ApiResponse.success("获取按标签分类的甘特图数据成功", data);
+        } catch (Exception e) {
+            log.error("获取按标签分类的甘特图数据失败", e);
+            return ApiResponse.error("获取按标签分类的甘特图数据失败: " + e.getMessage());
         }
     }
 }

@@ -18,7 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -299,6 +299,195 @@ public class TaskService extends ServiceImpl<TaskMapper, Task> {
                 return ActivityType.PAUSED;
             default:
                 return ActivityType.OTHER;
+        }
+    }
+    
+    /**
+     * 获取按标签分类的任务甘特图数据
+     */
+    public Map<String, Object> getGanttChartByTags() {
+        // 获取所有标签及其关联的任务
+        List<Tag> allTags = tagMapper.selectList(null);
+        
+        Map<String, Object> result = new HashMap<>();
+        List<Map<String, Object>> tagGroups = new ArrayList<>();
+        
+        for (Tag tag : allTags) {
+            // 获取该标签关联的所有任务
+            List<TaskTag> taskTags = taskTagMapper.selectList(
+                    Wrappers.<TaskTag>lambdaQuery().eq(TaskTag::getTagId, tag.getId())
+            );
+            
+            if (taskTags.isEmpty()) {
+                continue;
+            }
+            
+            List<Long> taskIds = taskTags.stream()
+                    .map(TaskTag::getTaskId)
+                    .collect(Collectors.toList());
+            
+            List<Task> tasks = listByIds(taskIds);
+            
+            // 为每个任务构建甘特图数据
+            List<Map<String, Object>> taskData = new ArrayList<>();
+            for (Task task : tasks) {
+                Map<String, Object> taskInfo = new HashMap<>();
+                taskInfo.put("id", task.getId());
+                taskInfo.put("title", task.getTitle());
+                taskInfo.put("status", task.getStatus());
+                taskInfo.put("progress", task.getProgress());
+                taskInfo.put("priority", task.getPriority());
+                
+                // 获取任务的活动记录
+                List<ActivityRecord> activities = activityRecordMapper.selectList(
+                        Wrappers.<ActivityRecord>lambdaQuery()
+                                .eq(ActivityRecord::getTaskId, task.getId())
+                                .orderByAsc(ActivityRecord::getStartTime)
+                );
+                
+                // 处理活动记录为甘特图数据段
+                List<Map<String, Object>> segments = new ArrayList<>();
+                for (ActivityRecord activity : activities) {
+                    Map<String, Object> segment = new HashMap<>();
+                    segment.put("type", activity.getActivityType());
+                    segment.put("typeDescription", getActivityTypeDescription(activity.getActivityType()));
+                    segment.put("startTime", activity.getStartTime());
+                    segment.put("endTime", activity.getEndTime());
+                    segment.put("durationMinutes", activity.getDurationMinutes());
+                    segment.put("description", activity.getDescription());
+                    segments.add(segment);
+                }
+                
+                taskInfo.put("segments", segments);
+                taskData.add(taskInfo);
+            }
+            
+            // 按开始日期排序任务
+            taskData.sort((a, b) -> {
+                LocalDateTime aTime = getTaskStartTime(a);
+                LocalDateTime bTime = getTaskStartTime(b);
+                if (aTime == null) return 1;
+                if (bTime == null) return -1;
+                return aTime.compareTo(bTime);
+            });
+            
+            Map<String, Object> tagGroup = new HashMap<>();
+            tagGroup.put("tagId", tag.getId());
+            tagGroup.put("tagName", tag.getName());
+            tagGroup.put("tagColor", tag.getColor());
+            tagGroup.put("tasks", taskData);
+            
+            tagGroups.add(tagGroup);
+        }
+        
+        result.put("tagGroups", tagGroups);
+        
+        // 添加没有标签的任务
+        List<Long> tasksWithTags = taskTagMapper.selectList(null).stream()
+                .map(TaskTag::getTaskId)
+                .distinct()
+                .collect(Collectors.toList());
+        
+        List<Task> tasksWithoutTags = lambdaQuery()
+                .notIn(Task::getId, tasksWithTags)
+                .list();
+        
+        if (!tasksWithoutTags.isEmpty()) {
+            List<Map<String, Object>> untaggedTaskData = new ArrayList<>();
+            for (Task task : tasksWithoutTags) {
+                Map<String, Object> taskInfo = new HashMap<>();
+                taskInfo.put("id", task.getId());
+                taskInfo.put("title", task.getTitle());
+                taskInfo.put("status", task.getStatus());
+                taskInfo.put("progress", task.getProgress());
+                taskInfo.put("priority", task.getPriority());
+                
+                List<ActivityRecord> activities = activityRecordMapper.selectList(
+                        Wrappers.<ActivityRecord>lambdaQuery()
+                                .eq(ActivityRecord::getTaskId, task.getId())
+                                .orderByAsc(ActivityRecord::getStartTime)
+                );
+                
+                List<Map<String, Object>> segments = new ArrayList<>();
+                for (ActivityRecord activity : activities) {
+                    Map<String, Object> segment = new HashMap<>();
+                    segment.put("type", activity.getActivityType());
+                    segment.put("typeDescription", getActivityTypeDescription(activity.getActivityType()));
+                    segment.put("startTime", activity.getStartTime());
+                    segment.put("endTime", activity.getEndTime());
+                    segment.put("durationMinutes", activity.getDurationMinutes());
+                    segment.put("description", activity.getDescription());
+                    segments.add(segment);
+                }
+                
+                taskInfo.put("segments", segments);
+                untaggedTaskData.add(taskInfo);
+            }
+            
+            untaggedTaskData.sort((a, b) -> {
+                LocalDateTime aTime = getTaskStartTime(a);
+                LocalDateTime bTime = getTaskStartTime(b);
+                if (aTime == null) return 1;
+                if (bTime == null) return -1;
+                return aTime.compareTo(bTime);
+            });
+            
+            Map<String, Object> untaggedGroup = new HashMap<>();
+            untaggedGroup.put("tagId", null);
+            untaggedGroup.put("tagName", "未分类");
+            untaggedGroup.put("tagColor", "#9E9E9E");
+            untaggedGroup.put("tasks", untaggedTaskData);
+            
+            tagGroups.add(untaggedGroup);
+        }
+        
+        return result;
+    }
+    
+    /**
+     * 获取任务开始时间（最早的活动记录或任务创建时间）
+     */
+    private LocalDateTime getTaskStartTime(Map<String, Object> taskInfo) {
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> segments = (List<Map<String, Object>>) taskInfo.get("segments");
+        
+        if (segments != null && !segments.isEmpty()) {
+            for (Map<String, Object> segment : segments) {
+                LocalDateTime startTime = (LocalDateTime) segment.get("startTime");
+                if (startTime != null) {
+                    return startTime;
+                }
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
+     * 获取活动类型描述
+     */
+    private String getActivityTypeDescription(String activityType) {
+        switch (activityType) {
+            case "CREATED":
+                return "创建";
+            case "STARTED":
+                return "开始";
+            case "PAUSED":
+                return "暂停";
+            case "RESUMED":
+                return "恢复";
+            case "COMPLETED":
+                return "完成";
+            case "WORK":
+                return "工作";
+            case "MEETING":
+                return "会议";
+            case "STUDY":
+                return "学习";
+            case "OTHER":
+                return "其他";
+            default:
+                return activityType;
         }
     }
 }
