@@ -182,5 +182,43 @@ public class TaskController {
         }
     }
 
+    // 撤销任务的最近操作
+    @PostMapping("/{id}/undo")
+    public ApiResponse<String> undoLastActions(@PathVariable Long id) {
+        try {
+            // 默认撤销深度为5个最近操作
+            boolean result = taskService.undoLastActivities(id, 5);
+            if (result) {
+                return ApiResponse.success("成功撤销最近操作");
+            } else {
+                return ApiResponse.error("撤销操作失败");
+            }
+        } catch (Exception e) {
+            return ApiResponse.error("撤销操作失败: " + e.getMessage());
+        }
+    }
+
+    // 撤销指定数量的最近操作
+    @PostMapping("/{id}/undo/{depth}")
+    public ApiResponse<String> undoLastActions(@PathVariable Long id, @PathVariable int depth) {
+        try {
+            if (depth <= 0) {
+                return ApiResponse.error("撤销深度必须大于0");
+            }
+
+            // 限制最大撤销深度，防止性能问题
+            int maxDepth = Math.min(depth, 20);
+
+            boolean result = taskService.undoLastActivities(id, maxDepth);
+            if (result) {
+                return ApiResponse.success("成功撤销最近" + maxDepth + "个操作");
+            } else {
+                return ApiResponse.error("撤销操作失败");
+            }
+        } catch (Exception e) {
+            return ApiResponse.error("撤销操作失败: " + e.getMessage());
+        }
+    }
+
 
 }

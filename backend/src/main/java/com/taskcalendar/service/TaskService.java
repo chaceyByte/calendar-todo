@@ -301,33 +301,33 @@ public class TaskService extends ServiceImpl<TaskMapper, Task> {
                 return ActivityType.OTHER;
         }
     }
-    
+
     /**
      * 获取按标签分类的任务甘特图数据
      */
     public Map<String, Object> getGanttChartByTags() {
         // 获取所有标签及其关联的任务
         List<Tag> allTags = tagMapper.selectList(null);
-        
+
         Map<String, Object> result = new HashMap<>();
         List<Map<String, Object>> tagGroups = new ArrayList<>();
-        
+
         for (Tag tag : allTags) {
             // 获取该标签关联的所有任务
             List<TaskTag> taskTags = taskTagMapper.selectList(
                     Wrappers.<TaskTag>lambdaQuery().eq(TaskTag::getTagId, tag.getId())
             );
-            
+
             if (taskTags.isEmpty()) {
                 continue;
             }
-            
+
             List<Long> taskIds = taskTags.stream()
                     .map(TaskTag::getTaskId)
                     .collect(Collectors.toList());
-            
+
             List<Task> tasks = listByIds(taskIds);
-            
+
             // 为每个任务构建甘特图数据
             List<Map<String, Object>> taskData = new ArrayList<>();
             for (Task task : tasks) {
@@ -337,14 +337,14 @@ public class TaskService extends ServiceImpl<TaskMapper, Task> {
                 taskInfo.put("status", task.getStatus());
                 taskInfo.put("progress", task.getProgress());
                 taskInfo.put("priority", task.getPriority());
-                
+
                 // 获取任务的活动记录
                 List<ActivityRecord> activities = activityRecordMapper.selectList(
                         Wrappers.<ActivityRecord>lambdaQuery()
                                 .eq(ActivityRecord::getTaskId, task.getId())
                                 .orderByAsc(ActivityRecord::getStartTime)
                 );
-                
+
                 // 处理活动记录为甘特图数据段
                 List<Map<String, Object>> segments = new ArrayList<>();
                 for (ActivityRecord activity : activities) {
@@ -357,11 +357,11 @@ public class TaskService extends ServiceImpl<TaskMapper, Task> {
                     segment.put("description", activity.getDescription());
                     segments.add(segment);
                 }
-                
+
                 taskInfo.put("segments", segments);
                 taskData.add(taskInfo);
             }
-            
+
             // 按开始日期排序任务
             taskData.sort((a, b) -> {
                 LocalDateTime aTime = getTaskStartTime(a);
@@ -370,28 +370,28 @@ public class TaskService extends ServiceImpl<TaskMapper, Task> {
                 if (bTime == null) return -1;
                 return aTime.compareTo(bTime);
             });
-            
+
             Map<String, Object> tagGroup = new HashMap<>();
             tagGroup.put("tagId", tag.getId());
             tagGroup.put("tagName", tag.getName());
             tagGroup.put("tagColor", tag.getColor());
             tagGroup.put("tasks", taskData);
-            
+
             tagGroups.add(tagGroup);
         }
-        
+
         result.put("tagGroups", tagGroups);
-        
+
         // 添加没有标签的任务
         List<Long> tasksWithTags = taskTagMapper.selectList(null).stream()
                 .map(TaskTag::getTaskId)
                 .distinct()
                 .collect(Collectors.toList());
-        
+
         List<Task> tasksWithoutTags = lambdaQuery()
                 .notIn(Task::getId, tasksWithTags)
                 .list();
-        
+
         if (!tasksWithoutTags.isEmpty()) {
             List<Map<String, Object>> untaggedTaskData = new ArrayList<>();
             for (Task task : tasksWithoutTags) {
@@ -401,13 +401,13 @@ public class TaskService extends ServiceImpl<TaskMapper, Task> {
                 taskInfo.put("status", task.getStatus());
                 taskInfo.put("progress", task.getProgress());
                 taskInfo.put("priority", task.getPriority());
-                
+
                 List<ActivityRecord> activities = activityRecordMapper.selectList(
                         Wrappers.<ActivityRecord>lambdaQuery()
                                 .eq(ActivityRecord::getTaskId, task.getId())
                                 .orderByAsc(ActivityRecord::getStartTime)
                 );
-                
+
                 List<Map<String, Object>> segments = new ArrayList<>();
                 for (ActivityRecord activity : activities) {
                     Map<String, Object> segment = new HashMap<>();
@@ -419,11 +419,11 @@ public class TaskService extends ServiceImpl<TaskMapper, Task> {
                     segment.put("description", activity.getDescription());
                     segments.add(segment);
                 }
-                
+
                 taskInfo.put("segments", segments);
                 untaggedTaskData.add(taskInfo);
             }
-            
+
             untaggedTaskData.sort((a, b) -> {
                 LocalDateTime aTime = getTaskStartTime(a);
                 LocalDateTime bTime = getTaskStartTime(b);
@@ -431,26 +431,26 @@ public class TaskService extends ServiceImpl<TaskMapper, Task> {
                 if (bTime == null) return -1;
                 return aTime.compareTo(bTime);
             });
-            
+
             Map<String, Object> untaggedGroup = new HashMap<>();
             untaggedGroup.put("tagId", null);
             untaggedGroup.put("tagName", "未分类");
             untaggedGroup.put("tagColor", "#9E9E9E");
             untaggedGroup.put("tasks", untaggedTaskData);
-            
+
             tagGroups.add(untaggedGroup);
         }
-        
+
         return result;
     }
-    
+
     /**
      * 获取任务开始时间（最早的活动记录或任务创建时间）
      */
     private LocalDateTime getTaskStartTime(Map<String, Object> taskInfo) {
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> segments = (List<Map<String, Object>>) taskInfo.get("segments");
-        
+
         if (segments != null && !segments.isEmpty()) {
             for (Map<String, Object> segment : segments) {
                 LocalDateTime startTime = (LocalDateTime) segment.get("startTime");
@@ -459,10 +459,10 @@ public class TaskService extends ServiceImpl<TaskMapper, Task> {
                 }
             }
         }
-        
+
         return null;
     }
-    
+
     /**
      * 获取活动类型描述
      */
@@ -488,6 +488,94 @@ public class TaskService extends ServiceImpl<TaskMapper, Task> {
                 return "其他";
             default:
                 return activityType;
+        }
+    }
+
+    /**
+     * 撤销任务的最近操作
+     * @param taskId 任务ID
+     * @param depth 撤销深度
+     * @return 是否成功撤销
+     */
+    @Transactional
+    public boolean undoLastActivities(Long taskId, int depth) {
+        Task task = getById(taskId);
+        if (task == null) {
+            throw new RuntimeException("任务不存在");
+        }
+
+        // 获取最近的5个activity_records，按时间倒序排列
+        List<ActivityRecord> recentActivities = activityRecordMapper.selectList(
+                Wrappers.<ActivityRecord>lambdaQuery()
+                        .eq(ActivityRecord::getTaskId, taskId)
+                        .orderByDesc(ActivityRecord::getStartTime)
+                        .last("LIMIT " + depth)
+        );
+
+        if (recentActivities.isEmpty()) {
+            throw new RuntimeException("没有可撤销的操作记录");
+        }
+
+        // 按从最新到最旧顺序处理（即时间顺序从后往前）
+        for (ActivityRecord activity : recentActivities) {
+            if (!undoSingleActivity(task, activity)) {
+                throw new RuntimeException("撤销操作失败: " + activity.getActivityType());
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * 撤销单个活动记录
+     */
+    private boolean undoSingleActivity(Task task, ActivityRecord activity) {
+        try {
+            ActivityType activityType = ActivityType.valueOf(activity.getActivityType());
+
+            switch (activityType) {
+                case CREATED:
+                    // 撤销创建：删除任务
+                    removeById(task.getId());
+                    break;
+                case COMPLETED:
+                    // 撤销完成：恢复为进行中状态
+                    task.setStatus("in-progress");
+                    updateById(task);
+                    break;
+                case PAUSED:
+                    // 撤销暂停：恢复为进行中状态
+                    task.setStatus("in-progress");
+                    updateById(task);
+                    break;
+                case RESUMED:
+                    // 撤销恢复：恢复为暂停状态
+                    task.setStatus("paused");
+                    updateById(task);
+                    break;
+                case STARTED:
+                case WORK:
+                case MEETING:
+                case STUDY:
+                case OTHER:
+                    // 对于这些类型，只需要删除活动记录而不改变任务状态
+                    break;
+                default:
+                    throw new RuntimeException("不支持撤销的活动类型: " + activityType);
+            }
+
+            // 删除对应的活动记录
+            activityRecordMapper.deleteById(activity.getId());
+
+            log.info("成功撤销活动: taskId={}, activityType={}, activityId={}",
+                    task.getId(), activity.getActivityType(), activity.getId());
+
+            return true;
+        } catch (IllegalArgumentException e) {
+            throw new RuntimeException("无效的活动类型: " + activity.getActivityType());
+        } catch (Exception e) {
+            log.error("撤销活动失败", e);
+            return false;
         }
     }
 }

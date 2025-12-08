@@ -1,5 +1,10 @@
 <template>
-  <div class="calendar-container">
+  <div
+    class="calendar-container"
+    ref="calendarContainer"
+    tabindex="0"
+    @click="handleClickToFocus"
+  >
     <!-- 日历头部控制栏 -->
     <div class="calendar-header">
       <div class="header-controls">
@@ -13,9 +18,9 @@
             <el-icon><arrow-right /></el-icon>
           </el-button>
         </el-button-group>
-        
+
         <span class="current-month">{{ currentMonthText }}</span>
-        
+
         <el-button-group>
           <el-button @click="exportDailyReport" type="primary">
             <el-icon><document /></el-icon>
@@ -40,12 +45,12 @@
 
       <!-- 日期格子 -->
       <div class="calendar-grid">
-        <div 
-          v-for="day in calendarDays" 
+        <div
+          v-for="day in calendarDays"
           :key="day.date"
           :class="[
             'calendar-day',
-            { 
+            {
               'today': day.isToday,
               'current-month': day.isCurrentMonth,
               'has-tasks': day.tasks.length > 0,
@@ -57,14 +62,14 @@
           <div class="day-header">
             <span class="day-number">{{ day.day }}</span>
             <div class="day-indicators">
-              <el-badge 
-                v-if="day.tasks.length > 0" 
-                :value="day.tasks.length" 
+              <el-badge
+                v-if="day.tasks.length > 0"
+                :value="day.tasks.length"
                 type="primary"
-                class="task-badge" 
+                class="task-badge"
               />
-              <div 
-                v-if="day.totalActivityTime > 0" 
+              <div
+                v-if="day.totalActivityTime > 0"
                 class="activity-indicator"
                 :title="`活动时间: ${activityStore.formatDuration(day.totalActivityTime)}`"
               >
@@ -73,11 +78,11 @@
               </div>
             </div>
           </div>
-          
+
           <div class="day-content">
             <div class="day-tasks">
-              <div 
-                v-for="task in day.tasks.slice(0, 2)" 
+              <div
+                v-for="task in day.tasks.slice(0, 2)"
                 :key="task.id"
                 :class="['task-item', `status-${task.status}`]"
                 :title="task.title"
@@ -85,10 +90,10 @@
                 {{ task.title }}
               </div>
             </div>
-            
+
             <div class="day-activities">
-              <div 
-                v-for="activity in day.activities.slice(0, 2)" 
+              <div
+                v-for="activity in day.activities.slice(0, 2)"
                 :key="activity.id"
                 :class="['activity-item', `type-${activity.activityType.toLowerCase()}`]"
                 :title="`${activity.description || activity.activityType} (${formatShortDuration(activity.durationMinutes || 0)})`"
@@ -97,7 +102,7 @@
                 <span class="activity-text">{{ activity.description || activity.activityType }}</span>
               </div>
             </div>
-            
+
             <div v-if="day.tasks.length > 2 || day.activities.length > 2" class="more-items">
               +{{ (day.tasks.length - 2) + (day.activities.length - 2) }}更多
             </div>
@@ -107,9 +112,9 @@
     </div>
 
     <!-- 右键菜单 -->
-    <div 
-      v-if="contextMenu.visible" 
-      class="context-menu" 
+    <div
+      v-if="contextMenu.visible"
+      class="context-menu"
       :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
       @click="closeContextMenu"
     >
@@ -126,7 +131,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import dayjs from 'dayjs'
 import { ArrowLeft, ArrowRight, Document, Files, View, Clock, Circle } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
@@ -170,11 +175,175 @@ const contextMenu = ref({
   y: 0,
   selectedDay: null as CalendarDay | null
 })
+const calendarContainer = ref<HTMLElement | null>(null)
 
 const weekDays = ['日', '一', '二', '三', '四', '五', '六']
 
 const taskStore = useTaskStore()
-const activityStore = useActivityStore()
+// 手动点击获取焦点
+const handleClickToFocus = () => {
+  if (calendarContainer.value) {
+    calendarContainer.value.focus()
+    console.log('🖱️ 手动点击获取焦点成功')
+  }
+}
+
+// 原生document事件监听器 - 最终解决方案
+const handleGlobalKeyDown = (e: KeyboardEvent) => {
+  console.group('🎹 GLOBAL Keyboard Event - Native Document Listener')
+  console.log(`⏰ [${new Date().toISOString()}] 全局键盘事件触发`)
+
+  // 详细事件信息
+  console.log('📋 事件详细信息:', {
+    key: e.key,
+    code: e.code,
+    keyCode: e.keyCode,
+    ctrlKey: e.ctrlKey,
+    metaKey: e.metaKey,
+    shiftKey: e.shiftKey,
+    altKey: e.altKey,
+    repeat: e.repeat,
+    isComposing: e.isComposing,
+    targetElement: e.target?.tagName,
+    targetClass: e.target?.className
+  })
+
+  console.log('🎯 当前焦点状态:', {
+    documentHasFocus: document.hasFocus(),
+    activeElement: document.activeElement?.tagName,
+    isCalendarFocused: calendarContainer.value === document.activeElement
+  })
+
+  // 平台检测
+  const isMac = navigator.platform.includes('Mac')
+  console.log('??️ 平台信息:', {
+    platform: navigator.platform,
+    isMac,
+    userAgent: navigator.userAgent?.substring(0, 80) + '...'
+  })
+
+  // 测试按键 - 任何时候按?键都会响应
+  if (e.key === '?') {
+    console.log('🎉 GLOBAL: 键盘事件监听正常工作！')
+    ElMessage.success('全局键盘事件监听正常！')
+    e.preventDefault()
+    console.groupEnd()
+    return
+  }
+
+  // macOS Cmd键检测
+  const isMacCmd = isMac && e.metaKey
+  const isWindowsCtrl = !isMac && e.ctrlKey
+  const isUndoShortcut = (isMacCmd || isWindowsCtrl) &&
+                         e.key === 'z' &&
+                         !e.shiftKey &&
+                         !e.altKey
+
+  console.log('🔍 快捷键分析:', {
+    isUndoShortcut,
+    detectedAs: isMac ? 'Cmd+Z' : 'Ctrl+Z',
+    isMacCmd,
+    isWindowsCtrl
+  })
+
+  if (isUndoShortcut) {
+    console.log('✅ 检测到撤销快捷键:', isMac ? 'Cmd+Z' : 'Ctrl+Z')
+
+    // 立即阻止默认行为和传播
+    e.preventDefault()
+    e.stopPropagation()
+    e.stopImmediatePropagation()
+
+    console.log('🚀 开始执行撤销操作...')
+    console.log('📊 Store状态:', {
+      undoStackLength: taskStore.undoStack?.length || 0,
+      redoStackLength: taskStore.redoStack?.length || 0
+    })
+
+    // 执行撤销操作
+    taskStore.undoLastOperation()
+      .then(success => {
+        console.log(`✅ 撤销操作结果: ${success ? '成功' : '失败或无操作可撤销'}`)
+        if (success) {
+          ElMessage.success('撤销操作成功')
+        } else {
+          ElMessage.info('没有可撤销的操作')
+        }
+      })
+      .catch(error => {
+        console.error('❌ 撤销操作错误:', error)
+        ElMessage.error('撤销操作失败')
+      })
+      .finally(() => {
+        console.groupEnd()
+      })
+
+  } else if (e.key === 'Escape' && contextMenu.value.visible) {
+    console.log('✅ 检测到ESC键 - 关闭右键菜单')
+    closeContextMenu()
+    e.preventDefault()
+    e.stopPropagation()
+    console.groupEnd()
+  } else {
+    console.log('ℹ️ 其他按键 - 不处理')
+    console.groupEnd()
+  }
+}
+
+// 确保组件获得焦点（增强版）
+const focusCalendar = () => {
+  nextTick(() => {
+    if (calendarContainer.value) {
+      // 多次尝试确保焦点设置成功
+      let focusAttempts = 0
+      const maxAttempts = 5
+      const focusDelay = 200 // 增加延迟时间
+
+      const attemptFocus = () => {
+        focusAttempts++
+        calendarContainer.value?.focus({ preventScroll: true })
+
+        // 添加视觉反馈
+        if (calendarContainer.value) {
+          calendarContainer.value.style.boxShadow = '0 0 0 2px #3b82f6'
+          setTimeout(() => {
+            if (calendarContainer.value) {
+              calendarContainer.value.style.boxShadow = ''
+            }
+          }, 500)
+        }
+
+        console.group('🎯 焦点设置尝试')
+        console.log(`尝试次数: ${focusAttempts}/${maxAttempts}`)
+        console.log('当前焦点状态:', {
+          documentHasFocus: document.hasFocus(),
+          activeElement: document.activeElement?.tagName,
+          isCalendarFocused: calendarContainer.value === document.activeElement,
+          calendarTabIndex: calendarContainer.value?.tabIndex,
+          calendarVisible: calendarContainer.value?.offsetParent !== null
+        })
+
+        if (calendarContainer.value === document.activeElement) {
+          console.log('✅ 焦点设置成功')
+          console.groupEnd()
+          return true
+        } else if (focusAttempts < maxAttempts) {
+          console.log('🔄 焦点设置未成功，再次尝试...')
+          console.groupEnd()
+          setTimeout(attemptFocus, 100)
+          return false
+        } else {
+          console.log('⚠️ 焦点设置最终未成功，可能由于无痕模式限制')
+          console.log('💡 建议: 用户可能需要手动点击日历区域以激活键盘事件')
+          console.groupEnd()
+          return false
+        }
+      }
+
+      attemptFocus()
+    }
+  })
+}
 
 // 任务和活动数据
 const tasks = ref<Task[]>([])
@@ -184,7 +353,7 @@ const activities = ref<ActivityRecord[]>([])
 const loadData = async () => {
   try {
     tasks.value = await taskStore.fetchTasks()
-    
+
     // 获取所有任务的活动记录
     activities.value = []
     for (const task of tasks.value) {
@@ -213,22 +382,22 @@ const calendarDays = computed(() => {
   const endDate = endOfMonth.endOf('week')
 
   let currentDay = startDate
-  
+
   while (currentDay.isBefore(endDate) || currentDay.isSame(endDate)) {
     const dateStr = currentDay.format('YYYY-MM-DD')
-    
+
     // 获取当天的任务
     const dayTasks = tasks.value.filter(task => {
       // 处理任务可能没有日期字段的情况
       const taskStart = task.startDate ? dayjs(task.startDate) : null
       const taskEnd = task.endDate ? dayjs(task.endDate) : null
-      
+
       if (!taskStart && !taskEnd) {
         // 如果任务没有日期，检查创建日期是否在当前月份
         const taskCreated = task.createdAt ? dayjs(task.createdAt) : null
         return taskCreated && taskCreated.isSame(currentDay, 'day')
       }
-      
+
       // 如果有开始或结束日期，检查是否在范围内
       if (taskStart && taskEnd) {
         return currentDay.isSameOrAfter(taskStart) && currentDay.isSameOrBefore(taskEnd)
@@ -237,20 +406,20 @@ const calendarDays = computed(() => {
       } else if (taskEnd) {
         return currentDay.isSameOrBefore(taskEnd)
       }
-      
+
       return false
     })
-    
+
     // 获取当天的活动记录
-    const dayActivities = activities.value.filter(activity => 
+    const dayActivities = activities.value.filter(activity =>
       dayjs(activity.startTime).isSame(currentDay, 'day')
     )
-    
+
     // 计算当天总活动时间
-    const totalActivityTime = dayActivities.reduce((total, activity) => 
+    const totalActivityTime = dayActivities.reduce((total, activity) =>
       total + (activity.durationMinutes || 0), 0
     )
-    
+
     days.push({
       date: dateStr,
       day: currentDay.date(),
@@ -260,10 +429,10 @@ const calendarDays = computed(() => {
       activities: dayActivities,
       totalActivityTime
     })
-    
+
     currentDay = currentDay.add(1, 'day')
   }
-  
+
   return days
 })
 
@@ -316,10 +485,10 @@ const exportWeeklyReport = () => {
 // 格式化短时间显示
 const formatShortDuration = (minutes: number): string => {
   if (!minutes || minutes <= 0) return ''
-  
+
   const hours = Math.floor(minutes / 60)
   const mins = minutes % 60
-  
+
   if (hours > 0) {
     return `${hours}h${mins > 0 ? mins + 'm' : ''}`
   } else {
@@ -332,15 +501,60 @@ const handleClickOutside = (e: MouseEvent) => {
   if (contextMenu.value.visible) {
     closeContextMenu()
   }
-}
-
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
+
+  // 添加全局键盘事件监听 - 最可靠的解决方案
+  console.group('🎯 全局键盘事件监听器设置')
+  document.addEventListener('keydown', handleGlobalKeyDown, {
+    capture: true,
+    passive: false
+  })
+  console.log('✅ 全局键盘事件监听器已添加 (capture: true, passive: false)')
+  console.log('🎯 监听器特点:', {
+    bubblePhase: 'capture (最优先)',
+    passive: false,
+    alwaysWorks: '是 (不受焦点限制)',
+    scope: '整个文档'
+  })
+  console.groupEnd()
+
+  // 添加用户友好的提示
+  setTimeout(() => {
+    ElMessage.info('现在可以在任意位置按 ? 键测试全局键盘事件')
+  }, 1000)
+
+  // 添加焦点测试
+  setTimeout(() => {
+    if (calendarContainer.value) {
+      calendarContainer.value.focus()
+      console.log('🔍 焦点测试:', {
+        success: calendarContainer.value === document.activeElement,
+        tabIndex: calendarContainer.value.tabIndex
+      })
+    }
+  }, 1000)
+
+  // 立即测试一次键盘监听
+  console.log('🧪 立即触发测试事件...')
+  setTimeout(() => {
+    console.log('🔄 发送虚拟键盘事件测试...')
+    const testEvent = new KeyboardEvent('keydown', {
+      key: '?',
+      bubbles: true,
+      cancelable: true
+    })
+    document.dispatchEvent(testEvent)
+  }, 500)
+
   loadData()
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
+  // 移除全局键盘事件监听
+  document.removeEventListener('keydown', handleGlobalKeyDown, { capture: true })
+  console.log('🔕 日历组件已卸载 - 全局键盘事件监听器已移除')
 })
 </script>
 
@@ -352,6 +566,12 @@ onUnmounted(() => {
   background: #f8fafc;
   padding: 20px;
   border-radius: 12px;
+  outline: none;
+}
+
+.calendar-container:focus {
+  box-shadow: 0 0 0 2px #3b82f6;
+  transition: box-shadow 0.2s ease;
 }
 
 .calendar-header {
