@@ -153,7 +153,7 @@
 
     <!-- 添加快捷键提示 -->
     <div class="shortcut-hint">
-      <el-tag size="small">快捷键: Alt + Enter 快速添加任务</el-tag>
+      <el-tag size="small">快捷键: Alt + Enter 快速添加任务 | Ctrl+Z 撤销操作</el-tag>
     </div>
 
     <!-- 添加/编辑任务对话框 -->
@@ -666,9 +666,54 @@ const closeTaskContextMenu = () => {
   taskContextMenu.visible = false
 }
 
-// 快捷键支持
-const handleKeydown = (e: KeyboardEvent) => {
-  if (e.altKey && e.key === 'Enter') {
+// 全局键盘事件监听器
+const handleGlobalKeyDown = async (e: KeyboardEvent) => {
+  // 检测撤销快捷键 (Ctrl+Z 或 Cmd+Z)
+  const isMac = navigator.platform.includes('Mac')
+  const isUndoShortcut = 
+    ((isMac && e.metaKey) || (!isMac && e.ctrlKey)) &&
+    e.key === 'z' &&
+    !e.shiftKey &&
+    !e.altKey
+
+  if (isUndoShortcut) {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    try {
+      // 获取当前选中的任务或最近移动的任务
+      const selectedTaskId = localStorage.getItem('lastMovedTaskId')
+      
+      if (!selectedTaskId) {
+        ElMessage.info('没有可撤销的任务操作')
+        return
+      }
+      
+      console.log('开始撤销任务:', selectedTaskId)
+      ElMessage.info('正在撤销操作...')
+      
+      // 使用 taskStore 中封装的撤销方法
+      const success = await taskStore.undoTaskActions(parseInt(selectedTaskId), 5)
+      
+      if (success) {
+        // 刷新任务列表和暂存队列
+        await Promise.all([
+          loadTasks(),
+          loadStagingTasks()
+        ])
+        // 清除最后移动的任务ID
+        localStorage.removeItem('lastMovedTaskId')
+        console.log('撤销操作完成，界面已更新')
+        ElMessage.success('撤销操作成功')
+      }
+    } catch (error: any) {
+      console.error('撤销操作错误:', error)
+      const errorMessage = error.message || '撤销操作失败'
+      ElMessage.error(errorMessage)
+    }
+  }
+  // Alt+Enter 快速添加任务
+  else if (e.altKey && e.key === 'Enter') {
     e.preventDefault()
     showAddTaskDialog()
   }
@@ -717,6 +762,9 @@ const handlePauseTask = async (taskId: number) => {
     // 刷新任务列表和暂存队列显示
     await loadTasks()
     await loadStagingTasks()
+    
+    // 记录最后操作的任务ID，用于撤销
+    localStorage.setItem('lastMovedTaskId', taskId.toString())
     ElMessage.success('任务已暂停并添加到暂存队列')
   } catch (error) {
     console.error('暂停任务失败:', error)
@@ -735,6 +783,9 @@ const moveTaskToColumn = async (task: Task, targetStatus: string) => {
       await moveTaskFromStaging(task, targetStatus)
       // 刷新暂存队列显示
       await loadStagingTasks()
+      
+      // 记录最后移动的任务ID，用于撤销
+      localStorage.setItem('lastMovedTaskId', task.id.toString())
     } else {
       // 在看板内移动
       await taskStore.updateTask(task.id, {
@@ -742,6 +793,9 @@ const moveTaskToColumn = async (task: Task, targetStatus: string) => {
         progress: targetStatus === 'completed' ? 100 : task.progress
       })
       await loadTasks()
+      
+      // 记录最后移动的任务ID，用于撤销
+      localStorage.setItem('lastMovedTaskId', task.id.toString())
     }
   } catch (error) {
     console.error('移动任务失败:', error)
@@ -833,6 +887,9 @@ const handleResumeTask = async (taskId: number) => {
     // 刷新任务列表和暂存队列显示
     await loadTasks()
     await loadStagingTasks()
+    
+    // 记录最后操作的任务ID，用于撤销
+    localStorage.setItem('lastMovedTaskId', taskId.toString())
     ElMessage.success('任务已恢复并从暂存队列移除')
   } catch (error) {
     console.error('恢复任务失败:', error)
@@ -957,16 +1014,21 @@ const getWorkDaysCount = () => {
 }
 
 onMounted(() => {
-  document.addEventListener('keydown', handleKeydown)
+  document.addEventListener('keydown', handleGlobalKeyDown, { capture: true })
   document.addEventListener('click', closeTaskContextMenu)
   // 初始化时加载任务和暂存队列
   loadTasks()
   loadStagingTasks()
   loadAvailableTags()
+  
+  // 添加用户友好的提示
+  setTimeout(() => {
+    ElMessage.info('现在可以使用 Ctrl+Z (Mac: Cmd+Z) 撤销任务移动操作')
+  }, 1000)
 })
 
 onUnmounted(() => {
-  document.removeEventListener('keydown', handleKeydown)
+  document.removeEventListener('keydown', handleGlobalKeyDown, { capture: true })
   document.removeEventListener('click', closeTaskContextMenu)
 })
 </script>

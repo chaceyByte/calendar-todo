@@ -59,7 +59,38 @@ export const useTaskStore = defineStore('task', () => {
     saveUndoStack();
   };
 
-  // 撤销最后一个操作
+  // 撤销操作
+  const undoTaskActions = async (taskId: number, depth: number = 5) => {
+    try {
+      console.log('调用撤销API:', `/api/tasks/${taskId}/undo`, { depth });
+      const response = await request.post(`/api/tasks/${taskId}/undo`, { depth });
+      console.log('撤销API响应:', response);
+      
+      // 响应拦截器已经返回了 response.data，所以 response 就是后端的 ApiResponse 结构
+      // 后端成功响应格式: { success: true, message: "成功撤销最近操作", data: ... }
+      if (response.success === true) {
+        // 刷新任务列表
+        await fetchTasks();
+        console.log('撤销操作成功，任务列表已刷新');
+        // 不在这里显示成功消息，让调用方处理
+        return true;
+      } else {
+        const errorMsg = response.message || '撤销操作失败';
+        console.error('撤销操作失败:', errorMsg);
+        ElMessage.error(errorMsg);
+        return false;
+      }
+    } catch (error: any) {
+      console.error('撤销操作异常:', error);
+      // 尝试从错误响应中获取错误信息
+      const errorMessage = error.message || '撤销操作失败';
+      console.error('详细错误信息:', errorMessage);
+      // 不在这里显示错误消息，让调用方处理
+      throw new Error(errorMessage);
+    }
+  };
+
+  // 保留原来的本地撤销栈方法，但不再使用
   const undoLastOperation = async () => {
     if (undoStack.value.length === 0) {
       console.warn('撤销栈为空，没有可撤销的操作')
@@ -479,6 +510,7 @@ export const useTaskStore = defineStore('task', () => {
     updateTaskTags,
     removeTagFromTask,
     pushToUndoStack,
-    undoLastOperation
+    undoLastOperation,
+    undoTaskActions
   };
 });

@@ -504,7 +504,7 @@ public class TaskService extends ServiceImpl<TaskMapper, Task> {
             throw new RuntimeException("任务不存在");
         }
 
-        // 获取最近的5个activity_records，按时间倒序排列
+        // 获取最近的指定数量的activity_records，按时间倒序排列
         List<ActivityRecord> recentActivities = activityRecordMapper.selectList(
                 Wrappers.<ActivityRecord>lambdaQuery()
                         .eq(ActivityRecord::getTaskId, taskId)
@@ -516,66 +516,87 @@ public class TaskService extends ServiceImpl<TaskMapper, Task> {
             throw new RuntimeException("没有可撤销的操作记录");
         }
 
-        // 按从最新到最旧顺序处理（即时间顺序从后往前）
+        // 1. 按从最新到最旧顺序处理（即时间顺序从后往前）
+        // 2. 遍历活动记录，恢复任务状态并删除活动记录
+        
+        // 保存要删除的活动记录ID列表
+        List<Long> activityIdsToDelete = new ArrayList<>();
+        
+        // 记录需要恢复到的任务状态
+        String targetStatus = task.getStatus();
+        
+        // 遍历活动记录，确定最终需要恢复的状态
         for (ActivityRecord activity : recentActivities) {
-            if (!undoSingleActivity(task, activity)) {
-                throw new RuntimeException("撤销操作失败: " + activity.getActivityType());
+            activityIdsToDelete.add(activity.getId());
+            
+            ActivityType activityType;
+            try {
+                activityType = ActivityType.valueOf(activity.getActivityType());
+            } catch (IllegalArgumentException e) {
+                continue; // 跳过未知的活动类型
             }
-        }
-
-        return true;
-    }
-
-    /**
-     * 撤销单个活动记录
-     */
-    private boolean undoSingleActivity(Task task, ActivityRecord activity) {
-        try {
-            ActivityType activityType = ActivityType.valueOf(activity.getActivityType());
-
+            
+            // 根据活动类型确定需要恢复到的状态
             switch (activityType) {
                 case CREATED:
-                    // 撤销创建：删除任务
-                    removeById(task.getId());
-                    break;
+                    // 如果第一个活动是创建，整个任务应该被删除
+                    removeById(taskId);
+                    log.info("撤销创建操作，删除任务: taskId={}", taskId);
+                    // 删除所有相关的活动记录
+                    activityRecordMapper.delete(
+                            Wrappers.<ActivityRecord>lambdaQuery()
+                                    .eq(ActivityRecord::getTaskId, taskId)
+                    );
+                    return true;
+                    
                 case COMPLETED:
-                    // 撤销完成：恢复为进行中状态
-                    task.setStatus("in-progress");
-                    updateById(task);
+                    // 如果找到完成活动，恢复为进行中
+                    targetStatus = "in-progress";
                     break;
+                    
                 case PAUSED:
-                    // 撤销暂停：恢复为进行中状态
-                    task.setStatus("in-progress");
-                    updateById(task);
+                    // 如果找到暂停活动，恢复为进行中
+                    targetStatus = "in-progress";
                     break;
+                    
                 case RESUMED:
-                    // 撤销恢复：恢复为暂停状态
-                    task.setStatus("paused");
-                    updateById(task);
+                    // 如果找到恢复活动，恢复为暂停
+                    targetStatus = "paused";
                     break;
+                    
                 case STARTED:
+                    // 如果找到开始活动，恢复为计划中
+                    targetStatus = "planning";
+                    break;
+                    
                 case WORK:
                 case MEETING:
                 case STUDY:
                 case OTHER:
-                    // 对于这些类型，只需要删除活动记录而不改变任务状态
+                    // 这些活动不影响任务状态，只需要删除记录
                     break;
+                    
                 default:
-                    throw new RuntimeException("不支持撤销的活动类型: " + activityType);
+                    log.warn("不支持撤销的活动类型: {}", activityType);
             }
-
-            // 删除对应的活动记录
-            activityRecordMapper.deleteById(activity.getId());
-
-            log.info("成功撤销活动: taskId={}, activityType={}, activityId={}",
-                    task.getId(), activity.getActivityType(), activity.getId());
-
-            return true;
-        } catch (IllegalArgumentException e) {
-            throw new RuntimeException("无效的活动类型: " + activity.getActivityType());
-        } catch (Exception e) {
-            log.error("撤销活动失败", e);
-            return false;
         }
+        
+        // 更新任务状态
+        if (!targetStatus.equals(task.getStatus())) {
+            task.setStatus(targetStatus);
+            updateById(task);
+            log.info("恢复任务状态: taskId={}, status={}", taskId, targetStatus);
+        }
+        
+        // 删除指定数量的活动记录
+        for (Long activityId : activityIdsToDelete) {
+            activityRecordMapper.deleteById(activityId);
+            log.debug("删除活动记录: activityId={}", activityId);
+        }
+        
+        log.info("成功撤销任务操作: taskId={}, 删除活动记录数={}", taskId, activityIdsToDelete.size());
+        return true;
     }
+
+
 }

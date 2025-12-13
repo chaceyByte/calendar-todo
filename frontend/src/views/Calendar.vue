@@ -188,162 +188,7 @@ const handleClickToFocus = () => {
   }
 }
 
-// 原生document事件监听器 - 最终解决方案
-const handleGlobalKeyDown = (e: KeyboardEvent) => {
-  console.group('🎹 GLOBAL Keyboard Event - Native Document Listener')
-  console.log(`⏰ [${new Date().toISOString()}] 全局键盘事件触发`)
 
-  // 详细事件信息
-  console.log('📋 事件详细信息:', {
-    key: e.key,
-    code: e.code,
-    keyCode: e.keyCode,
-    ctrlKey: e.ctrlKey,
-    metaKey: e.metaKey,
-    shiftKey: e.shiftKey,
-    altKey: e.altKey,
-    repeat: e.repeat,
-    isComposing: e.isComposing,
-    targetElement: e.target?.tagName,
-    targetClass: e.target?.className
-  })
-
-  console.log('🎯 当前焦点状态:', {
-    documentHasFocus: document.hasFocus(),
-    activeElement: document.activeElement?.tagName,
-    isCalendarFocused: calendarContainer.value === document.activeElement
-  })
-
-  // 平台检测
-  const isMac = navigator.platform.includes('Mac')
-  console.log('??️ 平台信息:', {
-    platform: navigator.platform,
-    isMac,
-    userAgent: navigator.userAgent?.substring(0, 80) + '...'
-  })
-
-  // 测试按键 - 任何时候按?键都会响应
-  if (e.key === '?') {
-    console.log('🎉 GLOBAL: 键盘事件监听正常工作！')
-    ElMessage.success('全局键盘事件监听正常！')
-    e.preventDefault()
-    console.groupEnd()
-    return
-  }
-
-  // macOS Cmd键检测
-  const isMacCmd = isMac && e.metaKey
-  const isWindowsCtrl = !isMac && e.ctrlKey
-  const isUndoShortcut = (isMacCmd || isWindowsCtrl) &&
-                         e.key === 'z' &&
-                         !e.shiftKey &&
-                         !e.altKey
-
-  console.log('🔍 快捷键分析:', {
-    isUndoShortcut,
-    detectedAs: isMac ? 'Cmd+Z' : 'Ctrl+Z',
-    isMacCmd,
-    isWindowsCtrl
-  })
-
-  if (isUndoShortcut) {
-    console.log('✅ 检测到撤销快捷键:', isMac ? 'Cmd+Z' : 'Ctrl+Z')
-
-    // 立即阻止默认行为和传播
-    e.preventDefault()
-    e.stopPropagation()
-    e.stopImmediatePropagation()
-
-    console.log('🚀 开始执行撤销操作...')
-    console.log('📊 Store状态:', {
-      undoStackLength: taskStore.undoStack?.length || 0,
-      redoStackLength: taskStore.redoStack?.length || 0
-    })
-
-    // 执行撤销操作
-    taskStore.undoLastOperation()
-      .then(success => {
-        console.log(`✅ 撤销操作结果: ${success ? '成功' : '失败或无操作可撤销'}`)
-        if (success) {
-          ElMessage.success('撤销操作成功')
-        } else {
-          ElMessage.info('没有可撤销的操作')
-        }
-      })
-      .catch(error => {
-        console.error('❌ 撤销操作错误:', error)
-        ElMessage.error('撤销操作失败')
-      })
-      .finally(() => {
-        console.groupEnd()
-      })
-
-  } else if (e.key === 'Escape' && contextMenu.value.visible) {
-    console.log('✅ 检测到ESC键 - 关闭右键菜单')
-    closeContextMenu()
-    e.preventDefault()
-    e.stopPropagation()
-    console.groupEnd()
-  } else {
-    console.log('ℹ️ 其他按键 - 不处理')
-    console.groupEnd()
-  }
-}
-
-// 确保组件获得焦点（增强版）
-const focusCalendar = () => {
-  nextTick(() => {
-    if (calendarContainer.value) {
-      // 多次尝试确保焦点设置成功
-      let focusAttempts = 0
-      const maxAttempts = 5
-      const focusDelay = 200 // 增加延迟时间
-
-      const attemptFocus = () => {
-        focusAttempts++
-        calendarContainer.value?.focus({ preventScroll: true })
-
-        // 添加视觉反馈
-        if (calendarContainer.value) {
-          calendarContainer.value.style.boxShadow = '0 0 0 2px #3b82f6'
-          setTimeout(() => {
-            if (calendarContainer.value) {
-              calendarContainer.value.style.boxShadow = ''
-            }
-          }, 500)
-        }
-
-        console.group('🎯 焦点设置尝试')
-        console.log(`尝试次数: ${focusAttempts}/${maxAttempts}`)
-        console.log('当前焦点状态:', {
-          documentHasFocus: document.hasFocus(),
-          activeElement: document.activeElement?.tagName,
-          isCalendarFocused: calendarContainer.value === document.activeElement,
-          calendarTabIndex: calendarContainer.value?.tabIndex,
-          calendarVisible: calendarContainer.value?.offsetParent !== null
-        })
-
-        if (calendarContainer.value === document.activeElement) {
-          console.log('✅ 焦点设置成功')
-          console.groupEnd()
-          return true
-        } else if (focusAttempts < maxAttempts) {
-          console.log('🔄 焦点设置未成功，再次尝试...')
-          console.groupEnd()
-          setTimeout(attemptFocus, 100)
-          return false
-        } else {
-          console.log('⚠️ 焦点设置最终未成功，可能由于无痕模式限制')
-          console.log('💡 建议: 用户可能需要手动点击日历区域以激活键盘事件')
-          console.groupEnd()
-          return false
-        }
-      }
-
-      attemptFocus()
-    }
-  })
-}
 
 // 任务和活动数据
 const tasks = ref<Task[]>([])
@@ -501,60 +346,15 @@ const handleClickOutside = (e: MouseEvent) => {
   if (contextMenu.value.visible) {
     closeContextMenu()
   }
+}
+
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
-
-  // 添加全局键盘事件监听 - 最可靠的解决方案
-  console.group('🎯 全局键盘事件监听器设置')
-  document.addEventListener('keydown', handleGlobalKeyDown, {
-    capture: true,
-    passive: false
-  })
-  console.log('✅ 全局键盘事件监听器已添加 (capture: true, passive: false)')
-  console.log('🎯 监听器特点:', {
-    bubblePhase: 'capture (最优先)',
-    passive: false,
-    alwaysWorks: '是 (不受焦点限制)',
-    scope: '整个文档'
-  })
-  console.groupEnd()
-
-  // 添加用户友好的提示
-  setTimeout(() => {
-    ElMessage.info('现在可以在任意位置按 ? 键测试全局键盘事件')
-  }, 1000)
-
-  // 添加焦点测试
-  setTimeout(() => {
-    if (calendarContainer.value) {
-      calendarContainer.value.focus()
-      console.log('🔍 焦点测试:', {
-        success: calendarContainer.value === document.activeElement,
-        tabIndex: calendarContainer.value.tabIndex
-      })
-    }
-  }, 1000)
-
-  // 立即测试一次键盘监听
-  console.log('🧪 立即触发测试事件...')
-  setTimeout(() => {
-    console.log('🔄 发送虚拟键盘事件测试...')
-    const testEvent = new KeyboardEvent('keydown', {
-      key: '?',
-      bubbles: true,
-      cancelable: true
-    })
-    document.dispatchEvent(testEvent)
-  }, 500)
-
   loadData()
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
-  // 移除全局键盘事件监听
-  document.removeEventListener('keydown', handleGlobalKeyDown, { capture: true })
-  console.log('🔕 日历组件已卸载 - 全局键盘事件监听器已移除')
 })
 </script>
 

@@ -184,10 +184,10 @@ public class TaskController {
 
     // 撤销任务的最近操作
     @PostMapping("/{id}/undo")
-    public ApiResponse<String> undoLastActions(@PathVariable Long id) {
+    public ApiResponse<String> undoLastActions(@PathVariable Long id, Integer depth) {
         try {
             // 默认撤销深度为5个最近操作
-            boolean result = taskService.undoLastActivities(id, 5);
+            boolean result = taskService.undoLastActivities(id, depth == null ? 1 : depth);
             if (result) {
                 return ApiResponse.success("成功撤销最近操作");
             } else {
