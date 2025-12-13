@@ -211,23 +211,20 @@ const activities = ref<ActivityRecord[]>([])
 // 加载数据
 const loadData = async () => {
   try {
+    console.log('Loading data...')
     tasks.value = await taskStore.fetchTasks()
+    console.log(`Loaded ${tasks.value.length} tasks`)
 
-    // 获取所有任务的活动记录
-    activities.value = []
-    for (const task of tasks.value) {
-      try {
-        const taskActivities = await activityStore.getTaskActivities(task.id)
-
-        // 确保taskActivities是一个数组
-        if (Array.isArray(taskActivities)) {
-          activities.value.push(...taskActivities)
-        } else {
-          console.warn(`任务 ${task.id} 的活动记录不是数组格式:`, taskActivities)
-        }
-      } catch (error) {
-        console.error(`获取任务 ${task.id} 的活动记录失败:`, error)
-      }
+    // 使用批量接口获取所有活动记录
+    const allActivities = await activityStore.getAllActivities()
+    
+    // 确保allActivities是一个数组
+    if (Array.isArray(allActivities)) {
+      activities.value = allActivities
+      console.log(`Loaded ${activities.value.length} activities`)
+    } else {
+      console.warn('活动记录不是数组格式:', allActivities)
+      activities.value = []
     }
   } catch (error) {
     console.error('加载数据失败:', error)

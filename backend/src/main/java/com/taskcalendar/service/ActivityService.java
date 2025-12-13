@@ -493,4 +493,13 @@ public class ActivityService extends ServiceImpl<ActivityRecordMapper, ActivityR
         
         return result;
     }
+    
+    /**
+     * 获取所有活动记录
+     */
+    public List<ActivityRecord> getAllActivities() {
+        return lambdaQuery()
+                .orderByDesc(ActivityRecord::getStartTime)
+                .list();
+    }
 }

@@ -81,13 +81,12 @@ export const useActivityStore = defineStore('activity', () => {
     const startActivity = async (taskId: number, activityType: string, description?: string) => {
         try {
             loading.value = true
-            const response: any = await request.post('/api/activities/start', {
+            const activity: ActivityRecord = await request.post('/api/activities/start', {
                 taskId,
                 activityType,
                 description
-            })
+            }) as any
 
-            const activity: ActivityRecord = response
             activities.value.unshift(activity)
             currentActivities.value.set(taskId, activity)
 
@@ -159,6 +158,21 @@ export const useActivityStore = defineStore('activity', () => {
             return response.data as ActivityRecord[]
         } catch (error) {
             console.error('获取任务活动记录失败:', error)
+            throw error
+        } finally {
+            loading.value = false
+        }
+    }
+
+    // 获取所有活动记录
+    const getAllActivities = async () => {
+        try {
+            loading.value = true
+            const response = await request.get('/api/activities/all') as any
+
+            return response.data as ActivityRecord[]
+        } catch (error) {
+            console.error('获取所有活动记录失败:', error)
             throw error
         } finally {
             loading.value = false
@@ -295,6 +309,7 @@ export const useActivityStore = defineStore('activity', () => {
         endActivity,
         addManualActivity,
         getTaskActivities,
+        getAllActivities,
         getCurrentActivity,
         getDailyReport,
         getWeeklyReport,

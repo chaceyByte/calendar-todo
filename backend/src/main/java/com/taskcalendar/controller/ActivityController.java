@@ -85,6 +85,20 @@ public class ActivityController {
     }
     
     /**
+     * 批量获取所有任务的活动记录
+     */
+    @GetMapping("/all")
+    public ApiResponse<List<ActivityRecord>> getAllActivities() {
+        try {
+            List<ActivityRecord> activities = activityService.getAllActivities();
+            return ApiResponse.success("获取所有活动记录成功", activities);
+        } catch (Exception e) {
+            log.error("获取所有活动记录失败", e);
+            return ApiResponse.error("获取所有活动记录失败: " + e.getMessage());
+        }
+    }
+    
+    /**
      * 获取任务当前活动
      */
     @GetMapping("/current/{taskId}")
