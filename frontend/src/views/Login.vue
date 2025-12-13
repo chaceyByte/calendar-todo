@@ -58,13 +58,13 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { ElMessage } from 'element-plus'
-import type { FormInstance, FormRules } from 'element-plus'
+
+// import type { FormInstance, FormRules } from 'element-plus'
 
 const router = useRouter()
 const userStore = useUserStore()
 
-const loginFormRef = ref<FormInstance>()
+const loginFormRef = ref<any>()
 const loading = ref(false)
 
 const loginForm = reactive({
@@ -78,7 +78,7 @@ onMounted(() => {
   loginForm.password = '123456'
 })
 
-const loginRules: FormRules = {
+const loginRules: any = {
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
     { min: 3, max: 20, message: '用户名长度在 3 到 20 个字符', trigger: 'blur' }

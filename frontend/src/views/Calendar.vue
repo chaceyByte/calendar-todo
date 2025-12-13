@@ -129,7 +129,7 @@
         class="context-menu"
         :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
         @click="closeContextMenu">
-      <div class="menu-item" @click="copyActiveTasks(contextMenu.selectedDay?.date)">
+      <div class="menu-item" @click="copyActiveTasks(contextMenu.selectedDay?.date || '')">
         <el-icon>
           <document/>
         </el-icon>
@@ -148,19 +148,23 @@
 <script setup lang="ts">
 import {computed, onMounted, onUnmounted, ref} from 'vue'
 import dayjs from 'dayjs'
-import {ArrowLeft, ArrowRight, Circle, Clock, Document, Files, View} from '@element-plus/icons-vue'
-import {ElMessage, ElMessageBox} from 'element-plus'
+import {ArrowLeft, ArrowRight, Clock, Document, Files} from '@element-plus/icons-vue'
 import {useTaskStore} from '@/stores/task'
 import {useActivityStore} from '@/stores/activity'
 
 interface Task {
   id: number
   title: string
-  status: 'planning' | 'in-progress' | 'completed' | 'paused'
+  description?: string
+  status: string
+  progress: number
+  priority?: 'low' | 'medium' | 'high'
   startDate?: string
   endDate?: string
+  tags?: string[]
   createdAt: string
   updatedAt: string
+  completed: boolean
 }
 
 interface ActivityRecord {
@@ -212,7 +216,8 @@ const activities = ref<ActivityRecord[]>([])
 const loadData = async () => {
   try {
     console.log('Loading data...')
-    tasks.value = await taskStore.fetchTasks()
+    const fetchedTasks = await taskStore.fetchTasks()
+    tasks.value = fetchedTasks as Task[]
     console.log(`Loaded ${tasks.value.length} tasks`)
 
     // 使用批量接口获取所有活动记录
@@ -262,11 +267,11 @@ const calendarDays = computed(() => {
 
       // 如果有开始或结束日期，检查是否在范围内
       if (taskStart && taskEnd) {
-        return currentDay.isSameOrAfter(taskStart) && currentDay.isSameOrBefore(taskEnd)
+        return currentDay.isSame(taskStart) || currentDay.isAfter(taskStart) && currentDay.isSame(taskEnd) || currentDay.isBefore(taskEnd)
       } else if (taskStart) {
-        return currentDay.isSameOrAfter(taskStart)
+        return currentDay.isSame(taskStart) || currentDay.isAfter(taskStart)
       } else if (taskEnd) {
-        return currentDay.isSameOrBefore(taskEnd)
+        return currentDay.isSame(taskEnd) || currentDay.isBefore(taskEnd)
       }
 
       return false
@@ -354,7 +359,7 @@ const getActiveTasksForDay = (dateStr: string) => {
             activity.activityType === 'STARTED'
         ) &&
         !taskActivities.some(activity =>
-            dayjs(activity.startTime).isSameOrBefore(targetDay, 'day') &&
+            (dayjs(activity.startTime).isSame(targetDay, 'day') || dayjs(activity.startTime).isBefore(targetDay, 'day')) &&
             activity.activityType === 'COMPLETED'
         )
 
@@ -392,7 +397,7 @@ const copyActiveTasks = async (dateStr: string) => {
   activeTasks.forEach((task, index) => {
     clipboardText += `${index + 1}. ${task.title}\n`
     clipboardText += `   状态: ${getStatusText(task.status)}\n`
-    clipboardText += `   描述: ${task.description || '无'}\n`
+    clipboardText += `   描述: ${(task as any).description || '无'}\n`
 
     // 获取任务相关的活动记录
     const taskActivities = activities.value
@@ -468,7 +473,7 @@ const fallbackCopyToClipboard = (text: string) => {
 
 // 获取状态文本
 const getStatusText = (status: string) => {
-  const statusMap = {
+  const statusMap: Record<string, string> = {
     'planning': '计划中',
     'in-progress': '制作中',
     'completed': '已完成',
@@ -479,7 +484,7 @@ const getStatusText = (status: string) => {
 
 // 获取活动类型文本
 const getActivityTypeText = (type: string) => {
-  const typeMap = {
+  const typeMap: Record<string, string> = {
     'CREATED': '创建',
     'STARTED': '开始',
     'COMPLETED': '完成',
@@ -493,12 +498,12 @@ const getActivityTypeText = (type: string) => {
   return typeMap[type] || type
 }
 
-const exportDayReport = () => {
-  if (contextMenu.value.selectedDay) {
-    ElMessage.success(`导出 ${contextMenu.value.selectedDay.date} 的日报`)
-  }
-  closeContextMenu()
-}
+// const exportDayReport = () => {
+//   if (contextMenu.value.selectedDay) {
+//     ElMessage.success(`导出 ${contextMenu.value.selectedDay.date} 的日报`)
+//   }
+//   closeContextMenu()
+// }
 
 const viewDayTasks = () => {
   if (contextMenu.value.selectedDay) {
@@ -598,7 +603,7 @@ const formatShortDuration = (minutes: number): string => {
 }
 
 // 点击其他地方关闭右键菜单
-const handleClickOutside = (e: MouseEvent) => {
+const handleClickOutside = (_e: MouseEvent) => {
   if (contextMenu.value.visible) {
     closeContextMenu()
   }

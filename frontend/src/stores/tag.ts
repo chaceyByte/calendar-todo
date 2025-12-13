@@ -19,8 +19,8 @@ export const useTagStore = defineStore('tag', () => {
     const addTag = async (tag: Tag) => {
         try {
             const response = await request.post('/api/tags', tag);
-            if (response.success === false) throw new Error(response.message || '添加标签失败');
-            const newTag = response.data;
+            if ((response as any).success === false) throw new Error((response as any).message || '添加标签失败');
+            const newTag = (response as any).data;
             tags.value.push(newTag);
         } catch (error) {
             console.error('添加标签失败:', error);
@@ -46,7 +46,7 @@ export const useTagStore = defineStore('tag', () => {
     // 删除标签
     const deleteTag = async (id: number) => {
         try {
-            const response = await request.delete(`/api/tags/${id}`);
+            await request.delete(`/api/tags/${id}`);
             tags.value = tags.value.filter(tag => tag.id !== id);
         } catch (error) {
             console.error('删除标签失败:', error);
@@ -58,8 +58,8 @@ export const useTagStore = defineStore('tag', () => {
     const fetchTags = async () => {
         try {
             const response = await request.get('/api/tags');
-            if (response.success === false) throw new Error(response.message || '获取标签失败');
-            tags.value = response.data;
+            if ((response as any).success === false) throw new Error((response as any).message || '获取标签失败');
+            tags.value = (response as any).data;
             return tags.value;
         } catch (error) {
             console.error('获取标签失败:', error);

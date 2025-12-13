@@ -13,10 +13,10 @@
           <div v-for="task in longestTasks" :key="task.id" class="task-item">
             <div class="task-info">
               <span class="task-title">{{ task.title }}</span>
-              <span class="task-duration">{{ task.duration }}天</span>
+              <span class="task-duration">{{ task.totalHours || '0' }}天</span>
             </div>
             <el-progress 
-              :percentage="task.progress" 
+              :percentage="0" 
               :show-text="false" 
               :stroke-width="4"
             />
@@ -326,12 +326,11 @@ const ganttOption = computed(() => {
     }],
     series: [{
       type: 'custom',
-      renderItem: function(params: any, api: any) {
+      renderItem: function(_params: any, api: any) {
         const taskName = api.value(0)
         const start = api.coord([api.value(1), taskName])
         const end = api.coord([api.value(2), taskName])
         const height = api.size([0, 1])[1] * 0.6
-        const color = api.value(7)
         
         // 根据活动类型设置不同颜色
         const activityType = api.value(8)

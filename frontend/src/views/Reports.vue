@@ -126,7 +126,7 @@
                       :style="{ height: getBarHeight(day.totalTime, maxDailyTime) + '%' }"
                     ></div>
                   </div>
-                  <div class="day-label">{{ formatDate(date) }}</div>
+                  <div class="day-label">{{ formatDate(date.toString()) }}</div>
                   <div class="day-time">{{ activityStore.formatDuration(day.totalTime) }}</div>
                 </div>
               </div>
@@ -201,7 +201,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import dayjs from 'dayjs'
 import { Download } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
+
 import { useActivityStore } from '@/stores/activity'
 import { useTaskStore } from '@/stores/task'
 

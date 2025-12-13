@@ -87,12 +87,12 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import type { FormInstance, FormRules } from 'element-plus'
+// import type { FormInstance, FormRules } from 'element-plus'
 
 const router = useRouter()
 const userStore = useUserStore()
 
-const registerFormRef = ref<FormInstance>()
+const registerFormRef = ref<any>()
 const loading = ref(false)
 
 const registerForm = reactive({
@@ -103,7 +103,7 @@ const registerForm = reactive({
   email: ''
 })
 
-const validateConfirmPassword = (rule: any, value: string, callback: any) => {
+const validateConfirmPassword = (_rule: any, value: string, callback: any) => {
   if (value === '') {
     callback(new Error('请确认密码'))
   } else if (value !== registerForm.password) {
@@ -113,7 +113,7 @@ const validateConfirmPassword = (rule: any, value: string, callback: any) => {
   }
 }
 
-const registerRules: FormRules = {
+const registerRules: any = {
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
     { min: 3, max: 20, message: '用户名长度在 3 到 20 个字符', trigger: 'blur' }

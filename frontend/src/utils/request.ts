@@ -1,5 +1,4 @@
 import axios from 'axios'
-import { ElMessage } from 'element-plus'
 
 // 创建axios实例
 const service = axios.create({
@@ -10,8 +9,6 @@ const service = axios.create({
 // 请求拦截器
 service.interceptors.request.use(
   config => {
-    // 在发送请求之前做些什么
-    // 添加token到请求头
     const token = localStorage.getItem('token')
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
@@ -19,7 +16,6 @@ service.interceptors.request.use(
     return config
   },
   error => {
-    // 对请求错误做些什么
     console.error('请求错误:', error)
     return Promise.reject(error)
   }
@@ -28,10 +24,8 @@ service.interceptors.request.use(
 // 响应拦截器
 service.interceptors.response.use(
   response => {
-    // 对响应数据做点什么
     const res = response.data
     
-    // 如果响应中包含success字段，且为false，则认为是错误
     if (res.success === false) {
       ElMessage.error(res.message || '请求失败')
       return Promise.reject(new Error(res.message || '请求失败'))
@@ -40,7 +34,6 @@ service.interceptors.response.use(
     return res
   },
   error => {
-    // 对响应错误做点什么
     console.error('响应错误:', error)
     
     if (error.response) {

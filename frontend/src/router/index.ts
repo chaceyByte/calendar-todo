@@ -58,10 +58,9 @@ const router = createRouter({
 })
 
 // 路由守卫
-router.beforeEach((to, from, next) => {
+router.beforeEach((to, _from, next) => {
   // 从localStorage中直接检查token，避免Pinia store初始化问题
   const token = localStorage.getItem('token')
-  const userInfo = localStorage.getItem('userInfo')
   
   // 检查是否需要登录
   if (to.meta.requiresAuth && !token) {

@@ -10,10 +10,10 @@ export interface UserInfo {
   email?: string
 }
 
-interface LoginResponse {
-  token: string
-  user: UserInfo
-}
+// interface LoginResponse {
+//   token: string
+//   user: UserInfo
+// }
 
 export const useUserStore = defineStore('user', () => {
   const userInfo = ref<UserInfo | null>(null)

@@ -101,17 +101,17 @@
 import {computed, onMounted, reactive, ref} from 'vue';
 import dayjs from 'dayjs';
 import {Plus, Search} from '@element-plus/icons-vue';
-import {ElMessage, ElMessageBox} from 'element-plus';
+// import {ElMessage, ElMessageBox} from 'element-plus';
 import {useTagStore} from '@/stores/tag';
 
 interface Tag {
   id: number
   name: string
   color?: string
-  userId: number
-  createdAt: string
-  updatedAt: string
-  taskCount: number  // 后端现在返回这个字段
+  userId?: number
+  createdAt?: string
+  updatedAt?: string
+  taskCount?: number  // 后端现在返回这个字段
 }
 
 const tagStore = useTagStore();
@@ -184,9 +184,10 @@ const saveTag = async () => {
       ElMessage.success('标签更新成功');
     } else {
       await tagStore.addTag({
+        id: 0, // 临时ID，后端会生成新的
         name: tagForm.name,
         color: tagForm.color
-      });
+      } as any);
       ElMessage.success('标签添加成功');
     }
     tags.value = await tagStore.fetchTags();

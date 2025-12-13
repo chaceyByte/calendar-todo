@@ -74,8 +74,8 @@
             :key="task.id"
             class="task-card"
             draggable="true"
-            @dragstart="handleDragStart($event, task, column.id)"
-            @contextmenu="(e) => showTaskContextMenu(e, task)"
+            @dragstart="handleDragStart($event, task as any, column.id)"
+            @contextmenu="(e) => showTaskContextMenu(e, task as any)"
           >
             <div class="task-header">
               <span class="task-title">{{ task.title }}</span>
@@ -83,16 +83,16 @@
                 <el-icon><more /></el-icon>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item @click="editTask(task)">编辑</el-dropdown-item>
-                    <el-dropdown-item @click="showActivityDrawer(task)">
+                    <el-dropdown-item @click="editTask(task as any)">编辑</el-dropdown-item>
+                    <el-dropdown-item @click="showActivityDrawer(task as any)">
                       <el-icon><view /></el-icon>
                       查看活动记录
                     </el-dropdown-item>
-                    <el-dropdown-item @click="addToStaging(task)">添加到暂存</el-dropdown-item>
+                    <el-dropdown-item @click="addToStaging(task as any)">添加到暂存</el-dropdown-item>
                     <el-dropdown-item v-if="task.status !== 'paused'" @click="() => handlePauseTask(task.id)">暂停</el-dropdown-item>
                     <el-dropdown-item v-if="task.status === 'paused'" @click="() => handleResumeTask(task.id)">恢复</el-dropdown-item>
-                    <el-dropdown-item @click="addTagsToTask(task)">添加标签</el-dropdown-item>
-                    <el-dropdown-item @click="showManualActivityDialog(task)">添加活动记录</el-dropdown-item>
+                    <el-dropdown-item @click="addTagsToTask(task as any)">添加标签</el-dropdown-item>
+                    <el-dropdown-item @click="showManualActivityDialog(task as any)">添加活动记录</el-dropdown-item>
                     <el-dropdown-item @click="deleteTask(task.id)" divided>删除</el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
@@ -125,10 +125,10 @@
             </div>
             
             <!-- 活动状态指示器 -->
-            <div class="task-activity-indicator" @click="showActivityDrawer(task)">
-              <div class="activity-status" :class="getActivityStatusClass(task)">
+            <div class="task-activity-indicator" @click="showActivityDrawer(task as any)">
+              <div class="activity-status" :class="getActivityStatusClass(task as any)">
                 <el-icon><timer /></el-icon>
-                <span class="activity-text">{{ getActivityStatusText(task) }}</span>
+                <span class="activity-text">{{ getActivityStatusText(task as any) }}</span>
               </div>
               <div class="activity-time" v-if="getCurrentActivity(task.id)">
                 {{ formatActivityTime(getCurrentActivity(task.id)) }}
@@ -296,7 +296,7 @@
       </div>
       
       <div class="activity-actions">
-        <el-button type="primary" @click="showManualActivityDialog({ id: activityDrawer.taskId })">
+        <el-button type="primary" @click="showManualActivityDialog({ id: activityDrawer.taskId } as any)">
           添加活动记录
         </el-button>
       </div>
@@ -357,7 +357,7 @@ import dayjs from 'dayjs'
 import { 
   Plus, Clock, Close, More, Edit, VideoPause, PriceTag, Delete, Timer, View
 } from '@element-plus/icons-vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+
 import { useTaskStore } from '@/stores/task'
 import { useTagStore } from '@/stores/tag'
 import { useActivityStore } from '@/stores/activity'
