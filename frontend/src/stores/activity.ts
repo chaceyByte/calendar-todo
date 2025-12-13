@@ -81,7 +81,7 @@ export const useActivityStore = defineStore('activity', () => {
     const startActivity = async (taskId: number, activityType: string, description?: string) => {
         try {
             loading.value = true
-            const response = await request.post('/api/activities/start', {
+            const response: any = await request.post('/api/activities/start', {
                 taskId,
                 activityType,
                 description
@@ -104,8 +104,8 @@ export const useActivityStore = defineStore('activity', () => {
     const endActivity = async (taskId: number) => {
         try {
             loading.value = true
-            const response = await request.post(`/api/activities/end/${taskId}`)
-            const activity: ActivityRecord = response
+            const response = await request.post(`/api/activities/end/${taskId}`) as any
+            const activity: ActivityRecord = response.data
             // 更新活动列表中的对应记录
             const index = activities.value.findIndex(a => a.id === activity.id)
             if (index !== -1) {
@@ -136,9 +136,9 @@ export const useActivityStore = defineStore('activity', () => {
     }) => {
         try {
             loading.value = true
-            const response = await request.post('/api/activities/manual', data)
+            const response = await request.post('/api/activities/manual', data) as any
 
-            const activity: ActivityRecord = response
+            const activity: ActivityRecord = response.data
             activities.value.unshift(activity)
 
             return activity
@@ -154,9 +154,9 @@ export const useActivityStore = defineStore('activity', () => {
     const getTaskActivities = async (taskId: number) => {
         try {
             loading.value = true
-            const response = await request.get(`/api/activities/task/${taskId}`)
+            const response = await request.get(`/api/activities/task/${taskId}`) as any
 
-            return response as ActivityRecord[]
+            return response.data as ActivityRecord[]
         } catch (error) {
             console.error('获取任务活动记录失败:', error)
             throw error
@@ -168,11 +168,11 @@ export const useActivityStore = defineStore('activity', () => {
     // 获取任务当前活动
     const getCurrentActivity = async (taskId: number) => {
         try {
-            const response = await request.get(`/api/activities/current/${taskId}`)
+            const response = await request.get(`/api/activities/current/${taskId}`) as any
 
-            if (response) {
-                currentActivities.value.set(taskId, response)
-                return response as ActivityRecord
+            if (response.data) {
+                currentActivities.value.set(taskId, response.data)
+                return response.data as ActivityRecord
             } else {
                 currentActivities.value.delete(taskId)
                 return null
@@ -189,9 +189,9 @@ export const useActivityStore = defineStore('activity', () => {
             loading.value = true
             const response = await request.get('/api/activities/report/daily', {
                 params: {date}
-            })
+            }) as any
 
-            dailyReport.value = response as DailyReport
+            dailyReport.value = response.data as DailyReport
             return dailyReport.value
         } catch (error) {
             console.error('获取日报数据失败:', error)
@@ -205,11 +205,12 @@ export const useActivityStore = defineStore('activity', () => {
     const getWeeklyReport = async (weekStart: string) => {
         try {
             loading.value = true
-            const response = await request.get('/api/activities/report/weekly', {
+            const response: any = await request.get('/api/activities/report/weekly', {
                 params: {weekStart}
             })
 
-            weeklyReport.value = response as WeeklyReport
+            weeklyReport.value = {} as WeeklyReport
+            Object.assign(weeklyReport.value, response)
             return weeklyReport.value
         } catch (error) {
             console.error('获取周报数据失败:', error)

@@ -1,21 +1,25 @@
 <template>
   <div
-    class="calendar-container"
-    ref="calendarContainer"
-    tabindex="0"
-    @click="handleClickToFocus"
+      class="calendar-container"
+      ref="calendarContainer"
+      tabindex="0"
+      @click="handleClickToFocus"
   >
     <!-- 日历头部控制栏 -->
     <div class="calendar-header">
       <div class="header-controls">
         <el-button-group>
           <el-button @click="prevMonth">
-            <el-icon><arrow-left /></el-icon>
+            <el-icon>
+              <arrow-left/>
+            </el-icon>
             上个月
           </el-button>
           <el-button @click="nextMonth">
             下个月
-            <el-icon><arrow-right /></el-icon>
+            <el-icon>
+              <arrow-right/>
+            </el-icon>
           </el-button>
         </el-button-group>
 
@@ -23,11 +27,15 @@
 
         <el-button-group>
           <el-button @click="exportDailyReport" type="primary">
-            <el-icon><document /></el-icon>
+            <el-icon>
+              <document/>
+            </el-icon>
             导出日报
           </el-button>
           <el-button @click="exportWeeklyReport" type="success">
-            <el-icon><files /></el-icon>
+            <el-icon>
+              <files/>
+            </el-icon>
             导出周报
           </el-button>
         </el-button-group>
@@ -46,9 +54,9 @@
       <!-- 日期格子 -->
       <div class="calendar-grid">
         <div
-          v-for="day in calendarDays"
-          :key="day.date"
-          :class="[
+            v-for="day in calendarDays"
+            :key="day.date"
+            :class="[
             'calendar-day',
             {
               'today': day.isToday,
@@ -57,23 +65,25 @@
               'has-activities': day.activities.length > 0
             }
           ]"
-          @contextmenu="(e) => handleDayContextMenu(e, day)"
+            @contextmenu="(e) => handleDayContextMenu(e, day)"
         >
           <div class="day-header">
             <span class="day-number">{{ day.day }}</span>
             <div class="day-indicators">
               <el-badge
-                v-if="day.tasks.length > 0"
-                :value="day.tasks.length"
-                type="primary"
-                class="task-badge"
+                  v-if="day.tasks.length > 0"
+                  :value="day.tasks.length"
+                  type="primary"
+                  class="task-badge"
               />
               <div
-                v-if="day.totalActivityTime > 0"
-                class="activity-indicator"
-                :title="`活动时间: ${activityStore.formatDuration(day.totalActivityTime)}`"
+                  v-if="day.totalActivityTime > 0"
+                  class="activity-indicator"
+                  :title="`活动时间: ${activityStore.formatDuration(day.totalActivityTime)}`"
               >
-                <el-icon><clock /></el-icon>
+                <el-icon>
+                  <clock/>
+                </el-icon>
                 <span class="activity-time">{{ formatShortDuration(day.totalActivityTime) }}</span>
               </div>
             </div>
@@ -82,10 +92,10 @@
           <div class="day-content">
             <div class="day-tasks">
               <div
-                v-for="task in day.tasks.slice(0, 2)"
-                :key="task.id"
-                :class="['task-item', `status-${task.status}`]"
-                :title="task.title"
+                  v-for="task in day.tasks.slice(0, 2)"
+                  :key="task.id"
+                  :class="['task-item', `status-${task.status}`]"
+                  :title="task.title"
               >
                 {{ task.title }}
               </div>
@@ -93,12 +103,14 @@
 
             <div class="day-activities">
               <div
-                v-for="activity in day.activities.slice(0, 2)"
-                :key="activity.id"
-                :class="['activity-item', `type-${activity.activityType.toLowerCase()}`]"
-                :title="`${activity.description || activity.activityType} (${formatShortDuration(activity.durationMinutes || 0)})`"
+                  v-for="activity in day.activities.slice(0, 2)"
+                  :key="activity.id"
+                  :class="['activity-item', `type-${activity.activityType.toLowerCase()}`]"
+                  :title="`${activity.description || activity.activityType} (${formatShortDuration(activity.durationMinutes || 0)})`"
               >
-                <el-icon><circle /></el-icon>
+                <el-icon>
+                  <circle/>
+                </el-icon>
                 <span class="activity-text">{{ activity.description || activity.activityType }}</span>
               </div>
             </div>
@@ -113,17 +125,20 @@
 
     <!-- 右键菜单 -->
     <div
-      v-if="contextMenu.visible"
-      class="context-menu"
-      :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
-      @click="closeContextMenu"
-    >
-      <div class="menu-item" @click="exportDayReport">
-        <el-icon><document /></el-icon>
-        导出日报
+        v-if="contextMenu.visible"
+        class="context-menu"
+        :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
+        @click="closeContextMenu">
+      <div class="menu-item" @click="copyActiveTasks(contextMenu.selectedDay?.date)">
+        <el-icon>
+          <document/>
+        </el-icon>
+        复制日报
       </div>
       <div class="menu-item" @click="viewDayTasks">
-        <el-icon><view /></el-icon>
+        <el-icon>
+          <view/>
+        </el-icon>
         查看任务
       </div>
     </div>
@@ -131,12 +146,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import {computed, onMounted, onUnmounted, ref} from 'vue'
 import dayjs from 'dayjs'
-import { ArrowLeft, ArrowRight, Document, Files, View, Clock, Circle } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
-import { useTaskStore } from '@/stores/task'
-import { useActivityStore } from '@/stores/activity'
+import {ArrowLeft, ArrowRight, Circle, Clock, Document, Files, View} from '@element-plus/icons-vue'
+import {ElMessage, ElMessageBox} from 'element-plus'
+import {useTaskStore} from '@/stores/task'
+import {useActivityStore} from '@/stores/activity'
 
 interface Task {
   id: number
@@ -180,14 +195,13 @@ const calendarContainer = ref<HTMLElement | null>(null)
 const weekDays = ['日', '一', '二', '三', '四', '五', '六']
 
 const taskStore = useTaskStore()
+const activityStore = useActivityStore()
 // 手动点击获取焦点
 const handleClickToFocus = () => {
   if (calendarContainer.value) {
     calendarContainer.value.focus()
-    console.log('🖱️ 手动点击获取焦点成功')
   }
 }
-
 
 
 // 任务和活动数据
@@ -204,7 +218,13 @@ const loadData = async () => {
     for (const task of tasks.value) {
       try {
         const taskActivities = await activityStore.getTaskActivities(task.id)
-        activities.value.push(...taskActivities)
+
+        // 确保taskActivities是一个数组
+        if (Array.isArray(taskActivities)) {
+          activities.value.push(...taskActivities)
+        } else {
+          console.warn(`任务 ${task.id} 的活动记录不是数组格式:`, taskActivities)
+        }
       } catch (error) {
         console.error(`获取任务 ${task.id} 的活动记录失败:`, error)
       }
@@ -257,12 +277,12 @@ const calendarDays = computed(() => {
 
     // 获取当天的活动记录
     const dayActivities = activities.value.filter(activity =>
-      dayjs(activity.startTime).isSame(currentDay, 'day')
+        dayjs(activity.startTime).isSame(currentDay, 'day')
     )
 
     // 计算当天总活动时间
     const totalActivityTime = dayActivities.reduce((total, activity) =>
-      total + (activity.durationMinutes || 0), 0
+        total + (activity.durationMinutes || 0), 0
     )
 
     days.push({
@@ -305,6 +325,177 @@ const closeContextMenu = () => {
   contextMenu.value.visible = false
 }
 
+// 获取指定日期的活动任务
+const getActiveTasksForDay = (dateStr: string) => {
+  const targetDay = dayjs(dateStr)
+
+  // 筛选符合条件的活动任务
+  return tasks.value.filter(task => {
+    // 获取任务的活动记录
+    const taskActivities = activities.value.filter(activity => activity.taskId === task.id)
+
+    // 按时间排序
+    taskActivities.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
+
+    // 如果没有任何活动记录，不算活动任务
+    if (taskActivities.length === 0) {
+      return false
+    }
+
+    // 条件1：今日从计划中变为制作中
+    const todayPlannedToInProgress = taskActivities.some(activity => {
+      const activityDate = dayjs(activity.startTime)
+      return activityDate.isSame(targetDay, 'day') &&
+          activity.activityType === 'STARTED' &&
+          task.status === 'in-progress'
+    })
+
+    // 条件2：今日之前一直在制作中并且没有完成的
+    const beforeTodayInProgress = task.status === 'in-progress' &&
+        taskActivities.some(activity =>
+            dayjs(activity.startTime).isBefore(targetDay, 'day') &&
+            activity.activityType === 'STARTED'
+        ) &&
+        !taskActivities.some(activity =>
+            dayjs(activity.startTime).isSameOrBefore(targetDay, 'day') &&
+            activity.activityType === 'COMPLETED'
+        )
+
+    // 条件3：今天从制作中变更为已完成的
+    const todayInProgressToCompleted = taskActivities.some(activity => {
+      const activityDate = dayjs(activity.startTime)
+      return activityDate.isSame(targetDay, 'day') &&
+          activity.activityType === 'COMPLETED' &&
+          task.status === 'completed'
+    })
+
+    const isActive = todayPlannedToInProgress || beforeTodayInProgress || todayInProgressToCompleted
+    return isActive
+  })
+}
+
+// 复制活动任务到剪切板
+const copyActiveTasks = async (dateStr: string) => {
+  if (!dateStr) {
+    if (!contextMenu.value.selectedDay) {
+      closeContextMenu()
+      return
+    }
+    dateStr = contextMenu.value.selectedDay.date
+  }
+  const activeTasks = getActiveTasksForDay(dateStr)
+  if (activeTasks.length === 0) {
+    ElMessage.info(`${dateStr} 没有活动任务`)
+    closeContextMenu()
+    return
+  }
+
+  // 格式化任务信息
+  let clipboardText = `${dateStr} 活动任务\n\n`
+  activeTasks.forEach((task, index) => {
+    clipboardText += `${index + 1}. ${task.title}\n`
+    clipboardText += `   状态: ${getStatusText(task.status)}\n`
+    clipboardText += `   描述: ${task.description || '无'}\n`
+
+    // 获取任务相关的活动记录
+    const taskActivities = activities.value
+        .filter(activity => activity.taskId === task.id)
+        .filter(activity => dayjs(activity.startTime).isSame(dateStr, 'day'))
+        .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
+
+    if (taskActivities.length > 0) {
+      clipboardText += `   今日活动:\n`
+      taskActivities.forEach(activity => {
+        const startTime = dayjs(activity.startTime).format('HH:mm')
+        const endTime = activity.endTime ? dayjs(activity.endTime).format('HH:mm') : '进行中'
+        const duration = activity.durationMinutes ? ` (${formatShortDuration(activity.durationMinutes)})` : ''
+        clipboardText += `     - ${getActivityTypeText(activity.activityType)}: ${startTime}-${endTime}${duration}\n`
+        if (activity.description) {
+          clipboardText += `       描述: ${activity.description}\n`
+        }
+      })
+    }
+    clipboardText += '\n'
+  })
+  // 使用现代的 Clipboard API 复制到剪切板
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(clipboardText)
+      ElMessage.success(`已复制 ${activeTasks.length} 个活动任务到剪切板`)
+    } else {
+      // 降级方案
+      fallbackCopyToClipboard(clipboardText)
+    }
+    closeContextMenu()
+  } catch (err) {
+    console.error('复制失败:', err)
+    // 最后的备选方案 - 弹出对话框显示文本
+    ElMessageBox.alert(clipboardText, '复制内容', {
+      confirmButtonText: '确定',
+    }).then(() => {
+      ElMessage.info('请手动复制上方内容')
+      closeContextMenu()
+    }).catch(() => {
+      closeContextMenu()
+    })
+  }
+
+  closeContextMenu()
+}
+
+// 降级的复制方案
+const fallbackCopyToClipboard = (text: string) => {
+  try {
+    const textArea = document.createElement('textarea')
+    textArea.value = text
+    textArea.style.position = 'fixed'
+    textArea.style.left = '-999999px'
+    textArea.style.top = '-999999px'
+    document.body.appendChild(textArea)
+    textArea.focus()
+    textArea.select()
+
+    const successful = document.execCommand('copy')
+    document.body.removeChild(textArea)
+
+    if (successful) {
+      ElMessage.success('已复制活动任务到剪切板')
+    } else {
+      throw new Error('复制命令执行失败')
+    }
+  } catch (err) {
+    console.error('降级复制方案也失败了:', err)
+    ElMessage.error('复制失败，请手动复制')
+  }
+}
+
+// 获取状态文本
+const getStatusText = (status: string) => {
+  const statusMap = {
+    'planning': '计划中',
+    'in-progress': '制作中',
+    'completed': '已完成',
+    'paused': '已暂停'
+  }
+  return statusMap[status] || status
+}
+
+// 获取活动类型文本
+const getActivityTypeText = (type: string) => {
+  const typeMap = {
+    'CREATED': '创建',
+    'STARTED': '开始',
+    'COMPLETED': '完成',
+    'PAUSED': '暂停',
+    'RESUMED': '恢复',
+    'WORK': '工作',
+    'MEETING': '会议',
+    'STUDY': '学习',
+    'OTHER': '其他'
+  }
+  return typeMap[type] || type
+}
+
 const exportDayReport = () => {
   if (contextMenu.value.selectedDay) {
     ElMessage.success(`导出 ${contextMenu.value.selectedDay.date} 的日报`)
@@ -320,10 +511,78 @@ const viewDayTasks = () => {
 }
 
 const exportDailyReport = () => {
+  const selectedDateStr = currentDate.value.format('YYYY-MM-DD')
+  copyActiveTasks(selectedDateStr)
   ElMessage.success('导出日报成功')
 }
 
+// 复制本周活动任务到剪切板
+const copyActiveTasksForWeek = async () => {
+  const weekStart = currentDate.value.startOf('week')
+  const weekEnd = currentDate.value.endOf('week')
+  const weekStartStr = weekStart.format('YYYY-MM-DD')
+  const weekEndStr = weekEnd.format('YYYY-MM-DD')
+
+  // 收集本周所有活动任务
+  const weeklyActiveTasks = []
+
+  for (let i = 0; i <= weekEnd.diff(weekStart, 'day'); i++) {
+    const currentDay = weekStart.add(i, 'day')
+    const currentDayStr = currentDay.format('YYYY-MM-DD')
+
+    // 获取当天的活动任务
+    const dayActiveTasks = getActiveTasksForDay(currentDayStr)
+    weeklyActiveTasks.push({
+      date: currentDayStr,
+      tasks: dayActiveTasks
+    })
+  }
+
+  // 格式化周报内容
+  let clipboardText = `${weekStartStr} 至 ${weekEndStr} 活动任务周报\n\n`
+
+  weeklyActiveTasks.forEach(dayInfo => {
+    if (dayInfo.tasks.length > 0) {
+      clipboardText += `📅 ${dayInfo.date} (${dayjs(dayInfo.date).format('dddd')})\n`
+      dayInfo.tasks.forEach((task, index) => {
+        clipboardText += `  ${index + 1}. ${task.title}\n`
+        clipboardText += `     状态: ${getStatusText(task.status)}\n`
+        clipboardText += `     描述: ${task.description || '无'}\n`
+      })
+      clipboardText += '\n'
+    }
+  })
+
+  if (weeklyActiveTasks.every(dayInfo => dayInfo.tasks.length === 0)) {
+    clipboardText += '本周暂无活动任务'
+  }
+
+  // 使用现代的 Clipboard API 复制到剪切板
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(clipboardText)
+      ElMessage.success('已复制本周活动任务到剪切板')
+    } else {
+      // 降级方案
+      fallbackCopyToClipboard(clipboardText)
+    }
+    closeContextMenu()
+  } catch (err) {
+    console.error('复制失败:', err)
+    // 最后的备选方案 - 弹出对话框显示文本
+    ElMessageBox.alert(clipboardText, '复制内容', {
+      confirmButtonText: '确定',
+    }).then(() => {
+      ElMessage.info('请手动复制上方内容')
+      closeContextMenu()
+    }).catch(() => {
+      closeContextMenu()
+    })
+  }
+}
+
 const exportWeeklyReport = () => {
+  copyActiveTasksForWeek()
   ElMessage.success('导出周报成功')
 }
 
