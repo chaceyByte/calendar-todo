@@ -445,7 +445,7 @@ const availableTags = ref([])
 
 // 分页状态管理
 const completedPagination = reactive<PaginationState>({
-  pageSize: 10,
+  pageSize: 5,
   currentPage: 1,
   hasMore: false,
   isLoading: false
