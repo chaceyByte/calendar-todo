@@ -39,6 +39,12 @@ const router = createRouter({
           name: 'Reports',
           component: () => import('@/views/Reports.vue'),
           meta: { title: '报告' }
+        },
+        {
+          path: 'archived',
+          name: 'Archived',
+          component: () => import('@/views/Archived.vue'),
+          meta: { title: '归档任务' }
         }
       ]
     },

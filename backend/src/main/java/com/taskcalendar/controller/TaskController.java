@@ -1,5 +1,7 @@
 package com.taskcalendar.controller;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.taskcalendar.context.CurrentUser;
 import com.taskcalendar.dto.ApiResponse;
 import com.taskcalendar.dto.TaskDTO;
@@ -105,6 +107,17 @@ public class TaskController {
     public ApiResponse<List<TaskDTO>> getStagingTasks() {
         // 获取所有暂存状态的任务
         List<TaskDTO> tasks = taskService.getTasksByStatus("paused");
+        return ApiResponse.success(tasks);
+    }
+
+    // 归档任务相关接口
+    @GetMapping("/archived")
+    public ApiResponse<IPage<TaskDTO>> getArchivedTasks(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String keyword) {
+        
+        IPage<TaskDTO> tasks = taskService.getArchivedTasks(page, size, keyword);
         return ApiResponse.success(tasks);
     }
 

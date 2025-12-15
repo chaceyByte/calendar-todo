@@ -74,7 +74,7 @@
           <span class="task-count">{{ getTasksByStatus(column.id).length }}</span>
         </div>
 
-        <div class="column-content">
+        <div class="column-content" :ref="el => setColumnRef(el, column.id)">
           <div
               v-for="task in getTasksByStatus(column.id)"
               :key="task.id"
@@ -162,6 +162,26 @@
               </el-icon>
               添加任务
             </el-button>
+          </div>
+
+          <!-- 加载更多按钮（仅对已完成列） -->
+          <div v-if="column.id === 'completed' && completedPagination.hasMore" class="load-more-btn">
+            <el-button
+                text
+                @click="loadMoreCompletedTasks"
+                class="full-width"
+                :loading="completedPagination.isLoading"
+            >
+              <el-icon>
+                <plus/>
+              </el-icon>
+              {{ completedPagination.isLoading ? '加载中...' : '加载更多' }}
+            </el-button>
+          </div>
+
+          <!-- 已加载完成提示 -->
+          <div v-if="column.id === 'completed' && !completedPagination.hasMore && loadedCompletedTasks.value && loadedCompletedTasks.value.length > 0" class="load-complete-hint">
+            <el-tag size="small" type="info">已加载全部 {{ loadedCompletedTasks.value.length }} 个任务</el-tag>
           </div>
         </div>
       </div>
@@ -377,7 +397,7 @@
 </template>
 
 <script setup lang="ts">
-import {computed, onMounted, onUnmounted, reactive, ref} from 'vue'
+import {computed, onMounted, onUnmounted, reactive, ref, nextTick} from 'vue'
 import dayjs from 'dayjs'
 import {ElMessage, ElMessageBox} from 'element-plus'
 import {Clock, Close, Delete, Edit, More, Plus, PriceTag, Timer, VideoPause, View} from '@element-plus/icons-vue'
@@ -402,6 +422,13 @@ interface Column {
   title: string
 }
 
+interface PaginationState {
+  pageSize: number
+  currentPage: number
+  hasMore: boolean
+  isLoading: boolean
+}
+
 const columns: Column[] = [
   {id: 'planning', title: '计划中'},
   {id: 'in-progress', title: '制作中'},
@@ -415,6 +442,20 @@ const activityStore = useActivityStore()
 // 直接使用store中的任务数据
 const tasks = computed(() => taskStore.tasks)
 const availableTags = ref([])
+
+// 分页状态管理
+const completedPagination = reactive<PaginationState>({
+  pageSize: 10,
+  currentPage: 1,
+  hasMore: false,
+  isLoading: false
+})
+
+// 已加载的已完成任务列表
+const loadedCompletedTasks = ref<Task[]>([])
+
+// 列引用管理
+const columnRefs = ref<Record<string, HTMLElement>>({})
 
 const stagingTasks = ref<Task[]>([])
 const showStaging = ref(false)
@@ -469,6 +510,11 @@ const manualActivityDialog = reactive({
 const activities = ref([])
 
 const getTasksByStatus = (status: string) => {
+  if (status === 'completed') {
+    // 对于已完成任务，返回已加载的任务列表
+    return loadedCompletedTasks.value || []
+  }
+  // 对于其他状态，返回所有任务
   return tasks.value?.filter(task => task.status === status) || []
 }
 
@@ -749,10 +795,75 @@ const formatDate = (date: string) => {
 const loadTasks = async () => {
   try {
     await taskStore.fetchTasks()
-    // 现在tasks已经直接引用了store中的数据，无需额外赋值
+    // 初始化已完成任务分页
+    initCompletedTasksPagination()
   } catch (error) {
     console.error('加载任务失败:', error)
     ElMessage.error('加载任务失败')
+  }
+}
+
+// 初始化已完成任务分页
+const initCompletedTasksPagination = () => {
+  const allCompletedTasks = tasks.value?.filter(task => task.status === 'completed') || []
+  
+  // 重置分页状态
+  completedPagination.currentPage = 1
+  completedPagination.hasMore = allCompletedTasks.length > completedPagination.pageSize
+  
+  // 加载第一页数据
+  loadedCompletedTasks.value = allCompletedTasks.slice(0, completedPagination.pageSize)
+}
+
+// 加载更多已完成任务
+const loadMoreCompletedTasks = () => {
+  if (completedPagination.isLoading || !completedPagination.hasMore) {
+    return
+  }
+
+  completedPagination.isLoading = true
+  
+  const allCompletedTasks = tasks.value?.filter(task => task.status === 'completed') || []
+  const nextPage = completedPagination.currentPage + 1
+  const startIndex = (nextPage - 1) * completedPagination.pageSize
+  const endIndex = startIndex + completedPagination.pageSize
+  
+  const newTasks = allCompletedTasks.slice(startIndex, endIndex)
+  
+  // 模拟异步加载
+  setTimeout(() => {
+    loadedCompletedTasks.value = [...(loadedCompletedTasks.value || []), ...newTasks]
+    completedPagination.currentPage = nextPage
+    completedPagination.hasMore = endIndex < allCompletedTasks.length
+    completedPagination.isLoading = false
+  }, 300)
+}
+
+// 设置列引用
+const setColumnRef = (el: HTMLElement | null, columnId: string) => {
+  if (el) {
+    columnRefs.value[columnId] = el
+    
+    // 仅为已完成列添加滚动监听
+    if (columnId === 'completed') {
+      setupScrollListener(el)
+    }
+  }
+}
+
+// 设置滚动监听
+const setupScrollListener = (element: HTMLElement) => {
+  element.addEventListener('scroll', handleColumnScroll)
+}
+
+// 处理列滚动事件
+const handleColumnScroll = (event: Event) => {
+  const target = event.target as HTMLElement
+  const { scrollTop, scrollHeight, clientHeight } = target
+  
+  // 当滚动到底部附近时自动加载更多
+  if (scrollHeight - scrollTop - clientHeight < 100 && !completedPagination.isLoading && completedPagination.hasMore) {
+    loadMoreCompletedTasks()
   }
 }
 
@@ -814,7 +925,11 @@ const moveTaskToColumn = async (task: Task, targetStatus: string) => {
         status: targetStatus as any,
         progress: targetStatus === 'completed' ? 100 : task.progress
       })
-      await loadTasks()
+      
+      // 如果任务状态发生变化，重新初始化分页
+      if (task.status !== targetStatus) {
+        await loadTasks()
+      }
 
       // 记录最后移动的任务ID，用于撤销
       localStorage.setItem('lastMovedTaskId', task.id.toString())
@@ -1050,6 +1165,13 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('keydown', handleGlobalKeyDown, {capture: true})
   document.removeEventListener('click', closeTaskContextMenu)
+  
+  // 清理滚动监听器
+  Object.values(columnRefs.value).forEach(element => {
+    if (element) {
+      element.removeEventListener('scroll', handleColumnScroll)
+    }
+  })
 })
 </script>
 
@@ -1226,6 +1348,16 @@ onUnmounted(() => {
 
 .add-task-btn {
   margin-top: 8px;
+}
+
+.load-more-btn {
+  margin-top: 8px;
+}
+
+.load-complete-hint {
+  text-align: center;
+  margin-top: 8px;
+  padding: 4px;
 }
 
 .full-width {

@@ -1,6 +1,9 @@
 package com.taskcalendar.service;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.core.toolkit.StringUtils;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.baomidou.mybatisplus.extension.toolkit.Db;
 import com.taskcalendar.dto.TaskDTO;
@@ -22,6 +25,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -44,7 +48,7 @@ public class TaskService extends ServiceImpl<TaskMapper, Task> {
                 .orderByDesc(Task::getCreatedAt)
                 .list();
 
-        return tasks.stream().map(this::convertToDTO).collect(Collectors.toList());
+        return convertTasksToDTOs(tasks);
     }
 
     public List<TaskDTO> getAllTasks() {
@@ -52,7 +56,7 @@ public class TaskService extends ServiceImpl<TaskMapper, Task> {
                 .orderByDesc(Task::getCreatedAt)
                 .list();
 
-        return tasks.stream().map(this::convertToDTO).collect(Collectors.toList());
+        return convertTasksToDTOs(tasks);
     }
 
     public List<TaskDTO> getTasksByStatus(Long userId, String status) {
@@ -62,7 +66,7 @@ public class TaskService extends ServiceImpl<TaskMapper, Task> {
                 .orderByDesc(Task::getCreatedAt)
                 .list();
 
-        return tasks.stream().map(this::convertToDTO).collect(Collectors.toList());
+        return convertTasksToDTOs(tasks);
     }
 
     public List<TaskDTO> getTasksByStatus(String status) {
@@ -71,9 +75,108 @@ public class TaskService extends ServiceImpl<TaskMapper, Task> {
                 .orderByDesc(Task::getCreatedAt)
                 .list();
 
-        return tasks.stream().map(this::convertToDTO).collect(Collectors.toList());
+        return convertTasksToDTOs(tasks);
     }
 
+    /**
+     * 获取归档任务（已完成任务）的分页列表，支持搜索
+     */
+    public IPage<TaskDTO> getArchivedTasks(int page, int size, String keyword) {
+        Page<Task> taskPage = lambdaQuery()
+                .eq(Task::getStatus, "completed")
+                .and(StringUtils.isNotBlank(keyword), wrapper -> wrapper
+                        .like(Task::getTitle, keyword)
+                        .or()
+                        .like(Task::getDescription, keyword)
+                )
+                .orderByDesc(Task::getCreatedAt)
+                .page(new Page<>(page, size));
+
+        // 获取任务列表
+        List<Task> tasks = taskPage.getRecords();
+        
+        // 批量转换任务为DTO，避免N+1查询
+        List<TaskDTO> taskDTOs = convertTasksToDTOs(tasks);
+        
+        // 创建新的分页对象
+        Page<TaskDTO> resultPage = new Page<>(taskPage.getCurrent(), taskPage.getSize(), taskPage.getTotal());
+        resultPage.setRecords(taskDTOs);
+        
+        return resultPage;
+    }
+
+    /**
+     * 批量转换任务列表为DTO列表，避免N+1查询问题
+     */
+    private List<TaskDTO> convertTasksToDTOs(List<Task> tasks) {
+        if (tasks.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        // 获取所有任务ID
+        List<Long> taskIds = tasks.stream().map(Task::getId).collect(Collectors.toList());
+
+        // 批量查询任务标签关联
+        List<TaskTag> allTaskTags = taskTagMapper.selectList(
+                Wrappers.<TaskTag>lambdaQuery().in(TaskTag::getTaskId, taskIds)
+        );
+
+        // 按任务ID分组标签关联
+        Map<Long, List<Long>> taskTagMap = new HashMap<>();
+        for (TaskTag taskTag : allTaskTags) {
+            taskTagMap
+                    .computeIfAbsent(taskTag.getTaskId(), k -> new ArrayList<>())
+                    .add(taskTag.getTagId());
+        }
+
+        // 获取所有标签ID
+        List<Long> allTagIds = allTaskTags.stream()
+                .map(TaskTag::getTagId)
+                .distinct()
+                .collect(Collectors.toList());
+
+        // 批量查询标签信息
+        Map<Long, String> tagNameMap = new HashMap<>();
+        if (!allTagIds.isEmpty()) {
+            List<Tag> allTags = tagMapper.selectBatchIds(allTagIds);
+            tagNameMap = allTags.stream()
+                    .collect(Collectors.toMap(Tag::getId, Tag::getName));
+        }
+
+        // 批量构建DTO
+        List<TaskDTO> dtos = new ArrayList<>();
+        for (Task task : tasks) {
+            TaskDTO dto = new TaskDTO();
+            dto.setId(task.getId());
+            dto.setTitle(task.getTitle());
+            dto.setDescription(task.getDescription());
+            dto.setStatus(task.getStatus());
+            dto.setProgress(task.getProgress());
+            dto.setPriority(task.getPriority());
+            dto.setStartDate(task.getStartDate());
+            dto.setEndDate(task.getEndDate());
+            dto.setCreatedAt(task.getCreatedAt());
+            dto.setUpdatedAt(task.getUpdatedAt());
+
+            // 设置标签信息
+            List<Long> tagIds = taskTagMap.get(task.getId());
+            if (tagIds != null && !tagIds.isEmpty()) {
+                List<String> tagNames = tagIds.stream()
+                        .map(tagNameMap::get)
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toList());
+                dto.setTags(tagNames);
+            }
+
+            dtos.add(dto);
+        }
+
+        return dtos;
+    }
+
+    /**
+     * 单个任务转换（用于单个任务查询的场景）
+     */
     private TaskDTO convertToDTO(Task task) {
         TaskDTO dto = new TaskDTO();
         dto.setId(task.getId());

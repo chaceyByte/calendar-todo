@@ -170,3 +170,25 @@ export const getStagingTasks = async () => {
     throw error
   }
 }
+
+// 归档任务相关API
+export interface ArchivedTasksResponse {
+  data: Task[]
+  total: number
+  page: number
+  size: number
+}
+
+export const getArchivedTasks = async (page: number = 1, size: number = 20, keyword?: string) => {
+  try {
+    const params: any = { page, size }
+    if (keyword) {
+      params.keyword = keyword
+    }
+    const response = await request.get('/api/tasks/archived', { params })
+    return response.data || response
+  } catch (error) {
+    console.error('获取归档任务失败:', error)
+    throw error
+  }
+}

@@ -59,6 +59,7 @@ const userStore = useUserStore()
 const tabs = ref([
   { name: 'Home', title: '首页' },
   { name: 'Calendar', title: '日历' },
+  { name: 'Archived', title: '归档任务' },
   { name: 'Tasks', title: '任务' },
   { name: 'Tags', title: '标签' },
   { name: 'Reports', title: '报告' }
