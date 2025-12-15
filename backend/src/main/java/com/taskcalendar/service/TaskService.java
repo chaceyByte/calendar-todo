@@ -367,7 +367,7 @@ public class TaskService extends ServiceImpl<TaskMapper, Task> {
         activity.setActivityType(activityType.name());
         activity.setStartTime(LocalDateTime.now());
         activity.setDescription(description);
-        activity.setCreatedAt(LocalDateTime.now());
+        // createdAt字段将由MetaObjectHandler自动填充
 
         activityRecordMapper.insert(activity);
         log.info("记录任务活动: taskId={}, type={}, description={}",

@@ -23,9 +23,7 @@ public class TagController {
 
     @GetMapping
     public ApiResponse<List<TagWithCountDTO>> getTags() {
-        Long userId = CurrentUser.getUserId();
-
-        List<TagWithCountDTO> tags = tagService.getTagsWithTaskCount(userId);
+        List<TagWithCountDTO> tags = tagService.getTagsWithTaskCount();
         return ApiResponse.success(tags);
     }
 
@@ -33,8 +31,7 @@ public class TagController {
     public ApiResponse<Tag> createTag(@RequestBody Tag tag) {
         Long userId = CurrentUser.getUserId();
         tag.setUserId(userId);
-        tag.setCreatedAt(LocalDateTime.now());
-        tag.setUpdatedAt(LocalDateTime.now());
+        // createdAt、updatedAt字段将由MetaObjectHandler自动填充
         tagService.save(tag);
         return ApiResponse.success("标签创建成功", tag);
     }
@@ -52,7 +49,7 @@ public class TagController {
 
         tag.setId(id);
         tag.setUserId(userId);
-        tag.setUpdatedAt(LocalDateTime.now());
+        // updatedAt字段将由MetaObjectHandler自动填充
         tagService.updateById(tag);
         return ApiResponse.success("标签更新成功", tag);
     }

@@ -32,7 +32,7 @@ public class Task {
     @TableField("end_date")
     private LocalDateTime endDate;
     
-    @TableField("user_id")
+    @TableField(value = "user_id", fill = FieldFill.INSERT)
     private Long userId;
     
     @TableField(value = "created_at", fill = FieldFill.INSERT)

@@ -37,9 +37,7 @@ public class TaskController {
 
     @PostMapping
     public ApiResponse<Task> createTask(@RequestBody Task task) {
-        task.setUserId(1L); // 暂时使用默认用户ID
-        task.setCreatedAt(LocalDateTime.now());
-        task.setUpdatedAt(LocalDateTime.now());
+        // userId、createdAt、updatedAt字段将由MetaObjectHandler自动填充
         taskService.save(task);
         return ApiResponse.success("任务创建成功", task);
     }
@@ -61,7 +59,7 @@ public class TaskController {
 
         task.setId(id);
         task.setUserId(existingTask.getUserId());
-        task.setUpdatedAt(LocalDateTime.now());
+        // updatedAt字段将由MetaObjectHandler自动填充
         taskService.updateById(task);
         return ApiResponse.success("任务更新成功", task);
     }

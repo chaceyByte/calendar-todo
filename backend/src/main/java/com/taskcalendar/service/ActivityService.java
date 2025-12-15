@@ -54,7 +54,7 @@ public class ActivityService extends ServiceImpl<ActivityRecordMapper, ActivityR
         activity.setActivityType(request.getActivityType().name());
         activity.setStartTime(request.getStartTime() != null ? request.getStartTime() : LocalDateTime.now());
         activity.setDescription(request.getDescription());
-        activity.setCreatedAt(LocalDateTime.now());
+        // createdAt字段将由MetaObjectHandler自动填充
         
         save(activity);
         log.info("开始任务 {} 的活动: {}", request.getTaskId(), request.getActivityType());
@@ -104,7 +104,7 @@ public class ActivityService extends ServiceImpl<ActivityRecordMapper, ActivityR
         activity.setStartTime(request.getStartTime());
         activity.setEndTime(request.getEndTime());
         activity.setDescription(request.getDescription());
-        activity.setCreatedAt(LocalDateTime.now());
+        // createdAt字段将由MetaObjectHandler自动填充
         activity.calculateDuration();
         
         save(activity);
