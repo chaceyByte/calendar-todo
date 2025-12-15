@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+import javax.servlet.http.HttpSession;
 import javax.validation.Valid;
 
 @RestController
@@ -23,7 +24,16 @@ public class AuthController {
     private final JwtUtil jwtUtil;
 
     @PostMapping("/register")
-    public ApiResponse<LoginResponse> register(@Valid @RequestBody RegisterRequest request) {
+    public ApiResponse<LoginResponse> register(@Valid @RequestBody RegisterRequest request, HttpSession session) {
+        // 验证码验证
+        String captcha = (String) session.getAttribute("captcha");
+        if (captcha == null || !captcha.equalsIgnoreCase(request.getCaptcha())) {
+            return ApiResponse.error("验证码错误");
+        }
+        
+        // 使用后立即清除验证码
+        session.removeAttribute("captcha");
+        
         // 检查用户名是否已存在
         User existingUser = userService.findByUsername(request.getUsername());
         if (existingUser != null) {
@@ -58,13 +68,30 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ApiResponse<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
-        User user = userService.findByUsername(request.getUsername());
-        if (user == null) {
-            return ApiResponse.error("用户名或密码错误");
+    public ApiResponse<LoginResponse> login(@Valid @RequestBody LoginRequest request, HttpSession session) {
+        // 验证码验证
+        String captcha = (String) session.getAttribute("captcha");
+        if (captcha == null || !captcha.equalsIgnoreCase(request.getCaptcha())) {
+            return ApiResponse.error("验证码错误");
         }
 
+        // 使用后立即清除验证码
+        session.removeAttribute("captcha");
+
+        // 特殊处理演示账号
         if ("admin".equals(request.getUsername()) && "123456".equals(request.getPassword())) {
+            User user = userService.findByUsername("admin");
+            if (user == null) {
+                // 如果admin用户不存在，创建一个默认的admin用户
+                user = new User();
+                user.setUsername("admin");
+                user.setPassword(passwordEncoder.encode("123456"));
+                user.setNickname("管理员");
+                user.setEmail("admin@example.com");
+                user.setAvatar("https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png");
+                userService.save(user);
+            }
+
             String token = jwtUtil.generateToken(request.getUsername());
             LoginResponse.UserInfo userInfo = new LoginResponse.UserInfo();
             userInfo.setId(user.getId());
@@ -72,18 +99,30 @@ public class AuthController {
             userInfo.setNickname(user.getNickname());
             userInfo.setAvatar(user.getAvatar());
             userInfo.setEmail(user.getEmail());
-
             LoginResponse response = new LoginResponse();
             response.setToken(token);
             response.setUser(userInfo);
             return ApiResponse.success("登录成功", response);
         }
-        return ApiResponse.error("用户名或密码错误");
 
-//        if (user == null || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-//            return ApiResponse.error("用户名或密码错误");
-//        }
+        // 正常用户登录逻辑
+        User user = userService.findByUsername(request.getUsername());
+        if (user == null || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            return ApiResponse.error("用户名或密码错误");
+        }
 
+        String token = jwtUtil.generateToken(request.getUsername());
+        LoginResponse.UserInfo userInfo = new LoginResponse.UserInfo();
+        userInfo.setId(user.getId());
+        userInfo.setUsername(user.getUsername());
+        userInfo.setNickname(user.getNickname());
+        userInfo.setAvatar(user.getAvatar());
+        userInfo.setEmail(user.getEmail());
+        LoginResponse response = new LoginResponse();
+        response.setToken(token);
+        response.setUser(userInfo);
+
+        return ApiResponse.success("登录成功", response);
     }
 
     @GetMapping("/profile")

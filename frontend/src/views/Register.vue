@@ -63,6 +63,22 @@
           />
         </el-form-item>
 
+        <el-form-item prop="captcha">
+          <div class="captcha-container">
+            <el-input
+              v-model="registerForm.captcha"
+              placeholder="请输入验证码"
+              size="large"
+              style="flex: 1; margin-right: 10px;"
+              @keyup.enter="handleRegister"
+            />
+            <div class="captcha-image" @click="refreshCaptcha">
+              <img :src="captchaImage" alt="验证码" v-if="captchaImage" />
+              <el-button size="large" @click="refreshCaptcha" v-else>获取验证码</el-button>
+            </div>
+          </div>
+        </el-form-item>
+
         <el-form-item>
           <el-button 
             type="primary" 
@@ -84,9 +100,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { getCaptcha } from '@/api/captcha'
+import { ElMessage } from 'element-plus/es'
 // import type { FormInstance, FormRules } from 'element-plus'
 
 const router = useRouter()
@@ -94,13 +112,20 @@ const userStore = useUserStore()
 
 const registerFormRef = ref<any>()
 const loading = ref(false)
+const captchaImage = ref('')
 
 const registerForm = reactive({
   username: '',
   password: '',
   confirmPassword: '',
   nickname: '',
-  email: ''
+  email: '',
+  captcha: ''
+})
+
+// 页面加载时获取验证码
+onMounted(() => {
+  refreshCaptcha()
 })
 
 const validateConfirmPassword = (_rule: any, value: string, callback: any) => {
@@ -132,30 +157,50 @@ const registerRules: any = {
   email: [
     { required: true, message: '请输入邮箱', trigger: 'blur' },
     { type: 'email', message: '邮箱格式不正确', trigger: 'blur' }
+  ],
+  captcha: [
+    { required: true, message: '请输入验证码', trigger: 'blur' }
   ]
 }
 
 const handleRegister = async () => {
+  console.log("......")
   if (!registerFormRef.value) return
-
+console.log("......1")
   const valid = await registerFormRef.value.validate()
   if (!valid) return
 
+  console.log("......2")
   loading.value = true
-
+console.log("......3")
   try {
     await userStore.register(
       registerForm.username,
       registerForm.password,
       registerForm.nickname,
-      registerForm.email
+      registerForm.email,
+      registerForm.captcha
     )
-    ElMessage.success('注册成功')
-    router.push('/')
+    console.log("......4")
+    ElMessage.success('注册成功，已为您登录, 祝您使用愉快!')
+    await router.push('/login')
   } catch (error) {
-    ElMessage.error('注册失败，请稍后重试')
+    console.log("....5",error)
+
+    // 错误消息已经在request拦截器中显示，这里只需刷新验证码
+    await refreshCaptcha() // 刷新验证码
   } finally {
     loading.value = false
+  }
+}
+
+// 获取验证码
+const refreshCaptcha = async () => {
+  try {
+    captchaImage.value = await getCaptcha()
+  } catch (error) {
+    // 错误已经在API函数中处理，这里可以添加额外的UI反馈
+    ElMessage.error('获取验证码失败，请刷新页面重试')
   }
 }
 
@@ -212,6 +257,28 @@ const goToLogin = () => {
   text-align: center;
   border-top: 1px solid #e4e7ed;
   padding-top: 20px;
+}
+
+.captcha-container {
+  display: flex;
+  align-items: center;
+}
+
+.captcha-image {
+  width: 120px;
+  height: 40px;
+  cursor: pointer;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.captcha-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .register-footer p {

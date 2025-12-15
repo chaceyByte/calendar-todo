@@ -48,7 +48,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { ArrowDown, SwitchButton } from '@element-plus/icons-vue'
@@ -68,6 +68,11 @@ const handleLogout = () => {
   userStore.logout()
   router.push('/login')
 }
+
+// 组件挂载时初始化用户信息
+onMounted(async () => {
+  await userStore.initUser()
+})
 </script>
 
 <style scoped>

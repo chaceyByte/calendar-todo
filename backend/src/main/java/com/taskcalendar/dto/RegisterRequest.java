@@ -23,4 +23,7 @@ public class RegisterRequest {
     
     @Email(message = "邮箱格式不正确")
     private String email;
+    
+    @NotBlank(message = "验证码不能为空")
+    private String captcha;
 }

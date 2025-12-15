@@ -34,6 +34,22 @@
           />
         </el-form-item>
 
+        <el-form-item prop="captcha">
+          <div class="captcha-container">
+            <el-input
+              v-model="loginForm.captcha"
+              placeholder="请输入验证码"
+              size="large"
+              style="flex: 1; margin-right: 10px;"
+              @keyup.enter="handleLogin"
+            />
+            <div class="captcha-image" @click="refreshCaptcha">
+              <img :src="captchaImage" alt="验证码" v-if="captchaImage" />
+              <el-button size="large" @click="refreshCaptcha" v-else>获取验证码</el-button>
+            </div>
+          </div>
+        </el-form-item>
+
         <el-form-item>
           <el-button 
             type="primary" 
@@ -49,6 +65,7 @@
 
       <div class="login-footer">
         <p>演示账号：admin / 123456</p>
+        <p>没有账号？<el-link type="primary" @click="goToRegister">立即注册</el-link></p>
       </div>
     </div>
   </div>
@@ -58,6 +75,8 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { getCaptcha } from '@/api/captcha'
+import { ElMessage } from 'element-plus/es'
 
 // import type { FormInstance, FormRules } from 'element-plus'
 
@@ -69,13 +88,17 @@ const loading = ref(false)
 
 const loginForm = reactive({
   username: '',
-  password: ''
+  password: '',
+  captcha: ''
 })
+
+const captchaImage = ref('')
 
 // 页面加载时自动填充演示账号
 onMounted(() => {
   loginForm.username = 'admin'
   loginForm.password = '123456'
+  refreshCaptcha()
 })
 
 const loginRules: any = {
@@ -86,7 +109,20 @@ const loginRules: any = {
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
     { min: 6, max: 20, message: '密码长度在 6 到 20 个字符', trigger: 'blur' }
+  ],
+  captcha: [
+    { required: true, message: '请输入验证码', trigger: 'blur' }
   ]
+}
+
+// 获取验证码
+const refreshCaptcha = async () => {
+  try {
+    captchaImage.value = await getCaptcha()
+  } catch (error) {
+    // 错误已经在API函数中处理，这里可以添加额外的UI反馈
+    ElMessage.error('获取验证码失败，请刷新页面重试')
+  }
 }
 
 const handleLogin = async () => {
@@ -99,7 +135,7 @@ const handleLogin = async () => {
 
   try {
     console.log('开始登录，用户名:', loginForm.username)
-    await userStore.login(loginForm.username, loginForm.password)
+    await userStore.login(loginForm.username, loginForm.password, loginForm.captcha)
     console.log('登录成功，准备跳转')
     ElMessage.success('登录成功')
     
@@ -111,10 +147,15 @@ const handleLogin = async () => {
     router.replace('/')
   } catch (error) {
     console.error('登录错误:', error)
-    ElMessage.error('登录失败，请检查用户名和密码')
+    // 错误消息已经在request拦截器中显示，这里只需刷新验证码
+    refreshCaptcha() // 刷新验证码
   } finally {
     loading.value = false
   }
+}
+
+const goToRegister = () => {
+  router.push('/register')
 }
 </script>
 
@@ -168,8 +209,30 @@ const handleLogin = async () => {
   padding-top: 20px;
 }
 
+.captcha-container {
+  display: flex;
+  align-items: center;
+}
+
+.captcha-image {
+  width: 120px;
+  height: 40px;
+  cursor: pointer;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.captcha-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .login-footer p {
-  margin: 0;
+  margin: 5px 0;
   color: #909399;
   font-size: 12px;
 }
