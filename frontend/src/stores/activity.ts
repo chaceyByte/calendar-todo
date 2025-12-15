@@ -1,308 +1,230 @@
 import {defineStore} from 'pinia'
 import {computed, ref} from 'vue'
-import request from '@/utils/request'
+import {
+    addManualActivity as apiAddManualActivity,
+    endActivity as apiEndActivity,
+    getActivityByTask as apiGetActivityByTask,
+    getAllActivities as apiGetAllActivities,
+    getCurrentActivity as apiGetCurrentActivity,
+    getDailyReport as apiGetDailyReport,
+    getWeeklyReport as apiGetWeeklyReport,
+    startActivity as apiStartActivity
+} from '@/api/activity'
 
 export interface ActivityRecord {
     id: number
     taskId: number
-    startTime: string
-    endTime?: string
-    activityType: string
-    description?: string
-    durationMinutes?: number
-    createdAt: string
-}
-
-export interface DailyReport {
-    date: string
-    totalTime: number
-    completedTasks: number
-    activeTasks: number
-    taskActivities: TaskActivityDetail[]
-}
-
-export interface TaskActivityDetail {
-    taskId: number
-    taskTitle: string
-    duration: number
-    status: string
-    activities: ActivityDetail[]
-}
-
-export interface ActivityDetail {
-    id: number
-    activityType: string
-    description?: string
+    taskTitle?: string
     startTime: string
     endTime?: string
     duration?: number
+    status: 'running' | 'completed' | 'cancelled'
+    notes?: string
+    tags?: string[]
+    type: 'auto' | 'manual'
+}
+
+export interface ActivityReport {
+    date: string
+    duration: number
+    tasks: {
+        taskId: number
+        taskTitle: string
+        duration: number
+    }[]
 }
 
 export interface WeeklyReport {
     weekStart: string
     weekEnd: string
-    totalTime: number
-    completedTasks: number
-    dailySummaries: Map<string, DaySummary>
-    taskActivities: WeeklyTaskActivityDetail[]
-}
-
-export interface DaySummary {
-    date: string
-    totalTime: number
-    completedTasks: number
-    activeTasks: number
-}
-
-export interface WeeklyTaskActivityDetail {
-    taskId: number
-    taskTitle: string
+    dailyReports: ActivityReport[]
     totalDuration: number
-    dailyDurations: Map<string, number>
-    status: string
+    topTasks: {
+        taskId: number
+        taskTitle: string
+        duration: number
+    }[]
 }
 
 export const useActivityStore = defineStore('activity', () => {
-    // 状态
     const activities = ref<ActivityRecord[]>([])
-    const currentActivities = ref<Map<number, ActivityRecord>>(new Map())
-    const dailyReport = ref<DailyReport | null>(null)
+    const currentActivity = ref<ActivityRecord | null>(null)
+    const dailyReport = ref<ActivityReport | null>(null)
     const weeklyReport = ref<WeeklyReport | null>(null)
-    const loading = ref(false)
 
     // 计算属性
-    const totalActiveTime = computed(() => {
-        return activities.value
-            .filter(a => a.durationMinutes)
-            .reduce((total, activity) => total + (activity.durationMinutes || 0), 0)
+    const totalDuration = computed(() => {
+        return activities.value.reduce((total, activity) => {
+            if (activity.duration) {
+                return total + activity.duration
+            }
+            return total
+        }, 0)
     })
 
-    // 开始活动记录
-    const startActivity = async (taskId: number, activityType: string, description?: string) => {
-        try {
-            loading.value = true
-            const activity: ActivityRecord = await request.post('/api/activities/start', {
-                taskId,
-                activityType,
-                description
-            }) as any
-
-            activities.value.unshift(activity)
-            currentActivities.value.set(taskId, activity)
-
-            return activity
-        } catch (error) {
-            console.error('开始活动记录失败:', error)
-            throw error
-        } finally {
-            loading.value = false
-        }
-    }
-
-    // 结束任务当前活动
-    const endActivity = async (taskId: number) => {
-        try {
-            loading.value = true
-            const response = await request.post(`/api/activities/end/${taskId}`) as any
-            const activity: ActivityRecord = response.data
-            // 更新活动列表中的对应记录
-            const index = activities.value.findIndex(a => a.id === activity.id)
-            if (index !== -1) {
-                activities.value[index] = activity
-            } else {
-                activities.value.unshift(activity)
-            }
-
-            // 从当前活动映射中移除
-            currentActivities.value.delete(taskId)
-
-            return activity
-        } catch (error) {
-            console.error('结束活动记录失败:', error)
-            throw error
-        } finally {
-            loading.value = false
-        }
-    }
-
-    // 添加手动活动记录
-    const addManualActivity = async (data: {
-        taskId: number
-        activityType: string
-        startTime: string
-        endTime: string
-        description?: string
-    }) => {
-        try {
-            loading.value = true
-            const response = await request.post('/api/activities/manual', data) as any
-
-            const activity: ActivityRecord = response.data
-            activities.value.unshift(activity)
-
-            return activity
-        } catch (error) {
-            console.error('添加手动活动记录失败:', error)
-            throw error
-        } finally {
-            loading.value = false
-        }
-    }
-
-    // 获取任务活动记录
-    const getTaskActivities = async (taskId: number) => {
-        try {
-            loading.value = true
-            const response = await request.get(`/api/activities/task/${taskId}`) as any
-
-            return response.data as ActivityRecord[]
-        } catch (error) {
-            console.error('获取任务活动记录失败:', error)
-            throw error
-        } finally {
-            loading.value = false
-        }
-    }
-
-    // 获取所有活动记录
-    const getAllActivities = async () => {
-        try {
-            loading.value = true
-            const response = await request.get('/api/activities/all') as any
-
-            return response.data as ActivityRecord[]
-        } catch (error) {
-            console.error('获取所有活动记录失败:', error)
-            throw error
-        } finally {
-            loading.value = false
-        }
-    }
-
-    // 获取任务当前活动
-    const getCurrentActivity = async (taskId: number) => {
-        try {
-            const response = await request.get(`/api/activities/current/${taskId}`) as any
-
-            if (response.data) {
-                currentActivities.value.set(taskId, response.data)
-                return response.data as ActivityRecord
-            } else {
-                currentActivities.value.delete(taskId)
-                return null
-            }
-        } catch (error) {
-            console.error('获取任务当前活动失败:', error)
-            throw error
-        }
-    }
-
-    // 获取日报数据
-    const getDailyReport = async (date: string) => {
-        try {
-            loading.value = true
-            const response = await request.get('/api/activities/report/daily', {
-                params: {date}
-            }) as any
-
-            dailyReport.value = response.data as DailyReport
-            return dailyReport.value
-        } catch (error) {
-            console.error('获取日报数据失败:', error)
-            throw error
-        } finally {
-            loading.value = false
-        }
-    }
-
-    // 获取周报数据
-    const getWeeklyReport = async (weekStart: string) => {
-        try {
-            loading.value = true
-            const response: any = await request.get('/api/activities/report/weekly', {
-                params: {weekStart}
-            })
-
-            weeklyReport.value = {} as WeeklyReport
-            Object.assign(weeklyReport.value, response)
-            return weeklyReport.value
-        } catch (error) {
-            console.error('获取周报数据失败:', error)
-            throw error
-        } finally {
-            loading.value = false
-        }
-    }
-
-    // 格式化持续时间
-    const formatDuration = (minutes: number): string => {
-        if (!minutes || minutes <= 0) return '0分钟'
-
+    // 格式化总时长为可读格式
+    const formattedTotalDuration = computed(() => {
+        const minutes = Math.floor(totalDuration.value / (1000 * 60))
         const hours = Math.floor(minutes / 60)
-        const mins = minutes % 60
+        const remainingMinutes = minutes % 60
 
         if (hours > 0) {
-            return `${hours}小时${mins > 0 ? mins + '分钟' : ''}`
+            return `${hours}小时${remainingMinutes}分钟`
         } else {
-            return `${mins}分钟`
+            return `${minutes}分钟`
+        }
+    })
+
+    // 格式化持续时间
+    const formatDuration = (duration: number) => {
+        if (!duration) return '0分钟'
+        
+        const minutes = Math.floor(duration / (1000 * 60))
+        const hours = Math.floor(minutes / 60)
+        const remainingMinutes = minutes % 60
+
+        if (hours > 0) {
+            return `${hours}小时${remainingMinutes}分钟`
+        } else {
+            return `${minutes}分钟`
         }
     }
 
-    // 获取活动类型描述
-    const getActivityTypeDescription = (type: string): string => {
-        const typeMap: Record<string, string> = {
-            'CREATED': '创建',
-            'STARTED': '开始',
-            'PAUSED': '暂停',
-            'RESUMED': '恢复',
-            'COMPLETED': '完成',
-            'WORK': '工作',
-            'MEETING': '会议',
-            'STUDY': '学习',
-            'OTHER': '其他'
-        }
+    // 开始记录活动
+    const startActivity = async (taskId: number, notes?: string) => {
+        try {
+            // 如果有正在进行的任务，先结束它
+            if (currentActivity.value) {
+                await endActivity(currentActivity.value.taskId)
+            }
 
-        return typeMap[type] || type
+            const activity: ActivityRecord = await apiStartActivity(taskId, notes)
+            currentActivity.value = activity
+            activities.value.unshift(activity)
+            return activity
+        } catch (error) {
+            console.error('开始活动失败:', error)
+            throw error
+        }
     }
 
-    // 获取活动状态样式类
-    const getActivityStatusClass = (activity: ActivityRecord): string => {
-        if (activity.endTime) {
-            return 'activity-completed'
-        }
+    // 结束活动
+    const endActivity = async (taskId: number) => {
+        try {
+            const updatedActivity = await apiEndActivity(taskId)
 
-        switch (activity.activityType) {
-            case 'CREATED':
-                return 'activity-created'
-            case 'STARTED':
-                return 'activity-started'
-            case 'PAUSED':
-                return 'activity-paused'
-            case 'RESUMED':
-                return 'activity-resumed'
-            case 'COMPLETED':
-                return 'activity-completed'
-            case 'WORK':
-                return 'activity-work'
-            case 'MEETING':
-                return 'activity-meeting'
-            case 'STUDY':
-                return 'activity-study'
-            default:
-                return 'activity-other'
+            // 更新当前活动
+            if (currentActivity.value && currentActivity.value.taskId === taskId) {
+                currentActivity.value = updatedActivity
+            }
+
+            // 更新活动列表中的对应项
+            const activityIndex = activities.value.findIndex(a => a.taskId === taskId && a.status === 'running')
+            if (activityIndex !== -1) {
+                activities.value[activityIndex] = updatedActivity
+            }
+
+            // 如果没有正在进行的任务，清除当前活动
+            if (updatedActivity.status === 'completed') {
+                currentActivity.value = null
+            }
+
+            return updatedActivity
+        } catch (error) {
+            console.error('结束活动失败:', error)
+            throw error
+        }
+    }
+
+    // 添加手动活动
+    const addManualActivity = async (data: {
+        taskId: number
+        taskTitle?: string
+        startTime: string
+        endTime?: string
+        duration?: number
+        notes?: string
+    }) => {
+        try {
+            const activity = await apiAddManualActivity(<ActivityRecord>data)
+            activities.value.unshift(activity)
+            return activity
+        } catch (error) {
+            console.error('添加手动活动失败:', error)
+            throw error
+        }
+    }
+
+    // 获取任务相关活动
+    const getTaskActivities = async (taskId: number) => {
+        try {
+            return await apiGetActivityByTask(taskId)
+        } catch (error) {
+            console.error('获取任务活动失败:', error)
+            throw error
+        }
+    }
+
+    // 获取所有活动
+    const getAllActivities = async () => {
+        try {
+            const fetchedActivities = await apiGetAllActivities()
+            activities.value = fetchedActivities
+            return fetchedActivities
+        } catch (error) {
+            console.error('获取所有活动失败:', error)
+            throw error
+        }
+    }
+
+    // 获取当前活动
+    const getCurrentActivity = async (taskId: number) => {
+        try {
+            const activity = await apiGetCurrentActivity(taskId)
+            if (activity) {
+                currentActivity.value = activity
+            }
+            return activity
+        } catch (error) {
+            console.error('获取当前活动失败:', error)
+            throw error
+        }
+    }
+
+    // 获取每日报告
+    const getDailyReport = async (date?: string) => {
+        try {
+            const report = await apiGetDailyReport(date)
+            dailyReport.value = report
+            return report
+        } catch (error) {
+            console.error('获取每日报告失败:', error)
+            throw error
+        }
+    }
+
+    // 获取每周报告
+    const getWeeklyReport = async (weekStart?: string, weekEnd?: string) => {
+        try {
+            const report = await apiGetWeeklyReport(weekStart, weekEnd)
+            weeklyReport.value = report
+            return report
+        } catch (error) {
+            console.error('获取每周报告失败:', error)
+            throw error
         }
     }
 
     return {
         // 状态
         activities,
-        currentActivities,
+        currentActivity,
         dailyReport,
         weeklyReport,
-        loading,
 
         // 计算属性
-        totalActiveTime,
+        totalDuration,
+        formattedTotalDuration,
 
         // 方法
         startActivity,
@@ -313,8 +235,6 @@ export const useActivityStore = defineStore('activity', () => {
         getCurrentActivity,
         getDailyReport,
         getWeeklyReport,
-        formatDuration,
-        getActivityTypeDescription,
-        getActivityStatusClass
+        formatDuration
     }
 })

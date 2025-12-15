@@ -82,7 +82,9 @@ public class TaskController {
         if (task == null) {
             return ApiResponse.error("任务不存在");
         }
-
+        if ("completed".equals(task.getStatus())) {
+            return ApiResponse.error("已完成任务,不可暂存");
+        }
         // 这里可以添加暂存逻辑，比如更新状态为staging
         // 目前先简单返回成功
         return ApiResponse.success("任务已添加到暂存队列", null);

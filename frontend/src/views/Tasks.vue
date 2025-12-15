@@ -7,13 +7,17 @@
       </div>
       <div class="header-right">
         <el-button type="primary" @click="showAddTaskDialog">
-          <el-icon><plus /></el-icon>
+          <el-icon>
+            <plus/>
+          </el-icon>
           添加任务
         </el-button>
         <div class="staging-queue">
           <el-badge :value="stagingTasks.length" :max="99">
             <el-button @click="toggleStagingPanel">
-              <el-icon><clock /></el-icon>
+              <el-icon>
+                <clock/>
+              </el-icon>
               暂存队列
             </el-button>
           </el-badge>
@@ -27,16 +31,18 @@
         <div class="panel-header">
           <h3>暂存队列</h3>
           <el-button text @click="toggleStagingPanel">
-            <el-icon><close /></el-icon>
+            <el-icon>
+              <close/>
+            </el-icon>
           </el-button>
         </div>
         <div class="staging-list">
-          <div 
-            v-for="task in stagingTasks" 
-            :key="task.id"
-            class="staging-item"
-            draggable="true"
-            @dragstart="handleDragStart($event, task, 'staging')"
+          <div
+              v-for="task in stagingTasks"
+              :key="task.id"
+              class="staging-item"
+              draggable="true"
+              @dragstart="handleDragStart($event, task, 'staging')"
           >
             <div class="task-content">
               <span class="task-title">{{ task.title }}</span>
@@ -56,41 +62,47 @@
 
     <!-- 任务看板 -->
     <div class="kanban-board" :class="{ 'with-staging': showStaging }">
-      <div 
-        v-for="column in columns" 
-        :key="column.id"
-        class="kanban-column"
-        @dragover="handleDragOver"
-        @drop="handleDrop($event, column.id)"
+      <div
+          v-for="column in columns"
+          :key="column.id"
+          class="kanban-column"
+          @dragover="handleDragOver"
+          @drop="handleDrop($event, column.id)"
       >
         <div class="column-header">
           <h3>{{ column.title }}</h3>
           <span class="task-count">{{ getTasksByStatus(column.id).length }}</span>
         </div>
-        
+
         <div class="column-content">
-          <div 
-            v-for="task in getTasksByStatus(column.id)" 
-            :key="task.id"
-            class="task-card"
-            draggable="true"
-            @dragstart="handleDragStart($event, task as any, column.id)"
-            @contextmenu="(e) => showTaskContextMenu(e, task as any)"
+          <div
+              v-for="task in getTasksByStatus(column.id)"
+              :key="task.id"
+              class="task-card"
+              draggable="true"
+              @dragstart="handleDragStart($event, task as any, column.id)"
+              @contextmenu="(e) => showTaskContextMenu(e, task as any)"
           >
             <div class="task-header">
               <span class="task-title">{{ task.title }}</span>
               <el-dropdown trigger="click">
-                <el-icon><more /></el-icon>
+                <el-icon>
+                  <more/>
+                </el-icon>
                 <template #dropdown>
                   <el-dropdown-menu>
                     <el-dropdown-item @click="editTask(task as any)">编辑</el-dropdown-item>
                     <el-dropdown-item @click="showActivityDrawer(task as any)">
-                      <el-icon><view /></el-icon>
+                      <el-icon>
+                        <view/>
+                      </el-icon>
                       查看活动记录
                     </el-dropdown-item>
                     <el-dropdown-item @click="addToStaging(task as any)">添加到暂存</el-dropdown-item>
-                    <el-dropdown-item v-if="task.status !== 'paused'" @click="() => handlePauseTask(task.id)">暂停</el-dropdown-item>
-                    <el-dropdown-item v-if="task.status === 'paused'" @click="() => handleResumeTask(task.id)">恢复</el-dropdown-item>
+                    <el-dropdown-item v-if="task.status !== 'paused'" @click="() => handlePauseTask(task.id)">暂停
+                    </el-dropdown-item>
+                    <el-dropdown-item v-if="task.status === 'paused'" @click="() => handleResumeTask(task.id)">恢复
+                    </el-dropdown-item>
                     <el-dropdown-item @click="addTagsToTask(task as any)">添加标签</el-dropdown-item>
                     <el-dropdown-item @click="showManualActivityDialog(task as any)">添加活动记录</el-dropdown-item>
                     <el-dropdown-item @click="deleteTask(task.id)" divided>删除</el-dropdown-item>
@@ -98,36 +110,38 @@
                 </template>
               </el-dropdown>
             </div>
-            
+
             <div class="task-body">
               <p class="task-description">{{ task.description }}</p>
               <div v-if="task.tags && task.tags.length > 0" class="task-tags">
-                <el-tag 
-                  v-for="tag in task.tags" 
-                  :key="tag" 
-                  size="small" 
-                  closable
-                  @close="removeTagFromTask(task.id, tag)"
+                <el-tag
+                    v-for="tag in task.tags"
+                    :key="tag"
+                    size="small"
+                    closable
+                    @close="removeTagFromTask(task.id, tag)"
                 >
                   {{ tag }}
                 </el-tag>
               </div>
             </div>
-            
+
             <div class="task-footer">
               <span class="task-date">{{ formatDate(task.createdAt) }}</span>
-              <el-progress 
-                v-if="task.progress > 0" 
-                :percentage="task.progress" 
-                :show-text="false" 
-                :stroke-width="2"
+              <el-progress
+                  v-if="task.progress > 0"
+                  :percentage="task.progress"
+                  :show-text="false"
+                  :stroke-width="2"
               />
             </div>
-            
+
             <!-- 活动状态指示器 -->
             <div class="task-activity-indicator" @click="showActivityDrawer(task as any)">
               <div class="activity-status" :class="getActivityStatusClass(task as any)">
-                <el-icon><timer /></el-icon>
+                <el-icon>
+                  <timer/>
+                </el-icon>
                 <span class="activity-text">{{ getActivityStatusText(task as any) }}</span>
               </div>
               <div class="activity-time" v-if="getCurrentActivity(task.id)">
@@ -135,15 +149,17 @@
               </div>
             </div>
           </div>
-          
+
           <!-- 添加任务按钮 -->
           <div v-if="column.id !== 'completed'" class="add-task-btn">
-            <el-button 
-              text 
-              @click="showAddTaskDialog(column.id)"
-              class="full-width"
+            <el-button
+                text
+                @click="showAddTaskDialog(column.id)"
+                class="full-width"
             >
-              <el-icon><plus /></el-icon>
+              <el-icon>
+                <plus/>
+              </el-icon>
               添加任务
             </el-button>
           </div>
@@ -157,31 +173,32 @@
     </div>
 
     <!-- 添加/编辑任务对话框 -->
-    <el-dialog 
-      v-model="taskDialog.visible" 
-      :title="taskDialog.isEdit ? '编辑任务' : '添加任务'"
-      width="500px"
+    <el-dialog
+        v-model="taskDialog.visible"
+        :title="taskDialog.isEdit ? '编辑任务' : '添加任务'"
+        width="500px"
     >
       <el-form :model="taskForm" label-width="80px">
         <el-form-item label="标题">
-          <el-input v-model="taskForm.title" placeholder="请输入任务标题" />
+          <el-input v-model="taskForm.title" placeholder="请输入任务标题"/>
         </el-form-item>
         <el-form-item label="描述">
-          <el-input 
-            v-model="taskForm.description" 
-            type="textarea" 
-            :rows="3" 
-            placeholder="请输入任务描述" 
+          <el-input
+              v-model="taskForm.description"
+              type="textarea"
+              :rows="3"
+              placeholder="请输入任务描述"
           />
         </el-form-item>
         <el-form-item label="状态">
           <el-select v-model="taskForm.status" placeholder="请选择状态">
-            <el-option label="计划中" value="planning" />
-            <el-option label="制作中" value="in-progress" />
+            <el-option label="计划中" value="planning"/>
+            <el-option label="制作中" value="in-progress"/>
+            <el-option label="已完成" value="completed"/>
           </el-select>
         </el-form-item>
       </el-form>
-      
+
       <template #footer>
         <el-button @click="taskDialog.visible = false">取消</el-button>
         <el-button type="primary" @click="saveTask">保存</el-button>
@@ -189,51 +206,59 @@
     </el-dialog>
 
     <!-- 任务右键菜单 -->
-    <div 
-      v-if="taskContextMenu.visible" 
-      class="task-context-menu" 
-      :style="{ left: taskContextMenu.x + 'px', top: taskContextMenu.y + 'px' }"
-      @click="closeTaskContextMenu"
+    <div
+        v-if="taskContextMenu.visible"
+        class="task-context-menu"
+        :style="{ left: taskContextMenu.x + 'px', top: taskContextMenu.y + 'px' }"
+        @click="closeTaskContextMenu"
     >
       <div class="menu-item" @click="editTask(taskContextMenu.task)">
-        <el-icon><edit /></el-icon>
+        <el-icon>
+          <edit/>
+        </el-icon>
         编辑
       </div>
       <div class="menu-item" @click="() => handlePauseTask(taskContextMenu.task.id)">
-        <el-icon><video-pause /></el-icon>
+        <el-icon>
+          <video-pause/>
+        </el-icon>
         暂停
       </div>
       <div class="menu-item" @click="addTagsToTask(taskContextMenu.task)">
-        <el-icon><price-tag /></el-icon>
+        <el-icon>
+          <price-tag/>
+        </el-icon>
         添加标签
       </div>
       <div class="menu-item" @click="deleteTask(taskContextMenu.task.id)" style="color: #f56c6c;">
-        <el-icon><delete /></el-icon>
+        <el-icon>
+          <delete/>
+        </el-icon>
         删除
       </div>
     </div>
 
     <!-- 添加标签对话框 -->
-    <el-dialog 
-      v-model="tagDialog.visible" 
-      title="添加标签"
-      width="400px"
+    <el-dialog
+        v-model="tagDialog.visible"
+        title="添加标签"
+        width="400px"
     >
       <el-form label-width="80px">
         <el-form-item label="选择标签">
           <el-select
-            v-model="tagDialog.selectedTags"
-            multiple
-            filterable
-            default-first-option
-            placeholder="选择标签"
-            style="width: 100%"
+              v-model="tagDialog.selectedTags"
+              multiple
+              filterable
+              default-first-option
+              placeholder="选择标签"
+              style="width: 100%"
           >
             <el-option
-              v-for="tag in availableTags"
-              :key="tag.id"
-              :label="tag.name"
-              :value="tag.id"
+                v-for="tag in availableTags"
+                :key="tag.id"
+                :label="tag.name"
+                :value="tag.id"
             >
               <span style="float: left">{{ tag.name }}</span>
               <span style="float: right; color: #8492a6; font-size: 13px">{{ tag.taskCount || 0 }} 个任务</span>
@@ -241,7 +266,7 @@
           </el-select>
         </el-form-item>
       </el-form>
-      
+
       <template #footer>
         <el-button @click="tagDialog.visible = false">取消</el-button>
         <el-button type="primary" @click="saveTagsToTask">保存</el-button>
@@ -250,18 +275,18 @@
 
     <!-- 活动记录抽屉 -->
     <el-drawer
-      v-model="activityDrawer.visible"
-      :title="`${activityDrawer.taskTitle} - 活动记录`"
-      direction="rtl"
-      size="400px"
+        v-model="activityDrawer.visible"
+        :title="`${activityDrawer.taskTitle} - 活动记录`"
+        direction="rtl"
+        size="400px"
     >
       <div class="activity-timeline">
         <el-timeline>
           <el-timeline-item
-            v-for="activity in activities"
-            :key="activity.id"
-            :timestamp="formatDateTime(activity.startTime)"
-            :type="getActivityTimelineType(activity.activityType)"
+              v-for="activity in activities"
+              :key="activity.id"
+              :timestamp="formatDateTime(activity.startTime)"
+              :type="getActivityTimelineType(activity.activityType)"
           >
             <div class="activity-content">
               <div class="activity-title">
@@ -277,7 +302,7 @@
           </el-timeline-item>
         </el-timeline>
       </div>
-      
+
       <!-- 活动统计 -->
       <div class="activity-stats" v-if="activities.length > 0">
         <el-card>
@@ -294,7 +319,7 @@
           </div>
         </el-card>
       </div>
-      
+
       <div class="activity-actions">
         <el-button type="primary" @click="showManualActivityDialog({ id: activityDrawer.taskId } as any)">
           添加活动记录
@@ -303,46 +328,46 @@
     </el-drawer>
 
     <!-- 手动添加活动记录对话框 -->
-    <el-dialog 
-      v-model="manualActivityDialog.visible" 
-      title="添加活动记录"
-      width="500px"
+    <el-dialog
+        v-model="manualActivityDialog.visible"
+        title="添加活动记录"
+        width="500px"
     >
       <el-form :model="manualActivityDialog.form" label-width="100px">
         <el-form-item label="活动类型">
           <el-select v-model="manualActivityDialog.form.activityType" style="width: 100%">
-            <el-option label="工作" value="WORK" />
-            <el-option label="会议" value="MEETING" />
-            <el-option label="学习" value="STUDY" />
-            <el-option label="其他" value="OTHER" />
+            <el-option label="工作" value="WORK"/>
+            <el-option label="会议" value="MEETING"/>
+            <el-option label="学习" value="STUDY"/>
+            <el-option label="其他" value="OTHER"/>
           </el-select>
         </el-form-item>
         <el-form-item label="开始时间">
           <el-date-picker
-            v-model="manualActivityDialog.form.startTime"
-            type="datetime"
-            placeholder="选择开始时间"
-            style="width: 100%"
+              v-model="manualActivityDialog.form.startTime"
+              type="datetime"
+              placeholder="选择开始时间"
+              style="width: 100%"
           />
         </el-form-item>
         <el-form-item label="结束时间">
           <el-date-picker
-            v-model="manualActivityDialog.form.endTime"
-            type="datetime"
-            placeholder="选择结束时间"
-            style="width: 100%"
+              v-model="manualActivityDialog.form.endTime"
+              type="datetime"
+              placeholder="选择结束时间"
+              style="width: 100%"
           />
         </el-form-item>
         <el-form-item label="描述">
           <el-input
-            v-model="manualActivityDialog.form.description"
-            type="textarea"
-            :rows="3"
-            placeholder="描述活动内容"
+              v-model="manualActivityDialog.form.description"
+              type="textarea"
+              :rows="3"
+              placeholder="描述活动内容"
           />
         </el-form-item>
       </el-form>
-      
+
       <template #footer>
         <el-button @click="manualActivityDialog.visible = false">取消</el-button>
         <el-button type="primary" @click="saveManualActivity">保存</el-button>
@@ -352,21 +377,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
+import {computed, onMounted, onUnmounted, reactive, ref} from 'vue'
 import dayjs from 'dayjs'
-import { 
-  Plus, Clock, Close, More, Edit, VideoPause, PriceTag, Delete, Timer, View
-} from '@element-plus/icons-vue'
+import {ElMessage, ElMessageBox} from 'element-plus'
+import {Clock, Close, Delete, Edit, More, Plus, PriceTag, Timer, VideoPause, View} from '@element-plus/icons-vue'
 
-import { useTaskStore } from '@/stores/task'
-import { useTagStore } from '@/stores/tag'
-import { useActivityStore } from '@/stores/activity'
+import {useTaskStore} from '@/stores/task'
+import {useTagStore} from '@/stores/tag'
+import {useActivityStore} from '@/stores/activity'
 
 interface Task {
   id: number
   title: string
   description: string
-  status: 'planning' | 'in-progress' | 'completed' | 'paused'
+  status: 'planning' | 'in-progress' | 'completed'
   progress: number
   tags: string[]
   createdAt: string
@@ -379,9 +403,9 @@ interface Column {
 }
 
 const columns: Column[] = [
-  { id: 'planning', title: '计划中' },
-  { id: 'in-progress', title: '制作中' },
-  { id: 'completed', title: '已完成' }
+  {id: 'planning', title: '计划中'},
+  {id: 'in-progress', title: '制作中'},
+  {id: 'completed', title: '已完成'}
 ]
 
 const taskStore = useTaskStore()
@@ -456,7 +480,7 @@ const showAddTaskDialog = (columnId?: string) => {
   taskDialog.targetColumn = columnId || 'planning'
   taskDialog.isEdit = false
   taskDialog.visible = true
-  
+
   // 重置表单，确保状态默认为"planning"
   Object.assign(taskForm, {
     id: 0,
@@ -471,7 +495,7 @@ const showAddTaskDialog = (columnId?: string) => {
 const editTask = (task: Task) => {
   taskDialog.isEdit = true
   taskDialog.visible = true
-  Object.assign(taskForm, { ...task })
+  Object.assign(taskForm, {...task})
 }
 
 const saveTask = async () => {
@@ -502,7 +526,7 @@ const saveTask = async () => {
       await taskStore.addTask(newTask)
       ElMessage.success('任务添加成功')
     }
-    
+
     // 刷新任务列表
     await loadTasks()
     taskDialog.visible = false
@@ -516,7 +540,7 @@ const saveTask = async () => {
 const handleDragStart = (e: DragEvent, task: Task, source: string) => {
   if (e.dataTransfer) {
     e.dataTransfer.effectAllowed = 'move'
-    dragTask.value = { task, source }
+    dragTask.value = {task, source}
   }
 }
 
@@ -529,11 +553,11 @@ const handleDragOver = (e: DragEvent) => {
 
 const handleDrop = async (e: DragEvent, targetStatus: string) => {
   e.preventDefault()
-  
+
   if (!dragTask.value) return
-  
-  const { task, source } = dragTask.value
-  
+
+  const {task, source} = dragTask.value
+
   try {
     if (source === 'staging') {
       // 从暂存队列移动到看板
@@ -546,23 +570,22 @@ const handleDrop = async (e: DragEvent, targetStatus: string) => {
     console.error('拖拽操作失败:', error)
     ElMessage.error('操作失败，请重试')
   }
-  
+
   dragTask.value = null
 }
-
 
 
 const moveTaskFromStaging = async (task: Task, targetStatus: string) => {
   try {
     // 从暂存队列移除
     await removeFromStaging(task.id)
-    
+
     // 更新任务状态到目标列
     await taskStore.updateTask(task.id, {
       status: targetStatus as any,
       progress: targetStatus === 'completed' ? 100 : task.progress
     })
-    
+
     // 刷新任务列表
     await loadTasks()
     ElMessage.success('任务已移动到看板')
@@ -576,7 +599,7 @@ const removeFromStaging = async (taskId: number) => {
   try {
     // 调用后端API
     await taskStore.removeFromStaging(taskId)
-    
+
     // 刷新暂存队列显示
     await loadStagingTasks()
     ElMessage.success('任务已从暂存队列移除')
@@ -593,7 +616,7 @@ const addToStaging = async (task: Task) => {
     if (!stagingTasks.value.find(t => t.id === task.id)) {
       // 调用后端API
       await taskStore.addToStaging(task.id)
-      
+
       // 刷新暂存队列显示
       await loadStagingTasks()
       ElMessage.success('任务已添加到暂存队列')
@@ -607,7 +630,6 @@ const addToStaging = async (task: Task) => {
 }
 
 
-
 const deleteTask = async (taskId: number) => {
   try {
     await ElMessageBox.confirm('确定要删除这个任务吗？', '确认删除', {
@@ -615,7 +637,7 @@ const deleteTask = async (taskId: number) => {
       cancelButtonText: '取消',
       type: 'warning'
     })
-    
+
     await taskStore.deleteTask(taskId)
     await loadTasks()
     ElMessage.success('任务删除成功')
@@ -670,31 +692,31 @@ const closeTaskContextMenu = () => {
 const handleGlobalKeyDown = async (e: KeyboardEvent) => {
   // 检测撤销快捷键 (Ctrl+Z 或 Cmd+Z)
   const isMac = navigator.platform.includes('Mac')
-  const isUndoShortcut = 
-    ((isMac && e.metaKey) || (!isMac && e.ctrlKey)) &&
-    e.key === 'z' &&
-    !e.shiftKey &&
-    !e.altKey
+  const isUndoShortcut =
+      ((isMac && e.metaKey) || (!isMac && e.ctrlKey)) &&
+      e.key === 'z' &&
+      !e.shiftKey &&
+      !e.altKey
 
   if (isUndoShortcut) {
     e.preventDefault()
     e.stopPropagation()
-    
+
     try {
       // 获取当前选中的任务或最近移动的任务
       const selectedTaskId = localStorage.getItem('lastMovedTaskId')
-      
+
       if (!selectedTaskId) {
         ElMessage.info('没有可撤销的任务操作')
         return
       }
-      
+
       console.log('开始撤销任务:', selectedTaskId)
       ElMessage.info('正在撤销操作...')
-      
+
       // 使用 taskStore 中封装的撤销方法
       const success = await taskStore.undoTaskActions(parseInt(selectedTaskId), 5)
-      
+
       if (success) {
         // 刷新任务列表和暂存队列
         await Promise.all([
@@ -762,7 +784,7 @@ const handlePauseTask = async (taskId: number) => {
     // 刷新任务列表和暂存队列显示
     await loadTasks()
     await loadStagingTasks()
-    
+
     // 记录最后操作的任务ID，用于撤销
     localStorage.setItem('lastMovedTaskId', taskId.toString())
     ElMessage.success('任务已暂停并添加到暂存队列')
@@ -777,13 +799,13 @@ const moveTaskToColumn = async (task: Task, targetStatus: string) => {
     // 检查任务是否在暂存队列中
     // 确保 stagingTasks 是数组再使用 some 方法
     const isFromStaging = Array.isArray(stagingTasks.value) && stagingTasks.value.some(t => t.id === task.id)
-    
+
     if (isFromStaging) {
       // 从暂存队列移动到看板
       await moveTaskFromStaging(task, targetStatus)
       // 刷新暂存队列显示
       await loadStagingTasks()
-      
+
       // 记录最后移动的任务ID，用于撤销
       localStorage.setItem('lastMovedTaskId', task.id.toString())
     } else {
@@ -793,7 +815,7 @@ const moveTaskToColumn = async (task: Task, targetStatus: string) => {
         progress: targetStatus === 'completed' ? 100 : task.progress
       })
       await loadTasks()
-      
+
       // 记录最后移动的任务ID，用于撤销
       localStorage.setItem('lastMovedTaskId', task.id.toString())
     }
@@ -807,7 +829,7 @@ const moveTaskToColumn = async (task: Task, targetStatus: string) => {
 const saveTagsToTask = async () => {
   try {
     await taskStore.updateTaskTags(tagDialog.currentTaskId, tagDialog.selectedTags)
-    
+
     // 更新本地任务状态 - 将标签ID转换为标签名称
     const task = tasks.value.find(t => t.id === tagDialog.currentTaskId)
     if (task) {
@@ -816,7 +838,7 @@ const saveTagsToTask = async () => {
         return tag ? tag.name : ''
       }).filter(name => name !== '')
     }
-    
+
     tagDialog.visible = false
     ElMessage.success('标签已更新')
   } catch (error) {
@@ -830,7 +852,7 @@ const showActivityDrawer = async (task: Task) => {
   activityDrawer.taskId = task.id
   activityDrawer.taskTitle = task.title
   activityDrawer.visible = true
-  
+
   try {
     activities.value = await activityStore.getTaskActivities(task.id)
   } catch (error) {
@@ -856,12 +878,12 @@ const saveManualActivity = async () => {
       ElMessage.warning('请选择开始和结束时间')
       return
     }
-    
+
     if (new Date(manualActivityDialog.form.startTime) >= new Date(manualActivityDialog.form.endTime)) {
       ElMessage.warning('结束时间必须晚于开始时间')
       return
     }
-    
+
     await activityStore.addManualActivity({
       taskId: manualActivityDialog.taskId,
       activityType: manualActivityDialog.form.activityType,
@@ -869,10 +891,10 @@ const saveManualActivity = async () => {
       endTime: manualActivityDialog.form.endTime,
       description: manualActivityDialog.form.description
     })
-    
+
     // 刷新活动记录
     activities.value = await activityStore.getTaskActivities(manualActivityDialog.taskId)
-    
+
     manualActivityDialog.visible = false
     ElMessage.success('活动记录已添加')
   } catch (error) {
@@ -887,7 +909,7 @@ const handleResumeTask = async (taskId: number) => {
     // 刷新任务列表和暂存队列显示
     await loadTasks()
     await loadStagingTasks()
-    
+
     // 记录最后操作的任务ID，用于撤销
     localStorage.setItem('lastMovedTaskId', taskId.toString())
     ElMessage.success('任务已恢复并从暂存队列移除')
@@ -899,16 +921,26 @@ const handleResumeTask = async (taskId: number) => {
 
 // 获取任务当前活动
 const getCurrentActivity = (taskId: number) => {
-  return activityStore.currentActivities.get(taskId)
+  return activityStore.currentActivities?.get(taskId)
 }
 
 // 获取活动状态文本
 const getActivityStatusText = (task: Task) => {
   const currentActivity = getCurrentActivity(task.id)
   if (currentActivity) {
-    return activityStore.getActivityTypeDescription(currentActivity.activityType)
+    // 根据活动类型返回描述文本
+    switch (currentActivity.activityType) {
+      case 'STARTED':
+        return '进行中'
+      case 'PAUSED':
+        return '已暂停'
+      case 'COMPLETED':
+        return '已完成'
+      default:
+        return '活动记录'
+    }
   }
-  
+
   // 根据任务状态返回默认文本
   switch (task.status) {
     case 'planning':
@@ -917,8 +949,6 @@ const getActivityStatusText = (task: Task) => {
       return '进行中'
     case 'completed':
       return '已完成'
-    case 'paused':
-      return '已暂停'
     default:
       return '未知状态'
   }
@@ -926,11 +956,6 @@ const getActivityStatusText = (task: Task) => {
 
 // 获取活动状态样式类
 const getActivityStatusClass = (task: Task) => {
-  const currentActivity = getCurrentActivity(task.id)
-  if (currentActivity) {
-    return activityStore.getActivityStatusClass(currentActivity)
-  }
-  
   // 根据任务状态返回默认样式
   switch (task.status) {
     case 'planning':
@@ -939,8 +964,8 @@ const getActivityStatusClass = (task: Task) => {
       return 'activity-in-progress'
     case 'completed':
       return 'activity-completed'
-    case 'paused':
-      return 'activity-paused'
+    case 'cancelled':
+      return 'activity-cancelled'
     default:
       return 'activity-unknown'
   }
@@ -949,12 +974,12 @@ const getActivityStatusClass = (task: Task) => {
 // 格式化活动时间
 const formatActivityTime = (activity: any) => {
   if (!activity || !activity.startTime) return ''
-  
+
   const startTime = new Date(activity.startTime)
   const now = new Date()
   const diffMs = now.getTime() - startTime.getTime()
   const diffMins = Math.floor(diffMs / (1000 * 60))
-  
+
   if (diffMins < 60) {
     return `${diffMins}分钟`
   } else if (diffMins < 1440) { // 24小时
@@ -998,8 +1023,8 @@ const getActivityTimelineType = (activityType: string) => {
 // 计算总活动时间
 const getTotalActivityTime = () => {
   return activities.value
-    .filter(a => a.durationMinutes)
-    .reduce((total, activity) => total + (activity.durationMinutes || 0), 0)
+      .filter(a => a.durationMinutes)
+      .reduce((total, activity) => total + (activity.durationMinutes || 0), 0)
 }
 
 // 计算工作天数
@@ -1014,21 +1039,16 @@ const getWorkDaysCount = () => {
 }
 
 onMounted(() => {
-  document.addEventListener('keydown', handleGlobalKeyDown, { capture: true })
+  document.addEventListener('keydown', handleGlobalKeyDown, {capture: true})
   document.addEventListener('click', closeTaskContextMenu)
   // 初始化时加载任务和暂存队列
   loadTasks()
   loadStagingTasks()
   loadAvailableTags()
-  
-  // 添加用户友好的提示
-  setTimeout(() => {
-    ElMessage.info('现在可以使用 Ctrl+Z (Mac: Cmd+Z) 撤销任务移动操作')
-  }, 1000)
 })
 
 onUnmounted(() => {
-  document.removeEventListener('keydown', handleGlobalKeyDown, { capture: true })
+  document.removeEventListener('keydown', handleGlobalKeyDown, {capture: true})
   document.removeEventListener('click', closeTaskContextMenu)
 })
 </script>

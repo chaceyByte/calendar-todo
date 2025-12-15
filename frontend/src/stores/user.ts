@@ -1,11 +1,6 @@
 import {defineStore} from 'pinia'
 import {ref} from 'vue'
-import {getUserInfo, type UserInfo} from '@/api/user'
-
-// interface LoginResponse {
-//   token: string
-//   user: UserInfo
-// }
+import {getUserInfo, register as registerApi, login as loginApi, type UserInfo} from '@/api/user'
 
 export const useUserStore = defineStore('user', () => {
     const userInfo = ref<UserInfo | null>(null)
@@ -22,16 +17,8 @@ export const useUserStore = defineStore('user', () => {
     }
 
     // 注册
-    const register = async (username: string, password: string, nickname: string, email: string, captcha?: string) => {
-        const response = await request.post('/api/auth/register', {
-            username,
-            password,
-            nickname,
-            email,
-            captcha
-        })
-        console.log(response)
-        const data = response.data || response;
+    const register = async (username: string, password: string, nickname: string, email: string, captcha: string) => {
+        const data = await registerApi(username, password, nickname, email, captcha)
         setUserInfo(data.user)
         setToken(data.token)
 
@@ -44,13 +31,7 @@ export const useUserStore = defineStore('user', () => {
 
     // 登录
     const login = async (username: string, password: string, captcha?: string) => {
-        const response = await request.post('/api/auth/login', {
-            username,
-            password,
-            captcha
-        })
-
-        const data = response.data || response
+        const data = await loginApi(username, password, captcha)
         setUserInfo(data.user)
         setToken(data.token)
 

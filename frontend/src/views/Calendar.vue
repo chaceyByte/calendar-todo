@@ -156,7 +156,7 @@ interface Task {
   id: number
   title: string
   description?: string
-  status: string
+  status: 'planning' | 'in-progress' | 'completed' | 'cancelled'
   progress: number
   priority?: 'low' | 'medium' | 'high'
   startDate?: string
@@ -477,7 +477,7 @@ const getStatusText = (status: string) => {
     'planning': '计划中',
     'in-progress': '制作中',
     'completed': '已完成',
-    'paused': '已暂停'
+    'cancelled': '已取消'
   }
   return statusMap[status] || status
 }

@@ -18,7 +18,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -213,6 +216,9 @@ public class TaskService extends ServiceImpl<TaskMapper, Task> {
             throw new RuntimeException("任务不存在");
         }
 
+        if ("completed".equals(task.getStatus())) {
+            throw new RuntimeException("已完成任务,不可暂停");
+        }
         // 更新任务状态为暂停
         task.setStatus("paused");
         boolean result = updateById(task);
@@ -493,8 +499,9 @@ public class TaskService extends ServiceImpl<TaskMapper, Task> {
 
     /**
      * 撤销任务的最近操作
+     *
      * @param taskId 任务ID
-     * @param depth 撤销深度
+     * @param depth  撤销深度
      * @return 是否成功撤销
      */
     @Transactional
@@ -518,24 +525,24 @@ public class TaskService extends ServiceImpl<TaskMapper, Task> {
 
         // 1. 按从最新到最旧顺序处理（即时间顺序从后往前）
         // 2. 遍历活动记录，恢复任务状态并删除活动记录
-        
+
         // 保存要删除的活动记录ID列表
         List<Long> activityIdsToDelete = new ArrayList<>();
-        
+
         // 记录需要恢复到的任务状态
         String targetStatus = task.getStatus();
-        
+
         // 遍历活动记录，确定最终需要恢复的状态
         for (ActivityRecord activity : recentActivities) {
             activityIdsToDelete.add(activity.getId());
-            
+
             ActivityType activityType;
             try {
                 activityType = ActivityType.valueOf(activity.getActivityType());
             } catch (IllegalArgumentException e) {
                 continue; // 跳过未知的活动类型
             }
-            
+
             // 根据活动类型确定需要恢复到的状态
             switch (activityType) {
                 case CREATED:
@@ -548,52 +555,52 @@ public class TaskService extends ServiceImpl<TaskMapper, Task> {
                                     .eq(ActivityRecord::getTaskId, taskId)
                     );
                     return true;
-                    
+
                 case COMPLETED:
                     // 如果找到完成活动，恢复为进行中
                     targetStatus = "in-progress";
                     break;
-                    
+
                 case PAUSED:
                     // 如果找到暂停活动，恢复为进行中
                     targetStatus = "in-progress";
                     break;
-                    
+
                 case RESUMED:
                     // 如果找到恢复活动，恢复为暂停
                     targetStatus = "paused";
                     break;
-                    
+
                 case STARTED:
                     // 如果找到开始活动，恢复为计划中
                     targetStatus = "planning";
                     break;
-                    
+
                 case WORK:
                 case MEETING:
                 case STUDY:
                 case OTHER:
                     // 这些活动不影响任务状态，只需要删除记录
                     break;
-                    
+
                 default:
                     log.warn("不支持撤销的活动类型: {}", activityType);
             }
         }
-        
+
         // 更新任务状态
         if (!targetStatus.equals(task.getStatus())) {
             task.setStatus(targetStatus);
             updateById(task);
             log.info("恢复任务状态: taskId={}, status={}", taskId, targetStatus);
         }
-        
+
         // 删除指定数量的活动记录
         for (Long activityId : activityIdsToDelete) {
             activityRecordMapper.deleteById(activityId);
             log.debug("删除活动记录: activityId={}", activityId);
         }
-        
+
         log.info("成功撤销任务操作: taskId={}, 删除活动记录数={}", taskId, activityIdsToDelete.size());
         return true;
     }

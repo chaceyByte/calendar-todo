@@ -348,7 +348,7 @@ const getStatusType = (status: string) => {
       return 'primary'
     case 'completed':
       return 'success'
-    case 'paused':
+    case 'cancelled':
       return 'warning'
     default:
       return 'info'
@@ -363,8 +363,8 @@ const getStatusText = (status: string) => {
       return '进行中'
     case 'completed':
       return '已完成'
-    case 'paused':
-      return '已暂停'
+    case 'cancelled':
+      return '已取消'
     default:
       return '未知'
   }

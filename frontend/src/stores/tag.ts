@@ -1,6 +1,12 @@
 import {defineStore} from 'pinia';
 import {ref} from 'vue';
-import request from '@/utils/request';
+import {
+    createTag as apiCreateTag,
+    updateTag as apiUpdateTag,
+    deleteTag as apiDeleteTag,
+    getTags,
+    type Tag as ApiTag
+} from '@/api/tag';
 
 export interface Tag {
     id: number;
@@ -18,9 +24,7 @@ export const useTagStore = defineStore('tag', () => {
     // 添加标签
     const addTag = async (tag: Tag) => {
         try {
-            const response = await request.post('/api/tags', tag);
-            if ((response as any).success === false) throw new Error((response as any).message || '添加标签失败');
-            const newTag = (response as any).data;
+            const newTag = await apiCreateTag(tag);
             tags.value.push(newTag);
         } catch (error) {
             console.error('添加标签失败:', error);
@@ -31,8 +35,7 @@ export const useTagStore = defineStore('tag', () => {
     // 更新标签
     const updateTag = async (id: number, updatedTag: Partial<Tag>) => {
         try {
-            const response = await request.put(`/api/tags/${id}`, updatedTag);
-            const updated = response.data || response;
+            const updated = await apiUpdateTag(id, updatedTag as ApiTag);
             const tagIndex = tags.value.findIndex(tag => tag.id === id);
             if (tagIndex !== -1) {
                 tags.value[tagIndex] = updated;
@@ -46,7 +49,7 @@ export const useTagStore = defineStore('tag', () => {
     // 删除标签
     const deleteTag = async (id: number) => {
         try {
-            await request.delete(`/api/tags/${id}`);
+            await apiDeleteTag(id);
             tags.value = tags.value.filter(tag => tag.id !== id);
         } catch (error) {
             console.error('删除标签失败:', error);
@@ -57,9 +60,7 @@ export const useTagStore = defineStore('tag', () => {
     // 获取所有标签
     const fetchTags = async () => {
         try {
-            const response = await request.get('/api/tags');
-            if ((response as any).success === false) throw new Error((response as any).message || '获取标签失败');
-            tags.value = (response as any).data;
+            tags.value = await getTags();
             return tags.value;
         } catch (error) {
             console.error('获取标签失败:', error);
