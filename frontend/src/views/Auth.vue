@@ -3,6 +3,18 @@
     <!-- 背景图片 -->
     <div class="background"></div>
     
+    <!-- 动态球体 -->
+    <div class="floating-balls">
+      <div class="ball ball-1"></div>
+      <div class="ball ball-2"></div>
+      <div class="ball ball-3"></div>
+      <div class="ball ball-4"></div>
+      <div class="ball ball-5"></div>
+      <div class="ball ball-6"></div>
+      <div class="ball ball-7"></div>
+      <div class="ball ball-8"></div>
+    </div>
+    
     <!-- 统一认证卡片 -->
     <transition name="flip" mode="out-in">
       <div v-if="!isRegister" key="login" class="auth-card">
@@ -601,6 +613,140 @@ onMounted(() => refreshCaptcha())
 /* 链接样式 */
 :deep(.el-link) {
   font-weight: 500;
+}
+
+/* 动态球体 */
+.floating-balls {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.ball {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(1px);
+  pointer-events: auto;
+  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: float 8s ease-in-out infinite;
+  opacity: 0.7;
+}
+
+.ball:hover {
+  transform: scale(1.5);
+  filter: blur(0.5px);
+  opacity: 0.9;
+  z-index: 1;
+}
+
+.ball-1 {
+  width: 120px;
+  height: 120px;
+  top: 8%;
+  left: 5%;
+  animation-delay: 0s;
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.3), rgba(139, 195, 74, 0.3));
+}
+
+.ball-2 {
+  width: 140px;
+  height: 140px;
+  top: 70%;
+  left: 80%;
+  animation-delay: 1.5s;
+  background: linear-gradient(135deg, rgba(67, 160, 71, 0.3), rgba(255, 152, 0, 0.3));
+}
+
+.ball-3 {
+  width: 110px;
+  height: 110px;
+  top: 25%;
+  left: 75%;
+  animation-delay: 3s;
+  background: linear-gradient(135deg, rgba(56, 142, 60, 0.3), rgba(255, 87, 34, 0.3));
+}
+
+.ball-4 {
+  width: 130px;
+  height: 130px;
+  top: 60%;
+  left: 10%;
+  animation-delay: 4.5s;
+  background: linear-gradient(135deg, rgba(46, 125, 50, 0.3), rgba(233, 30, 99, 0.3));
+}
+
+.ball-5 {
+  width: 150px;
+  height: 150px;
+  top: 15%;
+  left: 85%;
+  animation-delay: 6s;
+  background: linear-gradient(135deg, rgba(27, 94, 32, 0.3), rgba(156, 39, 176, 0.3));
+}
+
+.ball-6 {
+  width: 100px;
+  height: 100px;
+  top: 75%;
+  left: 65%;
+  animation-delay: 7.5s;
+  background: linear-gradient(135deg, rgba(104, 159, 56, 0.3), rgba(255, 193, 7, 0.3));
+}
+
+.ball-7 {
+  width: 125px;
+  height: 125px;
+  top: 40%;
+  left: 20%;
+  animation-delay: 9s;
+  background: linear-gradient(135deg, rgba(85, 139, 47, 0.3), rgba(255, 235, 59, 0.3));
+}
+
+.ball-8 {
+  width: 135px;
+  height: 135px;
+  top: 5%;
+  left: 55%;
+  animation-delay: 10.5s;
+  background: linear-gradient(135deg, rgba(124, 179, 66, 0.3), rgba(255, 112, 67, 0.3));
+}
+
+.ball-9 {
+  width: 115px;
+  height: 115px;
+  top: 85%;
+  left: 35%;
+  animation-delay: 12s;
+  background: linear-gradient(135deg, rgba(0, 150, 136, 0.3), rgba(255, 64, 129, 0.3));
+}
+
+.ball-10 {
+  width: 145px;
+  height: 145px;
+  top: 30%;
+  left: 40%;
+  animation-delay: 13.5s;
+  background: linear-gradient(135deg, rgba(0, 188, 212, 0.3), rgba(255, 23, 68, 0.3));
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0) translateX(0) scale(1);
+  }
+  25% {
+    transform: translateY(-25px) translateX(20px) scale(1.1);
+  }
+  50% {
+    transform: translateY(15px) translateX(-15px) scale(0.95);
+  }
+  75% {
+    transform: translateY(-20px) translateX(-20px) scale(1.05);
+  }
 }
 
 /* 翻转动画 - 整个卡片翻转 */
