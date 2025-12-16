@@ -16,6 +16,9 @@ public class ActivityRecord {
     @TableField("task_id")
     private Long taskId;
     
+    @TableField(value = "user_id", fill = FieldFill.INSERT)
+    private Long userId;
+    
     @TableField("start_time")
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime startTime;

@@ -34,15 +34,18 @@ public class MyBatisPlusConfig {
      */
     public static class DataPermissionHandler implements com.baomidou.mybatisplus.extension.plugins.handler.DataPermissionHandler {
         /**
-         * 只对 TaskMapper 里的 SQL 生效
+         * 只对 TaskMapper、TagMapper、ActivityRecordMapper 里的 SQL 生效
          */
         private static final String TASK_MAPPER = "com.taskcalendar.mapper.TaskMapper";
         private static final String TAG_MAPPER = "com.taskcalendar.mapper.TagMapper";
+        private static final String ACTIVITY_RECORD_MAPPER = "com.taskcalendar.mapper.ActivityRecordMapper";
 
         @Override
         public Expression getSqlSegment(Expression where, String mappedStatementId) {
-            /* 1. 非 TaskMapper 直接放行 */
-            if (!mappedStatementId.startsWith(TASK_MAPPER) && !mappedStatementId.startsWith(TAG_MAPPER)) {
+            /* 1. 非 TaskMapper、TagMapper、ActivityRecordMapper 直接放行 */
+            if (!mappedStatementId.startsWith(TASK_MAPPER) && 
+                !mappedStatementId.startsWith(TAG_MAPPER) && 
+                !mappedStatementId.startsWith(ACTIVITY_RECORD_MAPPER)) {
                 return where;
             }
 

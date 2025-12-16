@@ -99,6 +99,7 @@ CREATE TABLE IF NOT EXISTS activity_records (
     task_id BIGINT NOT NULL COMMENT '任务ID',
     start_time DATETIME NOT NULL COMMENT '开始时间',
     end_time DATETIME COMMENT '结束时间',
+    user_id BIGINT NOT NULL COMMENT '用户ID',
     activity_type VARCHAR(20) NOT NULL COMMENT '活动类型',
     description TEXT COMMENT '活动描述',
     duration_minutes INT COMMENT '持续时间（分钟）',
