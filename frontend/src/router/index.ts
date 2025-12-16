@@ -51,13 +51,13 @@ const router = createRouter({
     {
       path: '/login',
       name: 'Login',
-      component: () => import('@/views/Login.vue'),
+      component: () => import('@/views/Auth.vue'),
       meta: { title: '登录', requiresAuth: false }
     },
     {
       path: '/register',
       name: 'Register',
-      component: () => import('@/views/Register.vue'),
+      component: () => import('@/views/Auth.vue'),
       meta: { title: '注册', requiresAuth: false }
     }
   ]
@@ -71,8 +71,8 @@ router.beforeEach((to, _from, next) => {
   // 检查是否需要登录
   if (to.meta.requiresAuth && !token) {
     next('/login')
-  } else if (to.path === '/login' && token) {
-    // 如果已登录，访问登录页时跳转到首页
+  } else if ((to.path === '/login' || to.path === '/register') && token) {
+    // 如果已登录，访问登录或注册页时跳转到首页
     next('/')
   } else {
     next()
