@@ -1,5 +1,6 @@
 import axios from 'axios'
 import {ElMessage} from 'element-plus/es'
+import router from "@/router";
 
 // 创建axios实例
 const service = axios.create({
@@ -26,19 +27,25 @@ service.interceptors.request.use(
 service.interceptors.response.use(
     response => {
         const res = response.data
-
+        console.log(res)
         if (res.success === false) {
-            ElMessage.error(res.message || '请求失败')
+            if (res.code === 401) {
+                ElMessage.error('未授权，请登录')
+                router.replace('/login')
+            }
+            ElMessage.error(res.message || '请求失败');
             return Promise.reject(new Error(res.message || '请求失败'))
         }
 
         return res
     },
     error => {
-        console.error('响应错误:', error)
-
         if (error.response) {
-            switch (error.response.status) {
+            switch (error.response.status) {   // ✅ 这里用 error.response.status
+                case 401:
+                    ElMessage.error('未授权，请登录')
+                    router.replace('/login')
+                    break
                 case 404:
                     ElMessage.error('请求的资源不存在')
                     break

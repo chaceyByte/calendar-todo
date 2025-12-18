@@ -1,6 +1,7 @@
 import {defineStore} from 'pinia'
 import {ref} from 'vue'
 import {getUserInfo, register as registerApi, login as loginApi, type UserInfo} from '@/api/user'
+import router from "@/router";
 
 export const useUserStore = defineStore('user', () => {
     const userInfo = ref<UserInfo | null>(null)
@@ -64,11 +65,14 @@ export const useUserStore = defineStore('user', () => {
                 localStorage.setItem('userInfo', JSON.stringify(latestUserInfo))
             } catch (error) {
                 // 如果获取失败，尝试使用localStorage中的用户信息
-                const savedUser = localStorage.getItem('userInfo')
-                if (savedUser) {
-                    userInfo.value = JSON.parse(savedUser)
-                }
-                console.error('获取用户信息失败，使用本地缓存信息:', error)
+                // const savedUser = localStorage.getItem('userInfo')
+                // if (savedUser) {
+                //     userInfo.value = JSON.parse(savedUser)
+                // }
+                // console.error('获取用户信息失败，使用本地缓存信息:', error)
+                console.error('token已失效, 请重新登录')
+                logout();
+                router.push('/login')
             }
         }
     }

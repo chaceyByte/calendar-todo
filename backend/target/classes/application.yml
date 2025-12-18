@@ -43,6 +43,6 @@ server:
 
 # 日志配置
 logging:
-  level:
-    com.taskcalendar: debug
-    org.springframework.security: debug
+#  level:
+#    com.taskcalendar: debug
+#    org.springframework.security: debug

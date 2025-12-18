@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import javax.validation.Valid;
 
@@ -30,10 +31,10 @@ public class AuthController {
         if (captcha == null || !captcha.equalsIgnoreCase(request.getCaptcha())) {
             return ApiResponse.error("验证码错误");
         }
-        
+
         // 使用后立即清除验证码
         session.removeAttribute("captcha");
-        
+
         // 检查用户名是否已存在
         User existingUser = userService.findByUsername(request.getUsername());
         if (existingUser != null) {
@@ -126,7 +127,8 @@ public class AuthController {
     }
 
     @GetMapping("/profile")
-    public ApiResponse<LoginResponse.UserInfo> getProfile(@RequestHeader("Authorization") String token) {
+    public ApiResponse<LoginResponse.UserInfo> getProfile(@RequestHeader("Authorization") String token,
+                                                          HttpServletResponse response) {
         if (token != null && token.startsWith("Bearer ")) {
             token = token.substring(7);
             if (jwtUtil.validateToken(token)) {
@@ -143,6 +145,9 @@ public class AuthController {
 
                     return ApiResponse.success(userInfo);
                 }
+            } else {
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                return ApiResponse.error(401, "token无效");
             }
         }
 
