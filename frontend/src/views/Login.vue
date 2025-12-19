@@ -89,7 +89,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { getCaptcha } from '@/api/captcha'
-import { ElMessage } from 'element-plus'
+import { ElMessage } from 'element-plus/es'
 import { User, Lock } from '@element-plus/icons-vue'
 
 const router = useRouter()

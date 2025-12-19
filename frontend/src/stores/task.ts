@@ -334,7 +334,7 @@ export const useTaskStore = defineStore('task', () => {
   }
 
   return {
-    tasks,
+    tasks: tasks.value,
     undoStack,
     addTask,
     updateTask,

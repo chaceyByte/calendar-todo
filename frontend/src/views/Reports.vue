@@ -182,7 +182,7 @@
         >
           <div class="activity-content">
             <div class="activity-title">
-              {{ activityStore.getActivityTypeDescription(activity.activityType) }}
+              {{ getActivityTypeDescription(activity.activityType) }}
             </div>
             <div class="activity-description" v-if="activity.description">
               {{ activity.description }}
@@ -207,6 +207,32 @@ import { useTaskStore } from '@/stores/task'
 
 const activityStore = useActivityStore()
 const taskStore = useTaskStore()
+
+// 获取活动类型描述
+const getActivityTypeDescription = (activityType: string) => {
+  switch (activityType) {
+    case 'CREATED':
+      return '创建'
+    case 'STARTED':
+      return '开始'
+    case 'PAUSED':
+      return '暂停'
+    case 'RESUMED':
+      return '恢复'
+    case 'COMPLETED':
+      return '完成'
+    case 'WORK':
+      return '工作'
+    case 'MEETING':
+      return '会议'
+    case 'STUDY':
+      return '学习'
+    case 'OTHER':
+      return '其他'
+    default:
+      return activityType
+  }
+}
 
 // 方法 - 需要在变量声明之前定义
 const getWeekStart = (date: Date) => {

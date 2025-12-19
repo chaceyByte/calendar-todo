@@ -91,7 +91,12 @@
                 </el-icon>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item @click="editTask(task as any)">编辑</el-dropdown-item>
+                    <el-dropdown-item @click="editTask(task as any)">
+                      <el-icon>
+                        <edit/>
+                      </el-icon>
+                      编辑
+                    </el-dropdown-item>
                     <el-dropdown-item @click="showActivityDrawer(task as any)">
                       <el-icon>
                         <view/>
@@ -99,9 +104,9 @@
                       查看活动记录
                     </el-dropdown-item>
                     <el-dropdown-item @click="addToStaging(task as any)">添加到暂存</el-dropdown-item>
-                    <el-dropdown-item v-if="task.status !== 'paused'" @click="() => handlePauseTask(task.id)">暂停
+                    <el-dropdown-item v-if="task.status !== 'cancelled'" @click="() => handlePauseTask(task.id)">暂停
                     </el-dropdown-item>
-                    <el-dropdown-item v-if="task.status === 'paused'" @click="() => handleResumeTask(task.id)">恢复
+                    <el-dropdown-item v-if="task.status === 'cancelled'" @click="() => handleResumeTask(task.id)">恢复
                     </el-dropdown-item>
                     <el-dropdown-item @click="addTagsToTask(task as any)">添加标签</el-dropdown-item>
                     <el-dropdown-item @click="showManualActivityDialog(task as any)">添加活动记录</el-dropdown-item>
@@ -180,8 +185,10 @@
           </div>
 
           <!-- 已加载完成提示 -->
-          <div v-if="column.id === 'completed' && !completedPagination.hasMore && loadedCompletedTasks.value && loadedCompletedTasks.value.length > 0" class="load-complete-hint">
-            <el-tag size="small" type="info">已加载全部 {{ loadedCompletedTasks.value.length }} 个任务</el-tag>
+          <div
+              v-if="column.id === 'completed' && !completedPagination.hasMore && loadedCompletedTasks && loadedCompletedTasks.length > 0"
+              class="load-complete-hint">
+            <el-tag size="small" type="info">已加载全部 {{ loadedCompletedTasks.length }} 个任务</el-tag>
           </div>
         </div>
       </div>
@@ -213,7 +220,7 @@
         <el-form-item label="状态">
           <el-select v-model="taskForm.status" placeholder="请选择状态">
             <el-option label="计划中" value="planning"/>
-            <el-option label="制作中" value="in-progress"/>
+            <el-option label="制作中" value="in_progress"/>
             <el-option label="已完成" value="completed"/>
           </el-select>
         </el-form-item>
@@ -306,11 +313,11 @@
               v-for="activity in activities"
               :key="activity.id"
               :timestamp="formatDateTime(activity.startTime)"
-              :type="getActivityTimelineType(activity.activityType)"
+              :type="getActivityTimelineType(activity)"
           >
             <div class="activity-content">
               <div class="activity-title">
-                {{ activityStore.getActivityTypeDescription(activity.activityType) }}
+                {{ getActivityDescription(activity) }}
               </div>
               <div class="activity-description" v-if="activity.description">
                 {{ activity.description }}
@@ -341,7 +348,7 @@
       </div>
 
       <div class="activity-actions">
-        <el-button type="primary" @click="showManualActivityDialog({ id: activityDrawer.taskId } as any)">
+        <el-button type="primary" @click="showManualActivityDialog({ id: activityDrawer.taskId } as Task)">
           添加活动记录
         </el-button>
       </div>
@@ -397,25 +404,14 @@
 </template>
 
 <script setup lang="ts">
-import {computed, onMounted, onUnmounted, reactive, ref, nextTick} from 'vue'
+import {computed, onMounted, onUnmounted, reactive, ref} from 'vue'
 import dayjs from 'dayjs'
-import {ElMessage, ElMessageBox} from 'element-plus'
-import {Clock, Close, Delete, Edit, More, Plus, PriceTag, Timer, VideoPause, View} from '@element-plus/icons-vue'
+import {ElMessage, ElMessageBox} from 'element-plus/es'
+import {Clock, Close, Delete, Edit, More, Plus, Timer, VideoPause, PriceTag, View} from '@element-plus/icons-vue'
 
-import {useTaskStore} from '@/stores/task'
+import {type Task, useTaskStore} from '@/stores/task'
 import {useTagStore} from '@/stores/tag'
 import {useActivityStore} from '@/stores/activity'
-
-interface Task {
-  id: number
-  title: string
-  description: string
-  status: 'planning' | 'in-progress' | 'completed'
-  progress: number
-  tags: string[]
-  createdAt: string
-  updatedAt: string
-}
 
 interface Column {
   id: string
@@ -431,7 +427,7 @@ interface PaginationState {
 
 const columns: Column[] = [
   {id: 'planning', title: '计划中'},
-  {id: 'in-progress', title: '制作中'},
+  {id: 'in_progress', title: '制作中'},
   {id: 'completed', title: '已完成'}
 ]
 
@@ -439,8 +435,10 @@ const taskStore = useTaskStore()
 const tagStore = useTagStore()
 const activityStore = useActivityStore()
 
-// 直接使用store中的任务数据
+// 使用store中的任务数据
 const tasks = computed(() => taskStore.tasks)
+
+
 const availableTags = ref([])
 
 // 分页状态管理
@@ -473,7 +471,8 @@ const taskForm = reactive({
   description: '',
   status: 'planning' as string,
   progress: 0,
-  tags: [] as string[]
+  tags: [] as string[],
+  completed: false
 })
 
 const taskContextMenu = reactive({
@@ -534,7 +533,8 @@ const showAddTaskDialog = (columnId?: string) => {
     description: '',
     status: 'planning',
     progress: 0,
-    tags: []
+    tags: [],
+    completed: false
   })
 }
 
@@ -567,7 +567,8 @@ const saveTask = async () => {
         description: taskForm.description,
         status: taskForm.status as any,
         progress: 0,
-        tags: []
+        tags: [],
+        completed: false
       }
       await taskStore.addTask(newTask)
       ElMessage.success('任务添加成功')
@@ -659,7 +660,7 @@ const removeFromStaging = async (taskId: number) => {
 const addToStaging = async (task: Task) => {
   try {
     // 检查是否已经在暂存队列中
-    if (!stagingTasks.value.find(t => t.id === task.id)) {
+    if (!stagingTasks.value?.find(t => t.id === task.id)) {
       // 调用后端API
       await taskStore.addToStaging(task.id)
 
@@ -707,7 +708,7 @@ const addTagsToTask = (task: Task) => {
 
 const removeTagFromTask = async (taskId: number, tagName: string) => {
   try {
-    const task = tasks.value.find(t => t.id === taskId)
+    const task = tasks.value?.find(t => t.id === taskId)
     if (task) {
       // 调用API移除标签
       await taskStore.removeTagFromTask(taskId, tagName)
@@ -806,11 +807,11 @@ const loadTasks = async () => {
 // 初始化已完成任务分页
 const initCompletedTasksPagination = () => {
   const allCompletedTasks = tasks.value?.filter(task => task.status === 'completed') || []
-  
+
   // 重置分页状态
   completedPagination.currentPage = 1
   completedPagination.hasMore = allCompletedTasks.length > completedPagination.pageSize
-  
+
   // 加载第一页数据
   loadedCompletedTasks.value = allCompletedTasks.slice(0, completedPagination.pageSize)
 }
@@ -822,14 +823,14 @@ const loadMoreCompletedTasks = () => {
   }
 
   completedPagination.isLoading = true
-  
+
   const allCompletedTasks = tasks.value?.filter(task => task.status === 'completed') || []
   const nextPage = completedPagination.currentPage + 1
   const startIndex = (nextPage - 1) * completedPagination.pageSize
   const endIndex = startIndex + completedPagination.pageSize
-  
+
   const newTasks = allCompletedTasks.slice(startIndex, endIndex)
-  
+
   // 模拟异步加载
   setTimeout(() => {
     loadedCompletedTasks.value = [...(loadedCompletedTasks.value || []), ...newTasks]
@@ -840,13 +841,13 @@ const loadMoreCompletedTasks = () => {
 }
 
 // 设置列引用
-const setColumnRef = (el: HTMLElement | null, columnId: string) => {
-  if (el) {
-    columnRefs.value[columnId] = el
-    
+const setColumnRef = (el: Element | ComponentPublicInstance | null, columnId: string) => {
+  if (el && 'tagName' in el) { // 确保是 HTMLElement
+    columnRefs.value[columnId] = el as HTMLElement
+
     // 仅为已完成列添加滚动监听
-    if (columnId === 'completed') {
-      setupScrollListener(el)
+    if (columnId === 'completed' && el) {
+      setupScrollListener(el as HTMLElement)
     }
   }
 }
@@ -859,8 +860,8 @@ const setupScrollListener = (element: HTMLElement) => {
 // 处理列滚动事件
 const handleColumnScroll = (event: Event) => {
   const target = event.target as HTMLElement
-  const { scrollTop, scrollHeight, clientHeight } = target
-  
+  const {scrollTop, scrollHeight, clientHeight} = target
+
   // 当滚动到底部附近时自动加载更多
   if (scrollHeight - scrollTop - clientHeight < 100 && !completedPagination.isLoading && completedPagination.hasMore) {
     loadMoreCompletedTasks()
@@ -909,7 +910,7 @@ const moveTaskToColumn = async (task: Task, targetStatus: string) => {
   try {
     // 检查任务是否在暂存队列中
     // 确保 stagingTasks 是数组再使用 some 方法
-    const isFromStaging = Array.isArray(stagingTasks.value) && stagingTasks.value.some(t => t.id === task.id)
+    const isFromStaging = Array.isArray(stagingTasks.value) && stagingTasks.value?.some(t => t.id === task.id)
 
     if (isFromStaging) {
       // 从暂存队列移动到看板
@@ -925,7 +926,7 @@ const moveTaskToColumn = async (task: Task, targetStatus: string) => {
         status: targetStatus as any,
         progress: targetStatus === 'completed' ? 100 : task.progress
       })
-      
+
       // 如果任务状态发生变化，重新初始化分页
       if (task.status !== targetStatus) {
         await loadTasks()
@@ -946,7 +947,7 @@ const saveTagsToTask = async () => {
     await taskStore.updateTaskTags(tagDialog.currentTaskId, tagDialog.selectedTags)
 
     // 更新本地任务状态 - 将标签ID转换为标签名称
-    const task = tasks.value.find(t => t.id === tagDialog.currentTaskId)
+    const task = tasks.value?.find(t => t.id === tagDialog.currentTaskId)
     if (task) {
       task.tags = tagDialog.selectedTags.map(tagId => {
         const tag = availableTags.value.find(t => t.id === tagId)
@@ -1001,10 +1002,10 @@ const saveManualActivity = async () => {
 
     await activityStore.addManualActivity({
       taskId: manualActivityDialog.taskId,
-      activityType: manualActivityDialog.form.activityType,
+      taskTitle: '',
       startTime: manualActivityDialog.form.startTime,
       endTime: manualActivityDialog.form.endTime,
-      description: manualActivityDialog.form.description
+      notes: `${manualActivityDialog.form.activityType}: ${manualActivityDialog.form.description}`
     })
 
     // 刷新活动记录
@@ -1036,21 +1037,25 @@ const handleResumeTask = async (taskId: number) => {
 
 // 获取任务当前活动
 const getCurrentActivity = (taskId: number) => {
-  return activityStore.currentActivities?.get(taskId)
+  // 检查是否有当前活动，并且是否属于这个任务
+  if (activityStore.currentActivity && activityStore.currentActivity.taskId === taskId) {
+    return activityStore.currentActivity
+  }
+  return null
 }
 
 // 获取活动状态文本
 const getActivityStatusText = (task: Task) => {
   const currentActivity = getCurrentActivity(task.id)
   if (currentActivity) {
-    // 根据活动类型返回描述文本
-    switch (currentActivity.activityType) {
-      case 'STARTED':
+    // 根据活动状态返回描述文本
+    switch (currentActivity.status) {
+      case 'running':
         return '进行中'
-      case 'PAUSED':
-        return '已暂停'
-      case 'COMPLETED':
+      case 'completed':
         return '已完成'
+      case 'cancelled':
+        return '已取消'
       default:
         return '活动记录'
     }
@@ -1060,7 +1065,7 @@ const getActivityStatusText = (task: Task) => {
   switch (task.status) {
     case 'planning':
       return '计划中'
-    case 'in-progress':
+    case 'in_progress':
       return '进行中'
     case 'completed':
       return '已完成'
@@ -1075,7 +1080,7 @@ const getActivityStatusClass = (task: Task) => {
   switch (task.status) {
     case 'planning':
       return 'activity-planning'
-    case 'in-progress':
+    case 'in_progress':
       return 'activity-in-progress'
     case 'completed':
       return 'activity-completed'
@@ -1112,26 +1117,67 @@ const formatDateTime = (dateTime: string) => {
 }
 
 // 获取活动时间线类型
-const getActivityTimelineType = (activityType: string) => {
-  switch (activityType) {
-    case 'CREATED':
+const getActivityTimelineType = (activity: any) => {
+  switch (activity.status) {
+    case 'running':
       return 'primary'
-    case 'STARTED':
+    case 'completed':
       return 'success'
-    case 'PAUSED':
+    case 'cancelled':
       return 'warning'
-    case 'RESUMED':
-      return 'info'
-    case 'COMPLETED':
-      return 'success'
-    case 'WORK':
-      return 'primary'
-    case 'MEETING':
-      return 'warning'
-    case 'STUDY':
-      return 'info'
     default:
       return 'info'
+  }
+}
+
+// 获取活动描述
+const getActivityDescription = (activity: any) => {
+  // 检查notes字段，如果包含类型信息则提取
+  if (activity.notes) {
+    // 尝试解析notes字段中的活动类型，例如 "WORK: 活动描述"
+    const match = activity.notes.match(/^(WORK|MEETING|STUDY|OTHER):\s*(.*)$/)
+    if (match) {
+      const [, type, description] = match
+      return getActivityTypeDescription(type) + (description ? ` - ${description}` : '')
+    }
+  }
+
+  // 如果无法从notes中解析，则根据状态返回描述
+  switch (activity.status) {
+    case 'running':
+      return '进行中'
+    case 'completed':
+      return '已完成'
+    case 'cancelled':
+      return '已取消'
+    default:
+      return '活动记录'
+  }
+}
+
+// 获取活动类型描述
+const getActivityTypeDescription = (type: string) => {
+  switch (type) {
+    case 'CREATED':
+      return '创建'
+    case 'STARTED':
+      return '开始'
+    case 'PAUSED':
+      return '暂停'
+    case 'RESUMED':
+      return '恢复'
+    case 'COMPLETED':
+      return '完成'
+    case 'WORK':
+      return '工作'
+    case 'MEETING':
+      return '会议'
+    case 'STUDY':
+      return '学习'
+    case 'OTHER':
+      return '其他'
+    default:
+      return type
   }
 }
 
@@ -1165,7 +1211,7 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('keydown', handleGlobalKeyDown, {capture: true})
   document.removeEventListener('click', closeTaskContextMenu)
-  
+
   // 清理滚动监听器
   Object.values(columnRefs.value).forEach(element => {
     if (element) {

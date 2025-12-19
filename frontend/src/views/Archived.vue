@@ -231,21 +231,19 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus/es'
 import {
   Search,
   Refresh,
   DocumentRemove,
   More,
-  View,
   Edit,
   Timer,
+  View,
   Delete
 } from '@element-plus/icons-vue'
 import { getArchivedTasks, deleteTask as deleteTaskApi, updateTask } from '@/api/task'
 import { getActivityByTask } from '@/api/activity'
-import { useTaskStore } from '@/stores/task'
-import { useActivityStore } from '@/stores/activity'
 import dayjs from 'dayjs'
 
 interface Task {
@@ -275,9 +273,6 @@ const currentPage = ref(1)
 const pageSize = ref(20)
 const searchKeyword = ref('')
 const activities = ref<Activity[]>([])
-
-const taskStore = useTaskStore()
-const activityStore = useActivityStore()
 
 // 对话框状态
 const detailDialog = reactive({
@@ -362,7 +357,8 @@ const saveTaskEdit = async () => {
     await updateTask(editDialog.form.id, {
       title: editDialog.form.title,
       description: editDialog.form.description,
-      progress: editDialog.form.progress
+      progress: editDialog.form.progress,
+      status: 'completed'
     })
     
     ElMessage.success('任务更新成功')
