@@ -7,10 +7,11 @@ import net.sf.jsqlparser.statement.select.Select;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Arrays;
 import java.util.Set;
 
 public class CustomDataPermission extends DataPermissionInterceptor {
-    private static final List<String> allowMapper = List.of(
+    private static final List<String> allowMapper = Arrays.asList(
             "com.taskcalendar.mapper.TaskMapper",
             "com.taskcalendar.mapper.TagMapper",
             "com.taskcalendar.mapper.ActivityRecordMapper");

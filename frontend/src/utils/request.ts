@@ -4,7 +4,7 @@ import router from "@/router";
 
 // 创建axios实例
 const service = axios.create({
-    baseURL: '', // 基础URL，由代理配置处理
+    baseURL: import.meta.env.MODE === 'development' ? '/api' : '/', // 开发环境使用/api前缀，生产环境使用根路径
     timeout: 5000 // 请求超时时间
 })
 
@@ -27,7 +27,6 @@ service.interceptors.request.use(
 service.interceptors.response.use(
     response => {
         const res = response.data
-        console.log(res)
         if (res.success === false) {
             if (res.code === 401) {
                 ElMessage.error('未授权，请登录')

@@ -9,7 +9,7 @@ export interface Tag {
 // 标签相关的API函数
 export const createTag = async (tag: Tag) => {
   try {
-    const response = await request.post('/api/tags', tag)
+    const response = await request.post('/tags', tag)
     return response.data || response
   } catch (error) {
     console.error('创建标签失败:', error)
@@ -19,7 +19,7 @@ export const createTag = async (tag: Tag) => {
 
 export const updateTag = async (id: number, updatedTag: Tag) => {
   try {
-    const response = await request.put(`/api/tags/${id}`, updatedTag)
+    const response = await request.put(`/tags/${id}`, updatedTag)
     return response.data || response
   } catch (error) {
     console.error('更新标签失败:', error)
@@ -29,7 +29,7 @@ export const updateTag = async (id: number, updatedTag: Tag) => {
 
 export const deleteTag = async (id: number) => {
   try {
-    await request.delete(`/api/tags/${id}`)
+    await request.delete(`/tags/${id}`)
   } catch (error) {
     console.error('删除标签失败:', error)
     throw error
@@ -38,7 +38,7 @@ export const deleteTag = async (id: number) => {
 
 export const getTags = async () => {
   try {
-    const response = await request.get('/api/tags')
+    const response = await request.get('/tags')
     return response.data || response
   } catch (error) {
     console.error('获取标签列表失败:', error)

@@ -19,7 +19,7 @@ export interface LoginResponse {
  */
 export const getUserInfo = async () => {
   try {
-    const response = await request.get('/api/auth/profile')
+    const response = await request.get('/auth/profile')
     return response.data
   } catch (error) {
     console.error('获取用户信息失败:', error)
@@ -38,7 +38,7 @@ export const getUserInfo = async () => {
  */
 export const register = async (username: string, password: string, nickname: string, email: string, captcha: string) => {
   try {
-    const response = await request.post('/api/auth/register', {
+    const response = await request.post('/auth/register', {
       username,
       password,
       nickname,
@@ -62,7 +62,7 @@ export const register = async (username: string, password: string, nickname: str
  */
 export const login = async (username: string, password: string, captcha?: string) => {
   try {
-    const response = await request.post('/api/auth/login', {
+    const response = await request.post('/auth/login', {
       username,
       password,
       captcha

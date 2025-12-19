@@ -6,7 +6,7 @@ import request from '@/utils/request'
  */
 export const getCaptcha = async () => {
   try {
-    const response = await request.get('/api/captcha/generate')
+    const response = await request.get('/captcha/generate')
     return response.data.image
   } catch (error) {
     console.error('获取验证码失败:', error)

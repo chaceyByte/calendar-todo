@@ -16,7 +16,7 @@ import {
   getStagingTasks
 } from '@/api/task'
 
-export type TaskStatus = 'planning' | 'in_progress' | 'completed' | 'cancelled'
+export type TaskStatus = 'planning' | 'in-progress' | 'completed' | 'cancelled'
 
 export interface Task {
   id: number
@@ -334,7 +334,7 @@ export const useTaskStore = defineStore('task', () => {
   }
 
   return {
-    tasks: tasks.value,
+    tasks,
     undoStack,
     addTask,
     updateTask,

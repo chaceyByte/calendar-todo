@@ -7,7 +7,7 @@ export interface Task {
   description?: string
   startTime?: string
   endTime?: string
-  status: 'planning' | 'in_progress' | 'completed' | 'cancelled'
+  status: 'planning' | 'in-progress' | 'completed' | 'cancelled'
   priority?: 'low' | 'medium' | 'high'
   tags?: Tag[]
   tagIds?: number[]
@@ -34,7 +34,7 @@ export interface StagingTask {
   description?: string
   startTime?: string
   endTime?: string
-  status: 'pending' | 'in_progress' | 'completed' | 'cancelled'
+  status: 'pending' | 'in-progress' | 'completed' | 'cancelled'
   priority?: 'low' | 'medium' | 'high'
   tags?: Tag[]
   tagIds?: number[]
@@ -43,7 +43,7 @@ export interface StagingTask {
 // 任务相关的API函数
 export const createTask = async (taskData: Task) => {
   try {
-    const response = await request.post('/api/tasks', taskData)
+    const response = await request.post('/tasks', taskData)
     return response.data || response
   } catch (error) {
     console.error('创建任务失败:', error)
@@ -53,7 +53,7 @@ export const createTask = async (taskData: Task) => {
 
 export const updateTask = async (id: number, updatedTask: Task) => {
   try {
-    const response = await request.put(`/api/tasks/${id}`, updatedTask)
+    const response = await request.put(`/tasks/${id}`, updatedTask)
     return response.data || response
   } catch (error) {
     console.error('更新任务失败:', error)
@@ -63,7 +63,7 @@ export const updateTask = async (id: number, updatedTask: Task) => {
 
 export const deleteTask = async (id: number) => {
   try {
-    await request.delete(`/api/tasks/${id}`)
+    await request.delete(`/tasks/${id}`)
   } catch (error) {
     console.error('删除任务失败:', error)
     throw error
@@ -72,7 +72,7 @@ export const deleteTask = async (id: number) => {
 
 export const getTasks = async () => {
   try {
-    const response = await request.get('/api/tasks')
+    const response = await request.get('/tasks')
     return response.data || response
   } catch (error) {
     console.error('获取任务列表失败:', error)
@@ -82,7 +82,7 @@ export const getTasks = async () => {
 
 export const undoTask = async (taskId: number, depth?: number) => {
   try {
-    const response = await request.post(`/api/tasks/${taskId}/undo`, { depth })
+    const response = await request.post(`/tasks/${taskId}/undo`, { depth })
     return response.data || response
   } catch (error) {
     console.error('撤销任务操作失败:', error)
@@ -92,7 +92,7 @@ export const undoTask = async (taskId: number, depth?: number) => {
 
 export const resumeTask = async (taskId: number) => {
   try {
-    const response = await request.post(`/api/tasks/${taskId}/resume`)
+    const response = await request.post(`/tasks/${taskId}/resume`)
     return response.data || response
   } catch (error) {
     console.error('恢复任务失败:', error)
@@ -102,7 +102,7 @@ export const resumeTask = async (taskId: number) => {
 
 export const pauseTask = async (taskId: number) => {
   try {
-    const response = await request.post(`/api/tasks/${taskId}/pause`)
+    const response = await request.post(`/tasks/${taskId}/pause`)
     return response.data || response
   } catch (error) {
     console.error('暂停任务失败:', error)
@@ -112,7 +112,7 @@ export const pauseTask = async (taskId: number) => {
 
 export const updateTaskTags = async (taskId: number, { tagIds }: { tagIds: number[] }) => {
   try {
-    const response = await request.put(`/api/tasks/${taskId}/tags`, { tagIds })
+    const response = await request.put(`/tasks/${taskId}/tags`, { tagIds })
     return response.data || response
   } catch (error) {
     console.error('更新任务标签失败:', error)
@@ -122,7 +122,7 @@ export const updateTaskTags = async (taskId: number, { tagIds }: { tagIds: numbe
 
 export const addTaskTag = async (taskId: number, { tagIds }: { tagIds: number[] }) => {
   try {
-    const response = await request.post(`/api/tasks/${taskId}/tags`, { tagIds })
+    const response = await request.post(`/tasks/${taskId}/tags`, { tagIds })
     return response.data || response
   } catch (error) {
     console.error('添加任务标签失败:', error)
@@ -132,7 +132,7 @@ export const addTaskTag = async (taskId: number, { tagIds }: { tagIds: number[] 
 
 export const removeTaskTag = async (taskId: number, tagName: string) => {
   try {
-    const response = await request.delete(`/api/tasks/${taskId}/tags/${encodeURIComponent(tagName)}`)
+    const response = await request.delete(`/tasks/${taskId}/tags/${encodeURIComponent(tagName)}`)
     return response.data || response
   } catch (error) {
     console.error('删除任务标签失败:', error)
@@ -143,7 +143,7 @@ export const removeTaskTag = async (taskId: number, tagName: string) => {
 // 暂存任务相关API
 export const addTaskToStaging = async (taskId: number) => {
   try {
-    const response = await request.post(`/api/tasks/${taskId}/staging`)
+    const response = await request.post(`/tasks/${taskId}/staging`)
     return response.data || response
   } catch (error) {
     console.error('添加任务到暂存区失败:', error)
@@ -153,7 +153,7 @@ export const addTaskToStaging = async (taskId: number) => {
 
 export const removeTaskFromStaging = async (taskId: number) => {
   try {
-    const response = await request.delete(`/api/tasks/${taskId}/staging`)
+    const response = await request.delete(`/tasks/${taskId}/staging`)
     return response.data || response
   } catch (error) {
     console.error('从暂存区移除任务失败:', error)
@@ -163,7 +163,7 @@ export const removeTaskFromStaging = async (taskId: number) => {
 
 export const getStagingTasks = async () => {
   try {
-    const response = await request.get('/api/tasks/staging')
+    const response = await request.get('/tasks/staging')
     return response.data || response
   } catch (error) {
     console.error('获取暂存任务失败:', error)
@@ -185,7 +185,7 @@ export const getArchivedTasks = async (page: number = 1, size: number = 20, keyw
     if (keyword) {
       params.keyword = keyword
     }
-    const response = await request.get('/api/tasks/archived', { params })
+    const response = await request.get('/tasks/archived', { params })
     return response.data || response
   } catch (error) {
     console.error('获取归档任务失败:', error)

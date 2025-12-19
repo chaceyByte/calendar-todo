@@ -1,5 +1,8 @@
 # Java项目忽略规则
 ## 编译输出
+.idea/
+.idea/**
+./backend/target/**
 /target/
 /target/**
 !.mvn/wrapper/maven-wrapper.jar

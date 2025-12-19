@@ -220,7 +220,7 @@
         <el-form-item label="状态">
           <el-select v-model="taskForm.status" placeholder="请选择状态">
             <el-option label="计划中" value="planning"/>
-            <el-option label="制作中" value="in_progress"/>
+            <el-option label="制作中" value="in-progress"/>
             <el-option label="已完成" value="completed"/>
           </el-select>
         </el-form-item>
@@ -427,7 +427,7 @@ interface PaginationState {
 
 const columns: Column[] = [
   {id: 'planning', title: '计划中'},
-  {id: 'in_progress', title: '制作中'},
+  {id: 'in-progress', title: '制作中'},
   {id: 'completed', title: '已完成'}
 ]
 
@@ -1065,7 +1065,7 @@ const getActivityStatusText = (task: Task) => {
   switch (task.status) {
     case 'planning':
       return '计划中'
-    case 'in_progress':
+    case 'in-progress':
       return '进行中'
     case 'completed':
       return '已完成'
@@ -1080,7 +1080,7 @@ const getActivityStatusClass = (task: Task) => {
   switch (task.status) {
     case 'planning':
       return 'activity-planning'
-    case 'in_progress':
+    case 'in-progress':
       return 'activity-in-progress'
     case 'completed':
       return 'activity-completed'
