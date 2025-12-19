@@ -2,7 +2,6 @@
 ## 编译输出
 .idea/
 .idea/**
-./backend/target/**
 /target/
 /target/**
 !.mvn/wrapper/maven-wrapper.jar

@@ -3,6 +3,7 @@ package com.taskcalendar.config.datapermission;
 import com.baomidou.mybatisplus.extension.plugins.inner.DataPermissionInterceptor;
 import com.taskcalendar.context.CurrentUser;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
+import net.sf.jsqlparser.statement.select.PlainSelect;
 import net.sf.jsqlparser.statement.select.Select;
 
 import java.util.HashSet;
@@ -28,9 +29,19 @@ public class CustomDataPermission extends DataPermissionInterceptor {
 
                 String sql = BondSqlHolder.get();
                 net.sf.jsqlparser.statement.Statement stmt = CCJSqlParserUtil.parse(sql);
-                net.sf.jsqlparser.statement.select.PlainSelect select =
-                        (net.sf.jsqlparser.statement.select.PlainSelect) stmt;
-
+                
+                // 检查是否是 PlainSelect 类型
+                if (!(stmt instanceof Select)) {
+                    return where;
+                }
+                
+                Select selectStmt = (Select) stmt;
+                if (!(selectStmt.getSelectBody() instanceof PlainSelect)) {
+                    return where;
+                }
+                
+                PlainSelect select = (PlainSelect) selectStmt.getSelectBody();
+                
                 /* 2. 一次性收集所有表别名 */
                 Set<String> aliases = new HashSet<>();
                 // 2.1 FROM 主表
