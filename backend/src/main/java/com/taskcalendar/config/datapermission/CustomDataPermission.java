@@ -28,6 +28,7 @@ public class CustomDataPermission extends DataPermissionInterceptor {
             try {
 
                 String sql = BondSqlHolder.get();
+                if (sql == null) return where;
                 net.sf.jsqlparser.statement.Statement stmt = CCJSqlParserUtil.parse(sql);
                 
                 // 检查是否是 PlainSelect 类型

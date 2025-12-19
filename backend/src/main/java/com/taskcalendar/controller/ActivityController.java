@@ -21,7 +21,7 @@ import java.util.Map;
 
 @Slf4j
 @RestController
-@RequestMapping("/activities")
+@RequestMapping("/api/activities")
 @RequiredArgsConstructor
 public class ActivityController {
     

@@ -11,7 +11,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/captcha")
+@RequestMapping("/api/captcha")
 public class CaptchaController {
 
     @GetMapping("/generate")

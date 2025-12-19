@@ -1,7 +1,12 @@
 spring:
   application:
     name: task-calendar-backend
-  
+  web:
+    resources:
+      static-locations: classpath:/static/
+      add-mappings: true
+  mvc:
+    static-path-pattern: /**
   # 数据源配置
   datasource:
     url: jdbc:mysql://localhost:3306/task_calendar?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8
@@ -39,10 +44,10 @@ spring:
 server:
   port: 8080
   servlet:
-    context-path: /api
+    context-path: /
 
-# 日志配置
+# 静态资源配置
 logging:
 #  level:
 #    com.taskcalendar: debug
-#    org.springframework.security: debug
+#    org.springframework.web.servlet: debug

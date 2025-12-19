@@ -4,7 +4,7 @@ import router from "@/router";
 
 // 创建axios实例
 const service = axios.create({
-    baseURL: import.meta.env.MODE === 'development' ? '/api' : '/', // 开发环境使用/api前缀，生产环境使用根路径
+    baseURL: '/api', // 开发环境使用/api前缀，生产环境使用根路径
     timeout: 5000 // 请求超时时间
 })
 

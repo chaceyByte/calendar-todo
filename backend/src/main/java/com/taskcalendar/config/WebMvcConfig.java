@@ -58,6 +58,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
     public void addViewControllers(ViewControllerRegistry registry) {
         // SPA支持：所有前端路由都指向index.html
         registry.addViewController("/").setViewName("forward:/index.html");
+        registry.addViewController("/home").setViewName("forward:/index.html");
         registry.addViewController("/login").setViewName("forward:/index.html");
         registry.addViewController("/tasks").setViewName("forward:/index.html");
         registry.addViewController("/calendar").setViewName("forward:/index.html");
