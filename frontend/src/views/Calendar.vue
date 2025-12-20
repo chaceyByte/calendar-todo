@@ -1036,16 +1036,19 @@ onUnmounted(() => {
 
 .day-number {
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 200;
   color: #1f2937;
   line-height: 1.2;
+  font-family: 'Alibaba PuHuiTi', 'Alibaba DingTalk Font', 'Source Han Sans CN', 'Noto Sans SC', sans-serif;
 }
 
 .lunar-date {
-  font-size: 10px;
+  font-size: 8px;
+  font-weight: 100;
   color: #6b7280;
   line-height: 1;
   margin-top: 1px;
+  font-family: 'Alibaba PuHuiTi', 'Alibaba DingTalk Font', 'Source Han Sans CN', 'Noto Sans SC', sans-serif;
 }
 
 .day-indicators {
@@ -1127,16 +1130,19 @@ onUnmounted(() => {
 .task-item.status-planning {
   background: #dbeafe;
   color: #1e40af;
+  border-radius: 20px 0 0 20px;
 }
 
 .task-item.status-in-progress {
   background: #fef3c7;
   color: #92400e;
+  border-radius: 20px 0 0 20px;
 }
 
 .task-item.status-completed {
   background: #f3f4f6;
   color: #6b7280;
+  border-radius: 20px 0 0 20px;
 }
 
 .day-activities {
