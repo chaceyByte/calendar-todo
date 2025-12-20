@@ -15,6 +15,9 @@
             </el-icon>
             上个月
           </el-button>
+          <el-button @click="goToToday" type="primary">
+            今天
+          </el-button>
           <el-button @click="nextMonth">
             下个月
             <el-icon>
@@ -66,16 +69,14 @@
             }
           ]"
             @contextmenu="(e) => handleDayContextMenu(e, day)"
+            @dblclick="(e) => handleDayDoubleClick(e, day)"
         >
           <div class="day-header">
-            <span class="day-number">{{ day.day }}</span>
+            <div class="day-date-info">
+              <span class="day-number">{{ formatDayHeader(day.date) }}</span>
+              <span class="lunar-date">{{ formatLunarDate(day.date) }}</span>
+            </div>
             <div class="day-indicators">
-              <el-badge
-                  v-if="day.tasks.length > 0"
-                  :value="day.tasks.length"
-                  type="primary"
-                  class="task-badge"
-              />
               <div
                   v-if="day.totalActivityTime > 0"
                   class="activity-indicator"
@@ -92,7 +93,7 @@
           <div class="day-content">
             <div class="day-tasks">
               <div
-                  v-for="task in day.tasks.slice(0, 2)"
+                  v-for="task in day.tasks.slice(0, 3)"
                   :key="task.id"
                   :class="['task-item', `status-${task.status}`]"
                   :title="task.title"
@@ -115,8 +116,8 @@
               </div>
             </div>
 
-            <div v-if="day.tasks.length > 2 || day.activities.length > 2" class="more-items">
-              +{{ (day.tasks.length - 2) + (day.activities.length - 2) }}更多
+            <div v-if="day.tasks.length > 3 || day.activities.length > 2" class="more-items">
+              +{{ (day.tasks.length - 3) + (day.activities.length - 2) }}更多
             </div>
           </div>
         </div>
@@ -129,11 +130,11 @@
         class="context-menu"
         :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
         @click="closeContextMenu">
-      <div class="menu-item" @click="copyActiveTasks(contextMenu.selectedDay?.date || '')">
+      <div class="menu-item" @click="copyDayTasks">
         <el-icon>
           <document/>
         </el-icon>
-        复制日报
+        复制任务
       </div>
       <div class="menu-item" @click="viewDayTasks">
         <el-icon>
@@ -142,15 +143,53 @@
         查看任务
       </div>
     </div>
+
+    <!-- 任务详情弹窗 -->
+    <el-dialog
+        v-model="taskDialog.visible"
+        :title="`${taskDialog.date} 任务详情`"
+        width="600px"
+        :close-on-click-modal="false"
+    >
+      <div class="task-dialog-content">
+        <div v-if="taskDialog.tasks.length === 0" class="no-tasks">
+          该日期暂无任务
+        </div>
+        <div v-else class="task-list">
+          <div
+              v-for="(taskGroup, tagIndex) in groupTasksByTag(taskDialog.tasks)"
+              :key="tagIndex"
+              class="task-group"
+          >
+            <div class="tag-title">{{ taskGroup.tag }}</div>
+            <div class="task-items">
+              <div
+                  v-for="(task, taskIndex) in taskGroup.tasks"
+                  :key="task.id"
+                  class="task-plain"
+              >
+                -- {{ task.title }}{{ task.description ? '; ' + task.description : '' }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="taskDialog.visible = false">关闭</el-button>
+        <el-button type="primary" @click="copyDayTasks(taskDialog.date)">复制任务</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import {computed, onMounted, onUnmounted, ref} from 'vue'
 import dayjs from 'dayjs'
-import {ArrowLeft, ArrowRight, Clock, Document, Files} from '@element-plus/icons-vue'
+import { getLunar } from 'chinese-lunar-calendar'
+import {ArrowLeft, ArrowRight, Clock, Document, Files, View} from '@element-plus/icons-vue'
 import {useTaskStore} from '@/stores/task'
 import {useActivityStore} from '@/stores/activity'
+import {ElMessage, ElMessageBox} from 'element-plus'
 
 interface Task {
   id: number
@@ -194,9 +233,14 @@ const contextMenu = ref({
   y: 0,
   selectedDay: null as CalendarDay | null
 })
+const taskDialog = ref({
+  visible: false,
+  date: '',
+  tasks: [] as Task[]
+})
 const calendarContainer = ref<HTMLElement | null>(null)
 
-const weekDays = ['日', '一', '二', '三', '四', '五', '六']
+const weekDays = ['一', '二', '三', '四', '五', '六', '日']
 
 const taskStore = useTaskStore()
 const activityStore = useActivityStore()
@@ -216,6 +260,8 @@ const activities = ref<ActivityRecord[]>([])
 const loadData = async () => {
   try {
     console.log('Loading data...')
+    
+    // 使用批量接口获取所有任务
     const fetchedTasks = await taskStore.fetchTasks()
     tasks.value = fetchedTasks as Task[]
     console.log(`Loaded ${tasks.value.length} tasks`)
@@ -245,43 +291,142 @@ const calendarDays = computed(() => {
   const days: CalendarDay[] = []
   const startOfMonth = currentDate.value.startOf('month')
   const endOfMonth = currentDate.value.endOf('month')
-  const startDate = startOfMonth.startOf('week')
-  const endDate = endOfMonth.endOf('week')
+  const startDate = startOfMonth.startOf('week').add(1, 'day') // 调整为从周一开始
+  const endDate = endOfMonth.endOf('week').add(1, 'day') // 调整为从周一开始
 
-  let currentDay = startDate
-
+  // 优化：预先创建任务日期映射，避免N+1查询
+  const taskDateMap: { [date: string]: Task[] } = {}
+  const activityDateMap: { [date: string]: ActivityRecord[] } = {}
+  
+  // 初始化所有日期的空数组
+  let currentDay = startDate.clone()
   while (currentDay.isBefore(endDate) || currentDay.isSame(endDate)) {
     const dateStr = currentDay.format('YYYY-MM-DD')
-
-    // 获取当天的任务
-    const dayTasks = tasks.value.filter(task => {
-      // 处理任务可能没有日期字段的情况
-      const taskStart = task.startDate ? dayjs(task.startDate) : null
-      const taskEnd = task.endDate ? dayjs(task.endDate) : null
-
-      if (!taskStart && !taskEnd) {
-        // 如果任务没有日期，检查创建日期是否在当前月份
-        const taskCreated = task.createdAt ? dayjs(task.createdAt) : null
-        return taskCreated && taskCreated.isSame(currentDay, 'day')
+    taskDateMap[dateStr] = []
+    activityDateMap[dateStr] = []
+    currentDay = currentDay.add(1, 'day')
+  }
+  
+  // 批量分配任务到对应日期 - 基于任务生命周期活动记录
+  tasks.value.forEach(task => {
+    // 获取该任务的所有活动记录
+    const taskActivities = activities.value.filter(activity => activity.taskId === task.id)
+    
+    if (taskActivities.length === 0) {
+      // 如果没有活动记录，使用任务的创建日期
+      const taskCreated = task.createdAt ? dayjs(task.createdAt) : null
+      if (taskCreated) {
+        const createdDateStr = taskCreated.format('YYYY-MM-DD')
+        if (taskDateMap[createdDateStr]) {
+          taskDateMap[createdDateStr].push(task)
+        }
       }
-
-      // 如果有开始或结束日期，检查是否在范围内
-      if (taskStart && taskEnd) {
-        return currentDay.isSame(taskStart) || currentDay.isAfter(taskStart) && currentDay.isSame(taskEnd) || currentDay.isBefore(taskEnd)
-      } else if (taskStart) {
-        return currentDay.isSame(taskStart) || currentDay.isAfter(taskStart)
-      } else if (taskEnd) {
-        return currentDay.isSame(taskEnd) || currentDay.isBefore(taskEnd)
-      }
-
-      return false
-    })
-
-    // 获取当天的活动记录
-    const dayActivities = activities.value.filter(activity =>
-        dayjs(activity.startTime).isSame(currentDay, 'day')
+      return
+    }
+    
+    // 按开始时间排序活动记录
+    const sortedActivities = [...taskActivities].sort((a, b) => 
+      dayjs(a.startTime).isBefore(dayjs(b.startTime)) ? -1 : 1
     )
-
+    
+    // 分析任务的生命周期，确定任务在哪些日期处于活动状态
+    const activeDates = new Set<string>()
+    
+    // 遍历活动记录，确定任务的活动时间段
+    for (let i = 0; i < sortedActivities.length; i++) {
+      const activity = sortedActivities[i]
+      const activityDate = dayjs(activity.startTime)
+      
+      // 根据活动类型确定任务状态
+      switch (activity.activityType) {
+        case 'CREATED':
+          // 任务创建，标记创建日期
+          activeDates.add(activityDate.format('YYYY-MM-DD'))
+          break
+          
+        case 'STARTED':
+          // 任务开始进行，标记从开始时间到下一个状态变更或当前时间的日期
+          const startDate = activityDate
+          let endDate = currentDate.value.endOf('month')
+          
+          // 查找下一个状态变更
+          for (let j = i + 1; j < sortedActivities.length; j++) {
+            const nextActivity = sortedActivities[j]
+            if (['PAUSED', 'COMPLETED'].includes(nextActivity.activityType)) {
+              endDate = dayjs(nextActivity.startTime)
+              break
+            }
+          }
+          
+          // 标记这个时间段内的所有日期
+          let currentDay = startDate.clone()
+          while (currentDay.isBefore(endDate) || currentDay.isSame(endDate)) {
+            activeDates.add(currentDay.format('YYYY-MM-DD'))
+            currentDay = currentDay.add(1, 'day')
+          }
+          break
+          
+        case 'RESUMED':
+          // 任务恢复，标记从恢复时间到下一个状态变更或当前时间的日期
+          const resumeDate = activityDate
+          let resumeEndDate = currentDate.value.endOf('month')
+          
+          // 查找下一个状态变更
+          for (let j = i + 1; j < sortedActivities.length; j++) {
+            const nextActivity = sortedActivities[j]
+            if (['PAUSED', 'COMPLETED'].includes(nextActivity.activityType)) {
+              resumeEndDate = dayjs(nextActivity.startTime)
+              break
+            }
+          }
+          
+          // 标记这个时间段内的所有日期
+          let resumeCurrentDay = resumeDate.clone()
+          while (resumeCurrentDay.isBefore(resumeEndDate) || resumeCurrentDay.isSame(resumeEndDate)) {
+            activeDates.add(resumeCurrentDay.format('YYYY-MM-DD'))
+            resumeCurrentDay = resumeCurrentDay.add(1, 'day')
+          }
+          break
+          
+        case 'COMPLETED':
+          // 任务完成，标记完成日期
+          activeDates.add(activityDate.format('YYYY-MM-DD'))
+          break
+          
+        // PAUSED 状态不标记日期，因为任务处于暂停状态
+      }
+    }
+    
+    // 将任务分配到对应的活动日期
+    activeDates.forEach(dateStr => {
+      if (taskDateMap[dateStr]) {
+        taskDateMap[dateStr].push(task)
+      }
+    })
+  })
+  
+  // 批量分配活动记录到对应日期 - 只显示非任务状态变更的活动
+  activities.value.forEach(activity => {
+    // 过滤掉任务状态变更的活动记录（CREATED, STARTED, COMPLETED, PAUSED, RESUMED）
+    const statusChangeTypes = ['CREATED', 'STARTED', 'COMPLETED', 'PAUSED', 'RESUMED']
+    if (statusChangeTypes.includes(activity.activityType)) {
+      return
+    }
+    
+    const activityDate = dayjs(activity.startTime)
+    const dateStr = activityDate.format('YYYY-MM-DD')
+    if (activityDateMap[dateStr]) {
+      activityDateMap[dateStr].push(activity)
+    }
+  })
+  
+  // 构建日历天数
+  currentDay = startDate.clone()
+  while (currentDay.isBefore(endDate) || currentDay.isSame(endDate)) {
+    const dateStr = currentDay.format('YYYY-MM-DD')
+    const dayTasks = taskDateMap[dateStr] || []
+    const dayActivities = activityDateMap[dateStr] || []
+    
     // 计算当天总活动时间
     const totalActivityTime = dayActivities.reduce((total, activity) =>
         total + (activity.durationMinutes || 0), 0
@@ -308,6 +453,11 @@ const prevMonth = () => {
   loadData()
 }
 
+const goToToday = () => {
+  currentDate.value = dayjs()
+  loadData()
+}
+
 const nextMonth = () => {
   currentDate.value = currentDate.value.add(1, 'month')
   loadData()
@@ -315,6 +465,10 @@ const nextMonth = () => {
 
 const handleDayContextMenu = (e: MouseEvent, day: CalendarDay) => {
   e.preventDefault()
+  // 只有有任务时才显示右键菜单
+  if (day.tasks.length === 0) {
+    return
+  }
   contextMenu.value = {
     visible: true,
     x: e.clientX,
@@ -520,8 +674,8 @@ const exportDailyReport = () => {
 
 // 复制本周活动任务到剪切板
 const copyActiveTasksForWeek = async () => {
-  const weekStart = currentDate.value.startOf('week')
-  const weekEnd = currentDate.value.endOf('week')
+  const weekStart = currentDate.value.startOf('week').add(1, 'day') // 调整为从周一开始
+  const weekEnd = currentDate.value.endOf('week').add(1, 'day') // 调整为从周一开始
   const weekStartStr = weekStart.format('YYYY-MM-DD')
   const weekEndStr = weekEnd.format('YYYY-MM-DD')
 
@@ -602,6 +756,136 @@ const formatShortDuration = (minutes: number): string => {
   }
 }
 
+// 双击日期格子打开任务详情
+const handleDayDoubleClick = (e: MouseEvent, day: CalendarDay) => {
+  e.stopPropagation()
+  // 只有有任务时才显示弹窗
+  if (day.tasks.length === 0) {
+    return
+  }
+  taskDialog.value = {
+    visible: true,
+    date: day.date,
+    tasks: day.tasks
+  }
+}
+
+// 按标签分组任务（支持多对多关系）
+const groupTasksByTag = (tasks: Task[]) => {
+  const groups: { [key: string]: Task[] } = {}
+  
+  tasks.forEach(task => {
+    // 如果任务有多个标签，任务会在多个标签组中出现
+    if (task.tags && task.tags.length > 0) {
+      task.tags.forEach(tag => {
+        if (!groups[tag]) {
+          groups[tag] = []
+        }
+        groups[tag].push(task)
+      })
+    } else {
+      // 没有标签的任务归为未分类
+      const tag = '未分类'
+      if (!groups[tag]) {
+        groups[tag] = []
+      }
+      groups[tag].push(task)
+    }
+  })
+  
+  return Object.keys(groups).map(tag => ({
+    tag,
+    tasks: groups[tag]
+  }))
+}
+
+// 获取标签名称
+const getTagName = (task: Task) => {
+  return task.tags && task.tags.length > 0 ? task.tags[0] : '未分类'
+}
+
+// 格式化日期header为"xx月xx日"格式
+const formatDayHeader = (dateStr: string) => {
+  const date = dayjs(dateStr)
+  return date.format('MM月DD日')
+}
+
+// 格式化农历日期
+const formatLunarDate = (dateStr: string) => {
+  try {
+    const date = dayjs(dateStr)
+    const lunar = getLunar(date.year(), date.month() + 1, date.date())
+    
+    // 使用库提供的格式化字符串，或者根据日期判断显示月份
+    if (lunar.lunarDate === 1) {
+      // 初一显示月份
+      const monthNames = ['正', '二', '三', '四', '五', '六', '七', '八', '九', '十', '冬', '腊']
+      return monthNames[lunar.lunarMonth - 1] + '月'
+    } else {
+      // 其他日期显示日期
+      return lunar.dateStr.replace(/^\S+月/, '') // 移除月份部分，只保留日期
+    }
+  } catch (error) {
+    console.error('农历日期格式化错误:', error)
+    return '初一'
+  }
+}
+
+// 复制指定日期的任务
+const copyDayTasks = async (dateStr?: string) => {
+  if (!dateStr) {
+    if (contextMenu.value.selectedDay) {
+      dateStr = contextMenu.value.selectedDay.date
+    } else if (taskDialog.value.visible) {
+      dateStr = taskDialog.value.date
+    } else {
+      closeContextMenu()
+      return
+    }
+  }
+  
+  const targetDay = calendarDays.value.find(day => day.date === dateStr)
+  if (!targetDay || targetDay.tasks.length === 0) {
+    ElMessage.info(`${dateStr} 没有任务`)
+    closeContextMenu()
+    return
+  }
+  
+  const taskGroups = groupTasksByTag(targetDay.tasks)
+  let clipboardText = `${dateStr} 任务\n\n`
+  
+  taskGroups.forEach((group, groupIndex) => {
+    clipboardText += `- tag ${groupIndex + 1} ${group.tag}\n`
+    group.tasks.forEach((task, taskIndex) => {
+      clipboardText += `  ${taskIndex + 1}. ${task.title} | ${task.description || '无描述'}\n`
+    })
+    clipboardText += '\n'
+  })
+  
+  // 使用现代的 Clipboard API 复制到剪切板
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(clipboardText)
+      ElMessage.success(`已复制 ${targetDay.tasks.length} 个任务到剪切板`)
+    } else {
+      // 降级方案
+      fallbackCopyToClipboard(clipboardText)
+    }
+    closeContextMenu()
+  } catch (err) {
+    console.error('复制失败:', err)
+    // 最后的备选方案 - 弹出对话框显示文本
+    ElMessageBox.alert(clipboardText, '复制内容', {
+      confirmButtonText: '确定',
+    }).then(() => {
+      ElMessage.info('请手动复制上方内容')
+      closeContextMenu()
+    }).catch(() => {
+      closeContextMenu()
+    })
+  }
+}
+
 // 点击其他地方关闭右键菜单
 const handleClickOutside = (_e: MouseEvent) => {
   if (contextMenu.value.visible) {
@@ -661,6 +945,7 @@ onUnmounted(() => {
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  min-height: 0;
 }
 
 .week-header {
@@ -681,7 +966,9 @@ onUnmounted(() => {
   flex: 1;
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  grid-auto-rows: minmax(100px, 1fr);
+  grid-auto-rows: minmax(120px, 1fr);
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .calendar-day {
@@ -692,6 +979,9 @@ onUnmounted(() => {
   transition: all 0.2s ease;
   position: relative;
   overflow: hidden;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
 }
 
 .calendar-day:hover {
@@ -701,7 +991,11 @@ onUnmounted(() => {
 
 .calendar-day:not(.current-month) {
   background: #fafbfc;
-  color: #94a3b8;
+  color: #cbd5e1;
+}
+
+.calendar-day:not(.current-month) .day-number {
+  color: #cbd5e1;
 }
 
 .calendar-day.today {
@@ -719,9 +1013,7 @@ onUnmounted(() => {
   border-radius: 50%;
 }
 
-.calendar-day.has-tasks {
-  border-left: 3px solid #3b82f6;
-}
+/* 去除任务相关的左侧边框 */
 
 .calendar-day.has-activities {
   border-right: 3px solid #10b981;
@@ -730,14 +1022,30 @@ onUnmounted(() => {
 .day-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
+  align-items: flex-start;
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin: -4px -8px 8px -8px;
+}
+
+.day-date-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
 .day-number {
-  font-size: 15px;
+  font-size: 12px;
   font-weight: 600;
   color: #1f2937;
+  line-height: 1.2;
+}
+
+.lunar-date {
+  font-size: 10px;
+  color: #6b7280;
+  line-height: 1;
+  margin-top: 1px;
 }
 
 .day-indicators {
@@ -770,25 +1078,50 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  height: calc(100% - 30px);
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
 .day-tasks {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
 }
 
 .task-item {
   font-size: 12px;
-  padding: 3px 6px;
-  border-radius: 6px;
+  padding: 6px 8px 6px 16px;
+  border-radius: 0 4px 4px 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   font-weight: 500;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.05);
+  border-left: 3px solid transparent;
+  height: 29px;
+  line-height: 17px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  text-align: right;
+  max-width: calc(100% - 8px);
+  width: fit-content;
+  align-self: flex-end;
+  margin-left: auto;
+}
+
+.task-item::before {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 8px;
+  background: #f97316;
+  border-radius: 50%;
 }
 
 .task-item.status-planning {
@@ -797,13 +1130,13 @@ onUnmounted(() => {
 }
 
 .task-item.status-in-progress {
-  background: #fed7aa;
-  color: #c2410c;
+  background: #fef3c7;
+  color: #92400e;
 }
 
 .task-item.status-completed {
-  background: #d1fae5;
-  color: #065f46;
+  background: #f3f4f6;
+  color: #6b7280;
 }
 
 .day-activities {
@@ -903,5 +1236,66 @@ onUnmounted(() => {
 
 .menu-item:hover {
   background: #f9fafb;
+}
+
+/* 任务弹窗样式 */
+.task-dialog-content {
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 0 10px;
+}
+
+.no-tasks {
+  text-align: center;
+  color: #6b7280;
+  padding: 40px 0;
+  font-size: 16px;
+}
+
+.task-group {
+  margin-bottom: 20px;
+}
+
+.tag-title {
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 8px;
+  font-size: 15px;
+  padding-left: 8px;
+  border-left: 3px solid #3b82f6;
+}
+
+.task-items {
+  margin-left: 20px;
+}
+
+.task-dialog-content .task-plain {
+  margin-bottom: 8px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: #333;
+}
+
+.task-number {
+  font-weight: 600;
+  color: #6b7280;
+  min-width: 20px;
+  margin-right: 8px;
+}
+
+.task-content {
+  flex: 1;
+}
+
+.task-title {
+  font-weight: 500;
+  color: #1f2937;
+  margin-bottom: 4px;
+}
+
+.task-description {
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.4;
 }
 </style>
