@@ -73,8 +73,13 @@
         >
           <div class="day-header">
             <div class="day-date-info">
-              <span class="day-number">{{ formatDayHeader(day.date) }}</span>
-              <span class="lunar-date">{{ formatLunarDate(day.date) }}</span>
+              <div class="date-main">
+                <span :class="['day-number', { 'is-weekend': day.isWeekend }]">{{ formatDayHeader(day.date) }}</span>
+                <span v-if="day.holidayType" :class="['holiday-badge', day.holidayType.toLowerCase()]">
+                  {{ day.holidayType === 'REST' ? '休' : '补' }}
+                </span>
+              </div>
+              <span :class="['lunar-date', { 'is-weekend': day.isWeekend }]">{{ formatLunarDate(day.date) }}</span>
             </div>
             <div class="day-indicators">
               <div
@@ -151,14 +156,14 @@
         </div>
         <div v-else class="task-list">
           <div
-              v-for="(taskGroup, tagIndex) in groupTasksByTag(taskDialog.tasks)"
-              :key="tagIndex"
+              v-for="(taskGroup, index) in groupTasksByTag(taskDialog.tasks)"
+              :key="index"
               class="task-group"
           >
             <div class="tag-title">{{ taskGroup.tag }}</div>
             <div class="task-items">
               <div
-                  v-for="(task, taskIndex) in taskGroup.tasks"
+                  v-for="task in taskGroup.tasks"
                   :key="task.id"
                   class="task-plain"
               >
@@ -179,11 +184,12 @@
 <script setup lang="ts">
 import {computed, onMounted, onUnmounted, ref} from 'vue'
 import dayjs from 'dayjs'
-import { getLunar } from 'chinese-lunar-calendar'
-import {ArrowLeft, ArrowRight, Clock, Document, Files, View} from '@element-plus/icons-vue'
+import {getLunar} from 'chinese-lunar-calendar'
+import {ArrowLeft, ArrowRight, Clock, Document, Files} from '@element-plus/icons-vue'
 import {useTaskStore} from '@/stores/task'
 import {useActivityStore} from '@/stores/activity'
-import {ElMessage, ElMessageBox} from 'element-plus'
+import {ElMessage, ElMessageBox} from 'element-plus/es'
+import {getHolidaysByYear} from '@/api/calendar'
 
 interface Task {
   id: number
@@ -210,14 +216,25 @@ interface ActivityRecord {
   durationMinutes?: number
 }
 
+interface HolidayConfig {
+  id?: number
+  year: string
+  date: string
+  type: 'REST' | 'WORK'
+  description: string
+}
+
 interface CalendarDay {
   date: string
   day: number
   isToday: boolean
+  isWeekend: boolean
   isCurrentMonth: boolean
   tasks: Task[]
   activities: ActivityRecord[]
   totalActivityTime: number
+  holidayType?: 'REST' | 'WORK' | null
+  holidayDescription?: string
 }
 
 const currentDate = ref(dayjs())
@@ -233,6 +250,9 @@ const taskDialog = ref({
   tasks: [] as Task[]
 })
 const calendarContainer = ref<HTMLElement | null>(null)
+
+// 休息日配置数据
+const holidays = ref<HolidayConfig[]>([])
 
 const weekDays = ['一', '二', '三', '四', '五', '六', '日']
 
@@ -254,7 +274,7 @@ const activities = ref<ActivityRecord[]>([])
 const loadData = async () => {
   try {
     console.log('Loading data...')
-    
+
     // 使用批量接口获取所有任务
     const fetchedTasks = await taskStore.fetchTasks()
     tasks.value = fetchedTasks as Task[]
@@ -262,7 +282,7 @@ const loadData = async () => {
 
     // 使用批量接口获取所有活动记录
     const allActivities = await activityStore.getAllActivities()
-    
+
     // 确保allActivities是一个数组
     if (Array.isArray(allActivities)) {
       activities.value = allActivities
@@ -271,10 +291,34 @@ const loadData = async () => {
       console.warn('活动记录不是数组格式:', allActivities)
       activities.value = []
     }
+
+    // 加载休息日配置
+    await loadHolidays()
   } catch (error) {
     console.error('加载数据失败:', error)
     ElMessage.error('加载数据失败')
   }
+}
+
+// 加载休息日配置（调用后端API）
+const loadHolidays = async () => {
+  try {
+    const currentYear = parseInt(currentDate.value.format('YYYY'))
+
+    // 使用calendar API组件获取休息日配置
+    holidays.value = await getHolidaysByYear(currentYear)
+    console.log(`Loaded ${holidays.value.length} holiday configurations from API`)
+
+  } catch (error) {
+    console.error('加载休息日配置失败:', error)
+    // 如果后端接口失败，返回空数组
+    holidays.value = []
+  }
+}
+
+// 获取日期的休息日类型
+const getHolidayType = (dateStr: string): HolidayConfig | null => {
+  return holidays.value.find(h => h.date === dateStr) || null
 }
 
 const currentMonthText = computed(() => {
@@ -291,7 +335,7 @@ const calendarDays = computed(() => {
   // 优化：预先创建任务日期映射，避免N+1查询
   const taskDateMap: { [date: string]: Task[] } = {}
   const activityDateMap: { [date: string]: ActivityRecord[] } = {}
-  
+
   // 初始化所有日期的空数组
   let currentDay = startDate.clone()
   while (currentDay.isBefore(endDate) || currentDay.isSame(endDate)) {
@@ -300,12 +344,12 @@ const calendarDays = computed(() => {
     activityDateMap[dateStr] = []
     currentDay = currentDay.add(1, 'day')
   }
-  
+
   // 批量分配任务到对应日期 - 基于任务生命周期活动记录
   tasks.value.forEach(task => {
     // 获取该任务的所有活动记录
     const taskActivities = activities.value.filter(activity => activity.taskId === task.id)
-    
+
     if (taskActivities.length === 0) {
       // 如果没有活动记录，使用任务的创建日期
       const taskCreated = task.createdAt ? dayjs(task.createdAt) : null
@@ -317,32 +361,32 @@ const calendarDays = computed(() => {
       }
       return
     }
-    
+
     // 按开始时间排序活动记录
-    const sortedActivities = [...taskActivities].sort((a, b) => 
-      dayjs(a.startTime).isBefore(dayjs(b.startTime)) ? -1 : 1
+    const sortedActivities = [...taskActivities].sort((a, b) =>
+        dayjs(a.startTime).isBefore(dayjs(b.startTime)) ? -1 : 1
     )
-    
+
     // 分析任务的生命周期，确定任务在哪些日期处于活动状态
     const activeDates = new Set<string>()
-    
+
     // 遍历活动记录，确定任务的活动时间段
     for (let i = 0; i < sortedActivities.length; i++) {
       const activity = sortedActivities[i]
       const activityDate = dayjs(activity.startTime)
-      
+
       // 根据活动类型确定任务状态
       switch (activity.activityType) {
         case 'CREATED':
           // 任务创建，标记创建日期
           activeDates.add(activityDate.format('YYYY-MM-DD'))
           break
-          
+
         case 'STARTED':
           // 任务开始进行，标记从开始时间到下一个状态变更或当前时间的日期
           const startDate = activityDate
           let endDate = currentDate.value.endOf('month')
-          
+
           // 查找下一个状态变更
           for (let j = i + 1; j < sortedActivities.length; j++) {
             const nextActivity = sortedActivities[j]
@@ -351,7 +395,7 @@ const calendarDays = computed(() => {
               break
             }
           }
-          
+
           // 标记这个时间段内的所有日期
           let currentDay = startDate.clone()
           while (currentDay.isBefore(endDate) || currentDay.isSame(endDate)) {
@@ -359,12 +403,12 @@ const calendarDays = computed(() => {
             currentDay = currentDay.add(1, 'day')
           }
           break
-          
+
         case 'RESUMED':
           // 任务恢复，标记从恢复时间到下一个状态变更或当前时间的日期
           const resumeDate = activityDate
           let resumeEndDate = currentDate.value.endOf('month')
-          
+
           // 查找下一个状态变更
           for (let j = i + 1; j < sortedActivities.length; j++) {
             const nextActivity = sortedActivities[j]
@@ -373,7 +417,7 @@ const calendarDays = computed(() => {
               break
             }
           }
-          
+
           // 标记这个时间段内的所有日期
           let resumeCurrentDay = resumeDate.clone()
           while (resumeCurrentDay.isBefore(resumeEndDate) || resumeCurrentDay.isSame(resumeEndDate)) {
@@ -381,16 +425,16 @@ const calendarDays = computed(() => {
             resumeCurrentDay = resumeCurrentDay.add(1, 'day')
           }
           break
-          
+
         case 'COMPLETED':
           // 任务完成，标记完成日期
           activeDates.add(activityDate.format('YYYY-MM-DD'))
           break
-          
-        // PAUSED 状态不标记日期，因为任务处于暂停状态
+
+          // PAUSED 状态不标记日期，因为任务处于暂停状态
       }
     }
-    
+
     // 将任务分配到对应的活动日期
     activeDates.forEach(dateStr => {
       if (taskDateMap[dateStr]) {
@@ -398,7 +442,7 @@ const calendarDays = computed(() => {
       }
     })
   })
-  
+
   // 批量分配活动记录到对应日期 - 只显示非任务状态变更的活动
   activities.value.forEach(activity => {
     // 过滤掉任务状态变更的活动记录（CREATED, STARTED, COMPLETED, PAUSED, RESUMED）
@@ -406,34 +450,40 @@ const calendarDays = computed(() => {
     if (statusChangeTypes.includes(activity.activityType)) {
       return
     }
-    
+
     const activityDate = dayjs(activity.startTime)
     const dateStr = activityDate.format('YYYY-MM-DD')
     if (activityDateMap[dateStr]) {
       activityDateMap[dateStr].push(activity)
     }
   })
-  
+
   // 构建日历天数
   currentDay = startDate.clone()
   while (currentDay.isBefore(endDate) || currentDay.isSame(endDate)) {
     const dateStr = currentDay.format('YYYY-MM-DD')
     const dayTasks = taskDateMap[dateStr] || []
     const dayActivities = activityDateMap[dateStr] || []
-    
+
     // 计算当天总活动时间
     const totalActivityTime = dayActivities.reduce((total, activity) =>
         total + (activity.durationMinutes || 0), 0
     )
+
+    // 获取休息日信息
+    const holidayInfo = getHolidayType(dateStr)
 
     days.push({
       date: dateStr,
       day: currentDay.date(),
       isToday: currentDay.isSame(dayjs(), 'day'),
       isCurrentMonth: currentDay.isSame(currentDate.value, 'month'),
+      isWeekend: currentDay.day() === 0 || currentDay.day() === 6,
       tasks: dayTasks,
       activities: dayActivities,
-      totalActivityTime
+      totalActivityTime,
+      holidayType: holidayInfo?.type || null,
+      holidayDescription: holidayInfo?.description || ''
     })
 
     currentDay = currentDay.add(1, 'day')
@@ -646,20 +696,6 @@ const getActivityTypeText = (type: string) => {
   return typeMap[type] || type
 }
 
-// const exportDayReport = () => {
-//   if (contextMenu.value.selectedDay) {
-//     ElMessage.success(`导出 ${contextMenu.value.selectedDay.date} 的日报`)
-//   }
-//   closeContextMenu()
-// }
-
-const viewDayTasks = () => {
-  if (contextMenu.value.selectedDay) {
-    ElMessage.info(`查看 ${contextMenu.value.selectedDay.date} 的任务`)
-  }
-  closeContextMenu()
-}
-
 const exportDailyReport = () => {
   const selectedDateStr = currentDate.value.format('YYYY-MM-DD')
   copyActiveTasks(selectedDateStr)
@@ -767,7 +803,7 @@ const handleDayDoubleClick = (e: MouseEvent, day: CalendarDay) => {
 // 按标签分组任务（支持多对多关系）
 const groupTasksByTag = (tasks: Task[]) => {
   const groups: { [key: string]: Task[] } = {}
-  
+
   tasks.forEach(task => {
     // 如果任务有多个标签，任务会在多个标签组中出现
     if (task.tags && task.tags.length > 0) {
@@ -786,16 +822,11 @@ const groupTasksByTag = (tasks: Task[]) => {
       groups[tag].push(task)
     }
   })
-  
+
   return Object.keys(groups).map(tag => ({
     tag,
     tasks: groups[tag]
   }))
-}
-
-// 获取标签名称
-const getTagName = (task: Task) => {
-  return task.tags && task.tags.length > 0 ? task.tags[0] : '未分类'
 }
 
 // 格式化日期header为"xx月xx日"格式
@@ -809,7 +840,7 @@ const formatLunarDate = (dateStr: string) => {
   try {
     const date = dayjs(dateStr)
     const lunar = getLunar(date.year(), date.month() + 1, date.date())
-    
+
     // 使用库提供的格式化字符串，或者根据日期判断显示月份
     if (lunar.lunarDate === 1) {
       // 初一显示月份
@@ -837,25 +868,25 @@ const copyDayTasks = async (dateStr?: string) => {
       return
     }
   }
-  
+
   const targetDay = calendarDays.value.find(day => day.date === dateStr)
   if (!targetDay || targetDay.tasks.length === 0) {
     ElMessage.info(`${dateStr} 没有任务`)
     closeContextMenu()
     return
   }
-  
+
   const taskGroups = groupTasksByTag(targetDay.tasks)
   let clipboardText = `${dateStr} 任务\n\n`
-  
+
   taskGroups.forEach((group, groupIndex) => {
     clipboardText += `- tag ${groupIndex + 1} ${group.tag}\n`
-    group.tasks.forEach((task, taskIndex) => {
-      clipboardText += `  ${taskIndex + 1}. ${task.title} | ${task.description || '无描述'}\n`
+    group.tasks.forEach((task, index) => {
+      clipboardText += `  ${index + 1}. ${task.title} | ${task.description || '无描述'}\n`
     })
     clipboardText += '\n'
   })
-  
+
   // 使用现代的 Clipboard API 复制到剪切板
   try {
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -1023,14 +1054,51 @@ onUnmounted(() => {
 }
 
 .day-date-info {
+  width: 100%;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+  /*align-items: center;*/
+  justify-content: space-between;
+}
+
+.date-main {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.is-weekend {
+  color: #EC3333 !important;
+}
+
+/* 休息日标签样式 */
+.holiday-badge {
+  display: inline-block;
+  padding: 1px 3px;
+  border-radius: 2px;
+  font-size: 8px;
+  font-weight: bold;
+  line-height: 1;
+  min-width: 12px;
+  text-align: center;
+}
+
+.holiday-badge.rest {
+  background-color: #6b7280; /* 灰色底色 */
+  color: white; /* 白色字体 */
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.holiday-badge.work {
+  background-color: #EC3333; /* 红色底色 */
+  color: white; /* 白色字体 */
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .day-number {
   font-size: 12px;
-  font-weight: 200;
+  font-weight: 700;
   color: #1f2937;
   line-height: 1.2;
   font-family: 'Alibaba PuHuiTi', 'Alibaba DingTalk Font', 'Source Han Sans CN', 'Noto Sans SC', sans-serif;
@@ -1038,7 +1106,7 @@ onUnmounted(() => {
 
 .lunar-date {
   font-size: 8px;
-  font-weight: 100;
+  font-weight: 400;
   color: #6b7280;
   line-height: 1;
   margin-top: 1px;
