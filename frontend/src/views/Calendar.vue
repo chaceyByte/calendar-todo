@@ -130,17 +130,11 @@
         class="context-menu"
         :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
         @click="closeContextMenu">
-      <div class="menu-item" @click="copyDayTasks">
+      <div class="menu-item" @click="() => copyDayTasks()">
         <el-icon>
           <document/>
         </el-icon>
         复制任务
-      </div>
-      <div class="menu-item" @click="viewDayTasks">
-        <el-icon>
-          <view/>
-        </el-icon>
-        查看任务
       </div>
     </div>
 
