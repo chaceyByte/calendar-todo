@@ -1,11 +1,14 @@
 com/taskcalendar/config/WebMvcConfig.class
 com/taskcalendar/dto/WeeklyReport$TaskActivityDetail.class
 com/taskcalendar/entity/Task.class
+com/taskcalendar/dto/HolidayRequest.class
 com/taskcalendar/service/TagService.class
 com/taskcalendar/config/JwtUtil.class
 com/taskcalendar/service/ActivityService.class
+com/taskcalendar/service/impl/HolidayConfigServiceImpl.class
 com/taskcalendar/entity/Tag.class
 com/taskcalendar/dto/RegisterRequest.class
+com/taskcalendar/entity/HolidayConfig.class
 com/taskcalendar/dto/ApiResponse.class
 com/taskcalendar/dto/WeeklyReport$DaySummary.class
 com/taskcalendar/TaskCalendarApplication.class
@@ -15,6 +18,7 @@ com/taskcalendar/service/UserService.class
 com/taskcalendar/dto/TaskDTO.class
 com/taskcalendar/entity/ActivityRecord.class
 com/taskcalendar/dto/LoginResponse$UserInfo.class
+com/taskcalendar/entity/HolidayConfig$HolidayType.class
 com/taskcalendar/dto/DailyReport.class
 com/taskcalendar/controller/TaskController.class
 com/taskcalendar/dto/DailyReport$ActivityDetail.class
@@ -44,7 +48,10 @@ com/taskcalendar/dto/DailyReport$TaskActivityDetail.class
 com/taskcalendar/dto/ManualActivityRequest.class
 com/taskcalendar/mapper/TaskTagMapper.class
 com/taskcalendar/config/MyMetaObjectHandler.class
+com/taskcalendar/controller/HolidayController.class
 com/taskcalendar/config/SecurityConfig.class
 com/taskcalendar/dto/StartActivityRequest.class
+com/taskcalendar/mapper/HolidayConfigMapper.class
 com/taskcalendar/controller/CaptchaController.class
 com/taskcalendar/mapper/ActivityRecordMapper$TaskActivitySummary.class
+com/taskcalendar/service/HolidayConfigService.class

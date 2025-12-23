@@ -385,7 +385,7 @@ const calendarDays = computed(() => {
         case 'STARTED':
           // 任务开始进行，标记从开始时间到下一个状态变更或当前时间的日期
           const startDate = activityDate
-          let endDate = currentDate.value.endOf('month')
+          let endDate = dayjs() // 只显示到今天为止
 
           // 查找下一个状态变更
           for (let j = i + 1; j < sortedActivities.length; j++) {
@@ -394,6 +394,11 @@ const calendarDays = computed(() => {
               endDate = dayjs(nextActivity.startTime)
               break
             }
+          }
+
+          // 确保结束日期不超过今天
+          if (endDate.isAfter(dayjs())) {
+            endDate = dayjs()
           }
 
           // 标记这个时间段内的所有日期
@@ -407,7 +412,7 @@ const calendarDays = computed(() => {
         case 'RESUMED':
           // 任务恢复，标记从恢复时间到下一个状态变更或当前时间的日期
           const resumeDate = activityDate
-          let resumeEndDate = currentDate.value.endOf('month')
+          let resumeEndDate = dayjs() // 只显示到今天为止
 
           // 查找下一个状态变更
           for (let j = i + 1; j < sortedActivities.length; j++) {
@@ -416,6 +421,11 @@ const calendarDays = computed(() => {
               resumeEndDate = dayjs(nextActivity.startTime)
               break
             }
+          }
+
+          // 确保结束日期不超过今天
+          if (resumeEndDate.isAfter(dayjs())) {
+            resumeEndDate = dayjs()
           }
 
           // 标记这个时间段内的所有日期
@@ -1083,7 +1093,7 @@ onUnmounted(() => {
 }
 
 .holiday-badge.rest {
-  background-color: #6b7280; /* 灰色底色 */
+  background-color: #1359E6; /* 蓝色底色 */
   color: white; /* 白色字体 */
   font-size: 12px;
   font-weight: 500;
