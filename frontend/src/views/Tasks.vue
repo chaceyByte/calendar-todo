@@ -44,6 +44,8 @@
               draggable="true"
               @dragstart="handleDragStart($event, task, 'staging')"
           >
+            <!-- 紧急程度颜色条 -->
+            <div class="urgency-indicator" :class="`urgency-${task.urgency || '一般'}`"></div>
             <div class="task-content">
               <span class="task-title">{{ task.title }}</span>
               <div class="task-actions">
@@ -83,6 +85,8 @@
               @dragstart="handleDragStart($event, task as any, column.id)"
               @contextmenu="(e) => showTaskContextMenu(e, task as any)"
           >
+            <!-- 紧急程度颜色条 -->
+            <div class="urgency-indicator" :class="`urgency-${task.urgency || '一般'}`"></div>
             <div class="task-header">
               <span class="task-title">{{ task.title }}</span>
               <el-dropdown trigger="click">
@@ -222,6 +226,14 @@
             <el-option label="计划中" value="planning"/>
             <el-option label="制作中" value="in-progress"/>
             <el-option label="已完成" value="completed"/>
+          </el-select>
+        </el-form-item>
+        <el-form-item label="紧急程度">
+          <el-select v-model="taskForm.urgency" placeholder="请选择紧急程度" clearable>
+            <el-option label="非紧急" value="非紧急"/>
+            <el-option label="一般" value="一般"/>
+            <el-option label="紧急" value="紧急"/>
+            <el-option label="加急" value="加急"/>
           </el-select>
         </el-form-item>
       </el-form>
@@ -470,6 +482,7 @@ const taskForm = reactive({
   title: '',
   description: '',
   status: 'planning' as string,
+  urgency: '一般' as string,
   progress: 0,
   tags: [] as string[],
   completed: false
@@ -557,6 +570,7 @@ const saveTask = async () => {
         title: taskForm.title,
         description: taskForm.description,
         status: taskForm.status as any,
+        urgency: taskForm.urgency as any,
         progress: taskForm.progress
       })
       ElMessage.success('任务更新成功')
@@ -566,6 +580,7 @@ const saveTask = async () => {
         title: taskForm.title,
         description: taskForm.description,
         status: taskForm.status as any,
+        urgency: taskForm.urgency as any,
         progress: 0,
         tags: [],
         completed: false
@@ -1274,9 +1289,10 @@ onUnmounted(() => {
 }
 
 .staging-item {
+  position: relative;
   background: #f5f7fa;
   border-radius: 6px;
-  padding: 12px;
+  padding: 12px 12px 12px 16px; /* 左侧增加4px间距给颜色条 */
   margin-bottom: 8px;
   cursor: move;
 }
@@ -1339,9 +1355,10 @@ onUnmounted(() => {
 }
 
 .task-card {
+  position: relative;
   background: white;
   border-radius: 6px;
-  padding: 12px;
+  padding: 12px 12px 12px 16px; /* 左侧增加4px间距给颜色条 */
   margin-bottom: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   cursor: move;
@@ -1437,6 +1454,32 @@ onUnmounted(() => {
 
 .menu-item:hover {
   background: #f5f7fa;
+}
+
+/* 紧急程度颜色条 */
+.urgency-indicator {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  border-radius: 2px 0 0 2px;
+}
+
+.urgency-非紧急 {
+  background-color: #909399;
+}
+
+.urgency-一般 {
+  background-color: #409eff;
+}
+
+.urgency-紧急 {
+  background-color: #e6a23c;
+}
+
+.urgency-加急 {
+  background-color: #f56c6c;
 }
 
 /* 活动状态指示器 */

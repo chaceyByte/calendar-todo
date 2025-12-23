@@ -13,26 +13,11 @@ import {
   removeTaskTag as apiRemoveTaskTag,
   addTaskToStaging,
   removeTaskFromStaging,
-  getStagingTasks
+  getStagingTasks,
+  type Task
 } from '@/api/task'
 
 export type TaskStatus = 'planning' | 'in-progress' | 'completed' | 'cancelled'
-
-export interface Task {
-  id: number
-  title: string
-  description?: string
-  status: TaskStatus
-  progress: number
-  priority?: 'low' | 'medium' | 'high'
-  startTime?: string
-  endTime?: string
-  tags?: any[]
-  tagIds?: number[]
-  createdAt: string
-  updatedAt: string
-  completed: boolean
-}
 
 interface UndoOperation {
   type: 'create' | 'update' | 'delete' | 'pause' | 'resume' | 'update_tags' | 'remove_tag'

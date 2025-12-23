@@ -26,6 +26,9 @@ public class Task {
     @TableField("priority")
     private String priority; // low, medium, high
     
+    @TableField("urgency")
+    private String urgency; // 非紧急, 一般, 紧急, 加急
+    
     @TableField("start_date")
     private LocalDateTime startDate;
     

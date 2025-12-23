@@ -9,6 +9,7 @@ export interface Task {
   endTime?: string
   status: 'planning' | 'in-progress' | 'completed' | 'cancelled'
   priority?: 'low' | 'medium' | 'high'
+  urgency?: '非紧急' | '一般' | '紧急' | '加急'
   tags?: Tag[]
   tagIds?: number[]
   [key: string]: any

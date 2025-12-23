@@ -12,6 +12,7 @@ public class TaskDTO {
     private String status;
     private Integer progress;
     private String priority;
+    private String urgency;
     private LocalDateTime startDate;
     private LocalDateTime endDate;
     private List<String> tags;

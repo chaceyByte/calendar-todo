@@ -1,0 +1,5 @@
+-- 为任务表添加紧急程度字段
+ALTER TABLE tasks ADD COLUMN urgency VARCHAR(20) NOT NULL DEFAULT '一般' COMMENT '紧急程度：非紧急、一般、紧急、加急';
+
+-- 为紧急程度字段添加索引
+CREATE INDEX idx_tasks_urgency ON tasks(urgency);

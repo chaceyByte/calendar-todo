@@ -157,7 +157,7 @@ public class TaskService extends ServiceImpl<TaskMapper, Task> {
             dto.setEndDate(task.getEndDate());
             dto.setCreatedAt(task.getCreatedAt());
             dto.setUpdatedAt(task.getUpdatedAt());
-
+            dto.setUrgency(task.getUrgency());
             // 设置标签信息
             List<Long> tagIds = taskTagMap.get(task.getId());
             if (tagIds != null && !tagIds.isEmpty()) {
@@ -185,6 +185,7 @@ public class TaskService extends ServiceImpl<TaskMapper, Task> {
         dto.setStatus(task.getStatus());
         dto.setProgress(task.getProgress());
         dto.setPriority(task.getPriority());
+        dto.setUrgency(task.getUrgency());
         dto.setStartDate(task.getStartDate());
         dto.setEndDate(task.getEndDate());
         dto.setCreatedAt(task.getCreatedAt());
