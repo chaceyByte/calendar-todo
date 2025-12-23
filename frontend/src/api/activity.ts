@@ -11,6 +11,7 @@ export interface ActivityRecord {
   notes?: string
   tags?: string[]
   type: 'auto' | 'manual'
+  initialStatus?: string
 }
 
 export interface ActivityReport {

@@ -36,6 +36,9 @@ public class ActivityRecord {
     @TableField("duration_minutes")
     private Integer durationMinutes;
     
+    @TableField("initial_status")
+    private String initialStatus;
+    
     @TableField(value = "created_at", fill = FieldFill.INSERT)
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;

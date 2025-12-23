@@ -21,11 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -94,14 +90,14 @@ public class TaskService extends ServiceImpl<TaskMapper, Task> {
 
         // 获取任务列表
         List<Task> tasks = taskPage.getRecords();
-        
+
         // 批量转换任务为DTO，避免N+1查询
         List<TaskDTO> taskDTOs = convertTasksToDTOs(tasks);
-        
+
         // 创建新的分页对象
         Page<TaskDTO> resultPage = new Page<>(taskPage.getCurrent(), taskPage.getSize(), taskPage.getTotal());
         resultPage.setRecords(taskDTOs);
-        
+
         return resultPage;
     }
 
@@ -279,7 +275,7 @@ public class TaskService extends ServiceImpl<TaskMapper, Task> {
         boolean result = super.save(entity);
         if (result) {
             // 记录创建活动
-            recordActivity(entity.getId(), ActivityType.CREATED, "任务创建");
+            recordActivity(entity.getId(), ActivityType.CREATED, "任务创建", "planning");
         }
         return result;
     }
@@ -304,7 +300,7 @@ public class TaskService extends ServiceImpl<TaskMapper, Task> {
             endCurrentActivity(entity.getId());
 
             // 开始新活动
-            recordActivity(entity.getId(), activityType, description);
+            recordActivity(entity.getId(), activityType, description, oldTask.getStatus());
         }
 
         return result;
@@ -323,6 +319,11 @@ public class TaskService extends ServiceImpl<TaskMapper, Task> {
         if ("completed".equals(task.getStatus())) {
             throw new RuntimeException("已完成任务,不可暂停");
         }
+
+        // 先记录暂停活动，使用当前状态作为初始状态
+        String originalStatus = task.getStatus();
+        recordActivityWithInitialStatus(taskId, ActivityType.PAUSED, "任务暂停", originalStatus);
+
         // 更新任务状态为暂停
         task.setStatus("paused");
         boolean result = updateById(task);
@@ -330,8 +331,6 @@ public class TaskService extends ServiceImpl<TaskMapper, Task> {
         if (result) {
             // 结束当前活动
             endCurrentActivity(taskId);
-            // 记录暂停活动
-            recordActivity(taskId, ActivityType.PAUSED, "任务暂停");
         }
 
         return result;
@@ -347,14 +346,13 @@ public class TaskService extends ServiceImpl<TaskMapper, Task> {
             throw new RuntimeException("任务不存在");
         }
 
+        // 先记录恢复活动，使用当前状态作为初始状态
+        String originalStatus = task.getStatus();
+        recordActivityWithInitialStatus(taskId, ActivityType.RESUMED, "任务恢复", originalStatus);
+
         // 更新任务状态为进行中
         task.setStatus("in-progress");
         boolean result = updateById(task);
-
-        if (result) {
-            // 记录恢复活动
-            recordActivity(taskId, ActivityType.RESUMED, "任务恢复");
-        }
 
         return result;
     }
@@ -362,17 +360,39 @@ public class TaskService extends ServiceImpl<TaskMapper, Task> {
     /**
      * 记录活动
      */
-    private void recordActivity(Long taskId, ActivityType activityType, String description) {
+    private void recordActivity(Long taskId, ActivityType activityType, String description, String initialStatus) {
+        recordActivityWithInitialStatus(taskId, activityType, description, initialStatus);
+    }
+
+    /**
+     * 记录活动（带初始状态）
+     */
+    private void recordActivityWithInitialStatus(Long taskId, ActivityType activityType, String description, String initialStatus) {
         ActivityRecord activity = new ActivityRecord();
         activity.setTaskId(taskId);
         activity.setActivityType(activityType.name());
         activity.setStartTime(LocalDateTime.now());
         activity.setDescription(description);
+
+        // 设置初始状态
+        if (initialStatus != null) {
+            activity.setInitialStatus(initialStatus);
+        } else {
+            // 对于状态变更的活动，记录初始状态
+            if (activityType == ActivityType.PAUSED || activityType == ActivityType.RESUMED) {
+                Task task = getById(taskId);
+                if (task != null) {
+                    // 获取任务当前状态作为初始状态
+                    activity.setInitialStatus(task.getStatus());
+                }
+            }
+        }
+
         // createdAt字段将由MetaObjectHandler自动填充
 
         activityRecordMapper.insert(activity);
-        log.info("记录任务活动: taskId={}, type={}, description={}",
-                taskId, activityType, description);
+        log.info("记录任务活动: taskId={}, type={}, description={}, initialStatus={}",
+                taskId, activityType, description, activity.getInitialStatus());
     }
 
     /**

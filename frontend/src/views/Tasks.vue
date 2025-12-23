@@ -89,35 +89,16 @@
             <div class="urgency-indicator" :class="`urgency-${task.urgency || '一般'}`"></div>
             <div class="task-header">
               <span class="task-title">{{ task.title }}</span>
-              <el-dropdown trigger="click">
-                <el-icon>
-                  <more/>
-                </el-icon>
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item @click="editTask(task as any)">
-                      <el-icon>
-                        <edit/>
-                      </el-icon>
-                      编辑
-                    </el-dropdown-item>
-                    <el-dropdown-item @click="showActivityDrawer(task as any)">
-                      <el-icon>
-                        <view/>
-                      </el-icon>
-                      查看活动记录
-                    </el-dropdown-item>
-                    <el-dropdown-item @click="addToStaging(task as any)">添加到暂存</el-dropdown-item>
-                    <el-dropdown-item v-if="task.status !== 'cancelled'" @click="() => handlePauseTask(task.id)">暂停
-                    </el-dropdown-item>
-                    <el-dropdown-item v-if="task.status === 'cancelled'" @click="() => handleResumeTask(task.id)">恢复
-                    </el-dropdown-item>
-                    <el-dropdown-item @click="addTagsToTask(task as any)">添加标签</el-dropdown-item>
-                    <el-dropdown-item @click="showManualActivityDialog(task as any)">添加活动记录</el-dropdown-item>
-                    <el-dropdown-item @click="deleteTask(task.id)" divided>删除</el-dropdown-item>
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
+              <div class="task-time-info">
+                <el-tooltip content="查看详细活动记录" placement="top">
+                  <div class="time-display" @click="showActivityDrawer(task as any)">
+                    <el-icon>
+                      <timer/>
+                    </el-icon>
+                    <span>{{ getTaskTotalTime(task.id) }}</span>
+                  </div>
+                </el-tooltip>
+              </div>
             </div>
 
             <div class="task-body">
@@ -251,25 +232,25 @@
         :style="{ left: taskContextMenu.x + 'px', top: taskContextMenu.y + 'px' }"
         @click="closeTaskContextMenu"
     >
-      <div class="menu-item" @click="editTask(taskContextMenu.task)">
+      <div v-if="taskContextMenu.task.status !== 'completed'" class="menu-item" @click="editTask(taskContextMenu.task)">
         <el-icon>
           <edit/>
         </el-icon>
         编辑
       </div>
-      <div class="menu-item" @click="() => handlePauseTask(taskContextMenu.task.id)">
+      <div v-if="taskContextMenu.task.status !== 'completed'" class="menu-item" @click="() => handlePauseTask(taskContextMenu.task.id)">
         <el-icon>
           <video-pause/>
         </el-icon>
         暂停
       </div>
-      <div class="menu-item" @click="addTagsToTask(taskContextMenu.task)">
+      <div v-if="taskContextMenu.task.status !== 'completed'" class="menu-item" @click="addTagsToTask(taskContextMenu.task)">
         <el-icon>
           <price-tag/>
         </el-icon>
         添加标签
       </div>
-      <div class="menu-item" @click="deleteTask(taskContextMenu.task.id)" style="color: #f56c6c;">
+      <div v-if="taskContextMenu.task.status !== 'completed'" class="menu-item" @click="deleteTask(taskContextMenu.task.id)" style="color: #f56c6c;">
         <el-icon>
           <delete/>
         </el-icon>
@@ -416,7 +397,7 @@
 </template>
 
 <script setup lang="ts">
-import {computed, onMounted, onUnmounted, reactive, ref} from 'vue'
+import {ComponentPublicInstance, computed, onMounted, onUnmounted, reactive, ref} from 'vue'
 import dayjs from 'dayjs'
 import {ElMessage, ElMessageBox} from 'element-plus/es'
 import {Clock, Close, Delete, Edit, More, Plus, Timer, VideoPause, PriceTag, View} from '@element-plus/icons-vue'
@@ -638,19 +619,65 @@ const handleDrop = async (e: DragEvent, targetStatus: string) => {
 
 
 const moveTaskFromStaging = async (task: Task, targetStatus: string) => {
+  console.debug('moveTaskFromStaging', task, targetStatus)
   try {
     // 从暂存队列移除
     await removeFromStaging(task.id)
 
-    // 更新任务状态到目标列
+    // 获取任务的活动记录，查找暂停和恢复的记录
+    const taskActivities = await activityStore.getTaskActivities(task.id)
+    
+    let restoreStatus = 'planning' // 默认状态
+    let restoreProgress = 0
+
+    // 查找最近的暂停记录，使用initialStatus字段来准确还原状态
+    const pausedActivities = taskActivities
+      .filter(activity => 
+        activity.description && activity.description.includes('暂停') && 
+        activity.initialStatus // 确保有初始状态信息
+      )
+      .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()) // 按时间倒序
+
+    if (pausedActivities.length > 0) {
+      // 使用最近一次暂停记录的初始状态
+      const latestPause = pausedActivities[0]
+      restoreStatus = latestPause.initialStatus || 'planning'
+      console.log('找到暂停记录，初始状态:', restoreStatus)
+    } else {
+      // 如果没有找到暂停记录，使用备用逻辑
+      console.log('未找到暂停记录，使用备用逻辑')
+      
+      // 检查任务是否有进行中的活动记录
+      const hasProgressActivities = taskActivities.some(activity => 
+        activity.description && (activity.description.includes('开始') || activity.description.includes('恢复'))
+      )
+      
+      if (hasProgressActivities) {
+        restoreStatus = 'in-progress'
+      }
+    }
+
+    console.log('恢复状态:', restoreStatus, '原始任务状态:', task.status)
+
+    // 更新任务状态，还原到暂停前的状态
     await taskStore.updateTask(task.id, {
-      status: targetStatus as any,
-      progress: targetStatus === 'completed' ? 100 : task.progress
+      status: restoreStatus as any,
+      progress: restoreProgress
     })
 
-    // 刷新任务列表
+    // 刷新任务列表和时间信息
     await loadTasks()
-    ElMessage.success('任务已移动到看板')
+    await calculateTaskTime(task.id)
+    
+    // 根据恢复状态显示不同的提示信息
+    let statusText = '计划中'
+    if (restoreStatus === 'in-progress') {
+      statusText = '制作中'
+    } else if (restoreStatus === 'completed') {
+      statusText = '已完成'
+    }
+    
+    ElMessage.success(`任务已恢复到${statusText}状态`)
   } catch (error) {
     console.error('移动任务失败:', error)
     ElMessage.error('移动任务失败，请重试')
@@ -670,27 +697,6 @@ const removeFromStaging = async (taskId: number) => {
     ElMessage.error('从暂存移除失败，请重试')
   }
 }
-
-// 添加任务到暂存队列
-const addToStaging = async (task: Task) => {
-  try {
-    // 检查是否已经在暂存队列中
-    if (!stagingTasks.value?.find(t => t.id === task.id)) {
-      // 调用后端API
-      await taskStore.addToStaging(task.id)
-
-      // 刷新暂存队列显示
-      await loadStagingTasks()
-      ElMessage.success('任务已添加到暂存队列')
-    } else {
-      ElMessage.warning('任务已在暂存队列中')
-    }
-  } catch (error) {
-    console.error('添加到暂存失败:', error)
-    ElMessage.error('添加到暂存失败，请重试')
-  }
-}
-
 
 const deleteTask = async (taskId: number) => {
   try {
@@ -728,7 +734,9 @@ const removeTagFromTask = async (taskId: number, tagName: string) => {
       // 调用API移除标签
       await taskStore.removeTagFromTask(taskId, tagName)
       // 更新本地状态
-      task.tags = task.tags.filter(t => t !== tagName)
+      task.tags = task.tags.filter(t => {
+        return t !== tagName;
+      })
       ElMessage.success('标签已移除')
     }
   } catch (error) {
@@ -740,6 +748,12 @@ const removeTagFromTask = async (taskId: number, tagName: string) => {
 // 右键菜单
 const showTaskContextMenu = (e: MouseEvent, task: Task) => {
   e.preventDefault()
+  
+  // 已完成任务不显示右键菜单
+  if (task.status === 'completed') {
+    return
+  }
+  
   taskContextMenu.visible = true
   taskContextMenu.x = e.clientX
   taskContextMenu.y = e.clientY
@@ -813,6 +827,8 @@ const loadTasks = async () => {
     await taskStore.fetchTasks()
     // 初始化已完成任务分页
     initCompletedTasksPagination()
+    // 计算所有任务的时间
+    await calculateAllTaskTimes()
   } catch (error) {
     console.error('加载任务失败:', error)
     ElMessage.error('加载任务失败')
@@ -1034,22 +1050,6 @@ const saveManualActivity = async () => {
   }
 }
 
-const handleResumeTask = async (taskId: number) => {
-  try {
-    await taskStore.resumeTask(taskId)
-    // 刷新任务列表和暂存队列显示
-    await loadTasks()
-    await loadStagingTasks()
-
-    // 记录最后操作的任务ID，用于撤销
-    localStorage.setItem('lastMovedTaskId', taskId.toString())
-    ElMessage.success('任务已恢复并从暂存队列移除')
-  } catch (error) {
-    console.error('恢复任务失败:', error)
-    ElMessage.error('恢复任务失败，请重试')
-  }
-}
-
 // 获取任务当前活动
 const getCurrentActivity = (taskId: number) => {
   // 检查是否有当前活动，并且是否属于这个任务
@@ -1212,6 +1212,53 @@ const getWorkDaysCount = () => {
     }
   })
   return uniqueDays.size
+}
+
+// 存储任务时间信息的响应式对象
+const taskTimeMap = ref<Record<number, string>>({})
+
+// 获取任务总活动时间
+const getTaskTotalTime = (taskId: number) => {
+  return taskTimeMap.value[taskId] || '加载中...'
+}
+
+// 计算并缓存任务时间
+const calculateTaskTime = async (taskId: number) => {
+  try {
+    const taskActivities = await activityStore.getTaskActivities(taskId)
+    const totalMinutes = taskActivities
+      .filter(a => a.durationMinutes)
+      .reduce((total, activity) => total + (activity.durationMinutes || 0), 0)
+    
+    let timeText = '0小时'
+    if (totalMinutes > 0) {
+      const hours = Math.floor(totalMinutes / 60)
+      const minutes = totalMinutes % 60
+      
+      if (hours === 0) {
+        timeText = `${minutes}分钟`
+      } else if (minutes === 0) {
+        timeText = `${hours}小时`
+      } else {
+        timeText = `${hours}小时${minutes}分钟`
+      }
+    }
+    
+    // 更新响应式数据
+    taskTimeMap.value[taskId] = timeText
+  } catch (error) {
+    console.error('获取任务时间失败:', error)
+    taskTimeMap.value[taskId] = '0小时'
+  }
+}
+
+// 批量计算所有任务的时间
+const calculateAllTaskTimes = async () => {
+  if (!tasks.value || tasks.value.length === 0) return
+  
+  // 并行计算所有任务的时间
+  const promises = tasks.value.map(task => calculateTaskTime(task.id))
+  await Promise.all(promises)
 }
 
 onMounted(() => {
@@ -1384,6 +1431,28 @@ onUnmounted(() => {
   margin-right: 8px;
 }
 
+.task-time-info {
+  display: flex;
+  align-items: center;
+}
+
+.time-display {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #909399;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: all 0.3s;
+}
+
+.time-display:hover {
+  background: #f5f7fa;
+  color: #409eff;
+}
+
 .task-description {
   font-size: 12px;
   color: #606266;
@@ -1444,16 +1513,18 @@ onUnmounted(() => {
 }
 
 .menu-item {
-  padding: 8px 12px;
+  padding: 6px 12px;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   transition: background-color 0.3s;
+  font-size: 12px;
 }
 
 .menu-item:hover {
-  background: #f5f7fa;
+  background: #ba8156;
+  color: white;
 }
 
 /* 紧急程度颜色条 */
