@@ -14,19 +14,6 @@ spring:
     password: yanpj123
     driver-class-name: com.mysql.cj.jdbc.Driver
   
-  # MyBatis Plus配置
-  mybatis-plus:
-    configuration:
-      map-underscore-to-camel-case: true
-      log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
-    global-config:
-      db-config:
-        id-type: auto
-        logic-delete-field: deleted
-        logic-delete-value: 1
-        logic-not-delete-value: 0
-  
-  # Spring AI配置
   ai:
     openai:
       api-key: ${OPENAI_API_KEY:your-openai-api-key}
@@ -51,3 +38,16 @@ logging:
 #  level:
 #    com.taskcalendar: debug
 #    org.springframework.web.servlet: debug
+
+
+# MyBatis Plus配置
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0

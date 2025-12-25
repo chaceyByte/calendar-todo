@@ -13,7 +13,7 @@
           <div v-for="task in longestTasks" :key="task.id" class="task-item">
             <div class="task-info">
               <span class="task-title">{{ task.title }}</span>
-              <span class="task-duration">{{ task.totalHours || '0' }}天</span>
+              <span class="task-duration">{{ task.totalHours || '0' }}分钟</span>
             </div>
             <el-progress 
               :percentage="0" 

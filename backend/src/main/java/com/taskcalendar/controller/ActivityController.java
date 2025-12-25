@@ -1,12 +1,7 @@
 package com.taskcalendar.controller;
 
-import com.taskcalendar.dto.ApiResponse;
-import com.taskcalendar.dto.DailyReport;
-import com.taskcalendar.dto.ManualActivityRequest;
-import com.taskcalendar.dto.StartActivityRequest;
-import com.taskcalendar.dto.WeeklyReport;
+import com.taskcalendar.dto.*;
 import com.taskcalendar.entity.ActivityRecord;
-import com.taskcalendar.entity.Task;
 import com.taskcalendar.service.ActivityService;
 import com.taskcalendar.service.TaskService;
 import lombok.RequiredArgsConstructor;
@@ -24,10 +19,10 @@ import java.util.Map;
 @RequestMapping("/api/activities")
 @RequiredArgsConstructor
 public class ActivityController {
-    
+
     private final ActivityService activityService;
     private final TaskService taskService;
-    
+
     /**
      * 开始活动记录
      */
@@ -41,7 +36,7 @@ public class ActivityController {
             return ApiResponse.error("开始活动记录失败: " + e.getMessage());
         }
     }
-    
+
     /**
      * 结束任务当前活动
      */
@@ -55,7 +50,7 @@ public class ActivityController {
             return ApiResponse.error("结束活动记录失败: " + e.getMessage());
         }
     }
-    
+
     /**
      * 添加手动活动记录
      */
@@ -69,7 +64,7 @@ public class ActivityController {
             return ApiResponse.error("添加手动活动记录失败: " + e.getMessage());
         }
     }
-    
+
     /**
      * 获取任务活动记录
      */
@@ -83,7 +78,7 @@ public class ActivityController {
             return ApiResponse.error("获取任务活动记录失败: " + e.getMessage());
         }
     }
-    
+
     /**
      * 批量获取所有任务的活动记录
      */
@@ -97,7 +92,7 @@ public class ActivityController {
             return ApiResponse.error("获取所有活动记录失败: " + e.getMessage());
         }
     }
-    
+
     /**
      * 获取任务当前活动
      */
@@ -115,10 +110,11 @@ public class ActivityController {
             return ApiResponse.error("获取任务当前活动失败: " + e.getMessage());
         }
     }
-    
+
     /**
      * 获取日报数据
      */
+    @Deprecated
     @GetMapping("/report/daily")
     public ApiResponse<DailyReport> getDailyReport(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
@@ -130,10 +126,11 @@ public class ActivityController {
             return ApiResponse.error("获取日报数据失败: " + e.getMessage());
         }
     }
-    
+
     /**
      * 获取周报数据
      */
+    @Deprecated
     @GetMapping("/report/weekly")
     public ApiResponse<WeeklyReport> getWeeklyReport(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate weekStart) {
@@ -145,9 +142,9 @@ public class ActivityController {
             return ApiResponse.error("获取周报数据失败: " + e.getMessage());
         }
     }
-    
+
     // ========== 首页统计相关接口 ==========
-    
+
     /**
      * 获取时间占用最长的前5个任务
      */
@@ -161,7 +158,7 @@ public class ActivityController {
             return ApiResponse.error("获取时间占用最长的任务失败: " + e.getMessage());
         }
     }
-    
+
     /**
      * 获取最近14天每日处理的任务数量
      */
@@ -175,7 +172,7 @@ public class ActivityController {
             return ApiResponse.error("获取最近14天每日处理的任务数量失败: " + e.getMessage());
         }
     }
-    
+
     /**
      * 获取最近14天每日创建的任务数量
      */
@@ -189,7 +186,7 @@ public class ActivityController {
             return ApiResponse.error("获取最近14天每日创建的任务数量失败: " + e.getMessage());
         }
     }
-    
+
     /**
      * 获取按标签分类的任务甘特图数据
      */
