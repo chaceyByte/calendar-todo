@@ -1,11 +1,12 @@
 package com.taskcalendar.controller;
 
+import com.baomidou.mybatisplus.extension.conditions.query.LambdaQueryChainWrapper;
 import com.taskcalendar.config.JwtUtil;
-import com.taskcalendar.dto.ApiResponse;
-import com.taskcalendar.dto.LoginRequest;
-import com.taskcalendar.dto.LoginResponse;
-import com.taskcalendar.dto.RegisterRequest;
+import com.taskcalendar.dto.*;
+import com.taskcalendar.entity.EmailVerificationCode;
 import com.taskcalendar.entity.User;
+import com.taskcalendar.service.EmailService;
+import com.taskcalendar.service.EmailVerificationCodeService;
 import com.taskcalendar.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -23,6 +24,8 @@ public class AuthController {
     private final UserService userService;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final EmailVerificationCodeService emailVerificationCodeService;
+    private final EmailService emailService;
 
     @PostMapping("/register")
     public ApiResponse<LoginResponse> register(@Valid @RequestBody RegisterRequest request, HttpSession session) {
@@ -152,5 +155,152 @@ public class AuthController {
         }
 
         return ApiResponse.error("获取用户信息失败");
+    }
+
+    @PostMapping("/send-email-code")
+    public ApiResponse<String> sendEmailCode(@Valid @RequestBody SendEmailCodeRequest request) {
+        // 检查是否允许发送新的验证码（考虑时间间隔）
+        if (!emailVerificationCodeService.canSendNewCode(request.getEmail(), request.getType())) {
+            return ApiResponse.error("验证码发送过于频繁，请1分钟后再试");
+        }
+
+        // 生成并发送验证码
+        EmailVerificationCode verificationCode = emailVerificationCodeService.createCode(
+                request.getEmail(), request.getType());
+
+        emailService.sendVerificationCode(request.getEmail(), verificationCode.getCode(), request.getType());
+
+        return ApiResponse.success("验证码发送成功");
+    }
+
+    @PostMapping("/change-password")
+    public ApiResponse<String> changePassword(@Valid @RequestBody ChangePasswordRequest request,
+                                              @RequestHeader("Authorization") String token,
+                                              HttpServletResponse response) {
+        // 验证token
+        String username = validateToken(token, response);
+        if (username == null) {
+            return ApiResponse.error(401, "token无效");
+        }
+
+        // 获取当前用户
+        User user = userService.findByUsername(username);
+        if (user == null) {
+            return ApiResponse.error("用户不存在");
+        }
+
+        // 验证原密码
+        if (!passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
+            return ApiResponse.error("原密码错误");
+        }
+
+        // 验证新密码和确认密码是否一致
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            return ApiResponse.error("新密码和确认密码不一致");
+        }
+
+        // 更新密码
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userService.updateById(user);
+
+        return ApiResponse.success("密码修改成功");
+    }
+
+    @PostMapping("/reset-password")
+    public ApiResponse<String> resetPassword(@Valid @RequestBody ResetPasswordRequest request,
+                                             @RequestHeader("Authorization") String token,
+                                             HttpServletResponse response) {
+        // 验证token
+        String username = validateToken(token, response);
+        if (username == null) {
+            return ApiResponse.error(401, "token无效");
+        }
+
+        // 获取当前用户
+        User user = userService.findByUsername(username);
+        if (user == null) {
+            return ApiResponse.error("用户不存在");
+        }
+
+        // 检查用户是否已绑定邮箱
+        if (user.getEmail() == null || user.getEmail().trim().isEmpty()) {
+            return ApiResponse.error("请先绑定邮箱才能使用此功能");
+        }
+
+        // 验证验证码
+        if (!emailVerificationCodeService.validateCode(user.getEmail(), request.getCode(), "RESET_PASSWORD")) {
+            return ApiResponse.error("验证码错误或已过期");
+        }
+
+        // 验证新密码和确认密码是否一致
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            return ApiResponse.error("新密码和确认密码不一致");
+        }
+
+        // 更新密码
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userService.updateById(user);
+
+        return ApiResponse.success("密码重置成功");
+    }
+
+    @PostMapping("/change-email")
+    public ApiResponse<String> changeEmail(@Valid @RequestBody ChangeEmailRequest request,
+                                           @RequestHeader("Authorization") String token,
+                                           HttpServletResponse response) {
+        // 验证token
+        String username = validateToken(token, response);
+        if (username == null) {
+            return ApiResponse.error(401, "token无效");
+        }
+
+        // 获取当前用户
+        User user = userService.findByUsername(username);
+        if (user == null) {
+            return ApiResponse.error("用户不存在");
+        }
+
+        // 验证验证码
+        if (!emailVerificationCodeService.validateCode(request.getNewEmail(), request.getCode(), "CHANGE_EMAIL")) {
+            return ApiResponse.error("验证码错误或已过期");
+        }
+
+        // 检查新邮箱是否已被其他用户使用
+        User existingUser = lambdaQuery()
+                .eq(User::getEmail, request.getNewEmail())
+                .ne(User::getId, user.getId())
+                .one();
+
+        if (existingUser != null) {
+            return ApiResponse.error("该邮箱已被其他用户使用");
+        }
+
+        // 更新邮箱
+        user.setEmail(request.getNewEmail());
+        userService.updateById(user);
+
+        return ApiResponse.success("邮箱更换成功");
+    }
+
+    /**
+     * 验证token并返回用户名
+     */
+    private String validateToken(String token, HttpServletResponse response) {
+        if (token != null && token.startsWith("Bearer ")) {
+            token = token.substring(7);
+            if (jwtUtil.validateToken(token)) {
+                return jwtUtil.getUsernameFromToken(token);
+            } else {
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 使用lambdaQuery的便捷方法
+     */
+    private LambdaQueryChainWrapper<com.taskcalendar.entity.User> lambdaQuery() {
+        return userService.lambdaQuery();
     }
 }

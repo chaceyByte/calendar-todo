@@ -45,6 +45,12 @@ const router = createRouter({
           name: 'Archived',
           component: () => import('@/views/Archived.vue'),
           meta: { title: '归档任务' }
+        },
+        {
+          path: 'settings',
+          name: 'Settings',
+          component: () => import('@/views/Settings.vue'),
+          meta: { title: '账户设置' }
         }
       ]
     },

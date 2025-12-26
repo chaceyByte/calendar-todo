@@ -26,6 +26,10 @@
           </div>
           <template #dropdown>
             <el-dropdown-menu>
+              <el-dropdown-item @click="handleSettings">
+                <el-icon><setting /></el-icon>
+                账户设置
+              </el-dropdown-item>
               <el-dropdown-item @click="handleLogout">
                 <el-icon><switch-button /></el-icon>
                 退出登录
@@ -51,7 +55,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { ArrowDown, SwitchButton } from '@element-plus/icons-vue'
+import { ArrowDown, SwitchButton, Setting } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -64,6 +68,10 @@ const tabs = ref([
   { name: 'Archived', title: '归档任务' }
   // { name: 'Reports', title: '报告' }
 ])
+
+const handleSettings = () => {
+  router.push('/settings')
+}
 
 const handleLogout = () => {
   userStore.logout()
