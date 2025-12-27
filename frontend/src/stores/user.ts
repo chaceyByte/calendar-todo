@@ -4,7 +4,6 @@ import {
   getUserInfo, 
   register as registerApi, 
   login as loginApi, 
-  getUserByUsername,
   sendEmailCode,
   resetPassword as resetPasswordApi,
   type UserInfo
