@@ -1,6 +1,14 @@
 import {defineStore} from 'pinia'
 import {ref} from 'vue'
-import {getUserInfo, register as registerApi, login as loginApi, type UserInfo} from '@/api/user'
+import {
+  getUserInfo, 
+  register as registerApi, 
+  login as loginApi, 
+  getUserByUsername,
+  sendEmailCode,
+  resetPassword as resetPasswordApi,
+  type UserInfo
+} from '@/api/user'
 import router from "@/router";
 
 export const useUserStore = defineStore('user', () => {
@@ -95,6 +103,57 @@ export const useUserStore = defineStore('user', () => {
         }
     }
 
+    // 根据用户名获取用户信息（用于密码重置）
+    const getUserByUsername = async (username: string) => {
+      try {
+        const userInfo = await getUserByUsername(username)
+        return userInfo
+      } catch (error) {
+        console.error('获取用户信息失败:', error)
+        throw error
+      }
+    }
+
+    // 发送密码重置验证码
+    const sendResetCaptcha = async (username: string) => {
+      try {
+        // 先获取用户信息以获取邮箱
+        const userInfo = await getUserByUsername(username)
+        
+        // 发送验证码到用户邮箱
+        await sendEmailCode({
+          email: userInfo.email!,
+          type: 'RESET_PASSWORD'
+        })
+        
+        return userInfo.email
+      } catch (error) {
+        console.error('发送验证码失败:', error)
+        throw error
+      }
+    }
+
+    // 重置密码
+    const resetPassword = async (username: string, code: string, newPassword: string) => {
+      try {
+        // 先获取用户信息以获取邮箱
+        const userInfo = await getUserByUsername(username)
+        
+        // 调用重置密码API
+        await resetPasswordApi({
+          email: userInfo.email!,
+          code,
+          newPassword,
+          confirmPassword: newPassword
+        })
+        
+        return true
+      } catch (error) {
+        console.error('重置密码失败:', error)
+        throw error
+      }
+    }
+
     return {
         userInfo,
         token,
@@ -104,6 +163,9 @@ export const useUserStore = defineStore('user', () => {
         login,
         logout,
         initUser,
-        refreshUserInfo
+        refreshUserInfo,
+        getUserByUsername,
+        sendResetCaptcha,
+        resetPassword
     }
 })

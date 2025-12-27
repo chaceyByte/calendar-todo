@@ -72,74 +72,7 @@
           </div>
         </el-tab-pane>
         
-        <!-- 重置密码标签页 -->
-        <el-tab-pane label="重置密码" name="resetPassword">
-          <div class="tab-content">
-            <h3 class="tab-title">重置密码</h3>
-            <p class="tab-description">通过邮箱验证码重置您的密码</p>
-            
-            <el-form 
-              ref="resetPasswordFormRef" 
-              :model="resetPasswordForm" 
-              :rules="resetPasswordRules" 
-              label-width="120px"
-              class="settings-form"
-            >
-              <el-form-item label="绑定邮箱">
-                <div class="current-email-info">
-                  <span class="email-label">{{ userStore.userInfo?.email || '未设置邮箱' }}</span>
-                  <span v-if="userStore.userInfo?.email" class="email-tip">验证码将发送到此邮箱</span>
-                  <span v-else class="email-warning">请先绑定邮箱才能使用此功能</span>
-                </div>
-              </el-form-item>
-              
-              <el-form-item label="验证码" prop="code">
-                <div class="code-input-group">
-                  <el-input 
-                    v-model="resetPasswordForm.code" 
-                    placeholder="请输入验证码"
-                    style="width: 200px; margin-right: 10px;"
-                  />
-                  <el-button 
-                    :disabled="codeCountdown > 0"
-                    @click="sendResetPasswordCode"
-                  >
-                    {{ codeCountdown > 0 ? `${codeCountdown}秒后重试` : '获取验证码' }}
-                  </el-button>
-                </div>
-              </el-form-item>
-              
-              <el-form-item label="新密码" prop="newPassword">
-                <el-input 
-                  v-model="resetPasswordForm.newPassword" 
-                  type="password" 
-                  placeholder="请输入新密码"
-                  show-password
-                />
-              </el-form-item>
-              
-              <el-form-item label="确认密码" prop="confirmPassword">
-                <el-input 
-                  v-model="resetPasswordForm.confirmPassword" 
-                  type="password" 
-                  placeholder="请再次输入新密码"
-                  show-password
-                />
-              </el-form-item>
-              
-              <el-form-item>
-                <el-button 
-                  type="primary" 
-                  :loading="resetPasswordLoading"
-                  @click="handleResetPassword"
-                  size="large"
-                >
-                  重置密码
-                </el-button>
-              </el-form-item>
-            </el-form>
-          </div>
-        </el-tab-pane>
+
         
         <!-- 更换邮箱标签页 -->
         <el-tab-pane label="更换邮箱" name="changeEmail">
@@ -396,7 +329,15 @@ const handleChangePassword = async () => {
       confirmPassword: changePasswordForm.confirmPassword
     })
     
-    ElMessage.success('密码修改成功')
+    ElMessage.success('密码修改成功，即将为您跳转登录')
+    
+    // 延迟3秒后跳转到登录页面
+    setTimeout(() => {
+      // 清除用户登录状态
+      userStore.logout()
+      // 跳转到登录页面
+      router.push('/login')
+    }, 3000)
     
     // 清空表单
     changePasswordForm.oldPassword = ''

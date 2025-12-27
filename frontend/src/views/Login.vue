@@ -75,10 +75,6 @@
             </el-link>
           </div>
         </el-form>
-
-        <div class="tips">
-          演示账号：admin / 123456
-        </div>
       </div>
     </section>
   </div>
@@ -100,8 +96,8 @@ const loading = ref(false)
 const captchaImage = ref('')
 
 const loginForm = reactive({
-  username: 'admin',
-  password: '123456',
+  username: '',
+  password: '',
   captcha: ''
 })
 

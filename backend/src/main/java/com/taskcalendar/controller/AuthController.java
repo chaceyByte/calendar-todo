@@ -82,33 +82,6 @@ public class AuthController {
         // 使用后立即清除验证码
         session.removeAttribute("captcha");
 
-        // 特殊处理演示账号
-        if ("admin".equals(request.getUsername()) && "123456".equals(request.getPassword())) {
-            User user = userService.findByUsername("admin");
-            if (user == null) {
-                // 如果admin用户不存在，创建一个默认的admin用户
-                user = new User();
-                user.setUsername("admin");
-                user.setPassword(passwordEncoder.encode("123456"));
-                user.setNickname("管理员");
-                user.setEmail("admin@example.com");
-                user.setAvatar("https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png");
-                userService.save(user);
-            }
-
-            String token = jwtUtil.generateToken(request.getUsername());
-            LoginResponse.UserInfo userInfo = new LoginResponse.UserInfo();
-            userInfo.setId(user.getId());
-            userInfo.setUsername(user.getUsername());
-            userInfo.setNickname(user.getNickname());
-            userInfo.setAvatar(user.getAvatar());
-            userInfo.setEmail(user.getEmail());
-            LoginResponse response = new LoginResponse();
-            response.setToken(token);
-            response.setUser(userInfo);
-            return ApiResponse.success("登录成功", response);
-        }
-
         // 正常用户登录逻辑
         User user = userService.findByUsername(request.getUsername());
         if (user == null || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
@@ -157,11 +130,36 @@ public class AuthController {
         return ApiResponse.error("获取用户信息失败");
     }
 
+    @GetMapping("/user/{username}")
+    public ApiResponse<UserInfoResponse> getUserByUsername(@PathVariable String username) {
+        User user = userService.findByUsername(username);
+        if (user == null) {
+            return ApiResponse.error("用户不存在");
+        }
+
+        UserInfoResponse userInfo = new UserInfoResponse();
+        userInfo.setId(user.getId());
+        userInfo.setUsername(user.getUsername());
+        userInfo.setNickname(user.getNickname());
+        userInfo.setAvatar(user.getAvatar());
+        userInfo.setEmail(user.getEmail());
+
+        return ApiResponse.success(userInfo);
+    }
+
     @PostMapping("/send-email-code")
     public ApiResponse<String> sendEmailCode(@Valid @RequestBody SendEmailCodeRequest request) {
         // 检查是否允许发送新的验证码（考虑时间间隔）
         if (!emailVerificationCodeService.canSendNewCode(request.getEmail(), request.getType())) {
             return ApiResponse.error("验证码发送过于频繁，请1分钟后再试");
+        }
+
+        // 如果是重置密码类型，需要检查邮箱是否已注册
+        if ("RESET_PASSWORD".equals(request.getType())) {
+            User user = userService.findByEmail(request.getEmail());
+            if (user == null) {
+                return ApiResponse.error("该邮箱未注册");
+            }
         }
 
         // 生成并发送验证码
@@ -207,28 +205,15 @@ public class AuthController {
     }
 
     @PostMapping("/reset-password")
-    public ApiResponse<String> resetPassword(@Valid @RequestBody ResetPasswordRequest request,
-                                             @RequestHeader("Authorization") String token,
-                                             HttpServletResponse response) {
-        // 验证token
-        String username = validateToken(token, response);
-        if (username == null) {
-            return ApiResponse.error(401, "token无效");
-        }
-
-        // 获取当前用户
-        User user = userService.findByUsername(username);
+    public ApiResponse<String> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        // 根据邮箱查找用户
+        User user = userService.findByEmail(request.getEmail());
         if (user == null) {
-            return ApiResponse.error("用户不存在");
-        }
-
-        // 检查用户是否已绑定邮箱
-        if (user.getEmail() == null || user.getEmail().trim().isEmpty()) {
-            return ApiResponse.error("请先绑定邮箱才能使用此功能");
+            return ApiResponse.error("该邮箱未注册");
         }
 
         // 验证验证码
-        if (!emailVerificationCodeService.validateCode(user.getEmail(), request.getCode(), "RESET_PASSWORD")) {
+        if (!emailVerificationCodeService.validateCode(request.getEmail(), request.getCode(), "RESET_PASSWORD")) {
             return ApiResponse.error("验证码错误或已过期");
         }
 
@@ -242,6 +227,46 @@ public class AuthController {
         userService.updateById(user);
 
         return ApiResponse.success("密码重置成功");
+    }
+
+    @PostMapping("/reset-password-by-username")
+    public ApiResponse<ResetPasswordResponse> resetPasswordByUsername(@Valid @RequestBody ResetPasswordByUsernameRequest request) {
+        // 根据用户名查找用户
+        User user = userService.findByUsername(request.getUsername());
+        if (user == null) {
+            return ApiResponse.error("用户名不存在");
+        }
+
+        // 验证验证码
+        if (!emailVerificationCodeService.validateCode(user.getEmail(), request.getCode(), "RESET_PASSWORD")) {
+            return ApiResponse.error("验证码错误或已过期");
+        }
+
+        // 生成12位随机密码
+        String randomPassword = generateRandomPassword(12);
+
+        // 更新密码
+        user.setPassword(passwordEncoder.encode(randomPassword));
+        userService.updateById(user);
+
+        // 返回新密码
+        ResetPasswordResponse response = new ResetPasswordResponse();
+        response.setNewPassword(randomPassword);
+        response.setEmail(user.getEmail());
+
+        return ApiResponse.success("密码重置成功", response);
+    }
+
+    /**
+     * 生成随机密码
+     */
+    private String generateRandomPassword(int length) {
+        String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
+        StringBuilder password = new StringBuilder();
+        for (int i = 0; i < length; i++) {
+            password.append(chars.charAt((int) (Math.random() * chars.length())));
+        }
+        return password.toString();
     }
 
     @PostMapping("/change-email")

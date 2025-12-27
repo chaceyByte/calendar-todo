@@ -13,4 +13,10 @@ public class UserService extends ServiceImpl<UserMapper, User> {
                 .eq(User::getUsername, username)
                 .one();
     }
+    
+    public User findByEmail(String email) {
+        return lambdaQuery()
+                .eq(User::getEmail, email)
+                .one();
+    }
 }

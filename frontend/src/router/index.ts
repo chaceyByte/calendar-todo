@@ -65,6 +65,12 @@ const router = createRouter({
       name: 'Register',
       component: () => import('@/views/Auth.vue'),
       meta: { title: '注册', requiresAuth: false }
+    },
+    {
+      path: '/reset-password',
+      name: 'ResetPassword',
+      component: () => import('@/views/ResetPassword.vue'),
+      meta: { title: '重置密码', requiresAuth: false }
     }
   ]
 })

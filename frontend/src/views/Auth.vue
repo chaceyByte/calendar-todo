@@ -89,7 +89,7 @@
               </el-form-item>
 
               <div class="form-footer">
-                <el-link type="info" :underline="false">忘记密码？</el-link>
+                <el-link type="info" :underline="false" @click="goToResetPassword">忘记密码？</el-link>
                 <span class="split">|</span>
                 <el-link type="primary" :underline="false" @click="flipToRegister">
                   立即注册
@@ -247,8 +247,8 @@ const isRegister = ref(route.path === '/register')
 
 // 登录表单
 const loginForm = reactive({
-  username: 'admin',
-  password: '123456',
+  username: '',
+  password: '',
   captcha: ''
 })
 
@@ -370,6 +370,11 @@ const flipToRegister = () => {
 const flipToLogin = () => {
   isRegister.value = false
   router.push('/login')
+}
+
+// 跳转到重置密码页
+const goToResetPassword = () => {
+  router.push('/reset-password')
 }
 
 // 监听路由变化，切换登录/注册模式

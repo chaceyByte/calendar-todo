@@ -31,6 +31,15 @@ export interface ResetPasswordRequest {
   confirmPassword: string
 }
 
+export interface ResetPasswordByUsernameRequest {
+  username: string
+  code: string
+}
+
+export interface GetUserByUsernameRequest {
+  username: string
+}
+
 export interface ChangeEmailRequest {
   newEmail: string
   code: string
@@ -141,6 +150,20 @@ export const resetPassword = async (data: ResetPasswordRequest) => {
 }
 
 /**
+ * 根据用户名重置密码（自动生成随机密码）
+ * @param data 重置密码请求数据
+ */
+export const resetPasswordByUsername = async (data: ResetPasswordByUsernameRequest) => {
+  try {
+    const response = await request.post('/auth/reset-password-by-username', data)
+    return response.data || response
+  } catch (error) {
+    console.error('重置密码失败:', error)
+    throw error
+  }
+}
+
+/**
  * 更换邮箱
  * @param data 更换邮箱请求数据
  */
@@ -150,6 +173,21 @@ export const changeEmail = async (data: ChangeEmailRequest) => {
     return response.data || response
   } catch (error) {
     console.error('更换邮箱失败:', error)
+    throw error
+  }
+}
+
+/**
+ * 根据用户名获取用户信息（用于密码重置）
+ * @param username 用户名
+ * @returns 用户信息，包含邮箱
+ */
+export const getUserByUsername = async (username: string) => {
+  try {
+    const response = await request.get(`/auth/user/${username}`)
+    return response.data
+  } catch (error) {
+    console.error('获取用户信息失败:', error)
     throw error
   }
 }
