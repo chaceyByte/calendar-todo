@@ -217,6 +217,24 @@
             <el-option label="加急" value="加急"/>
           </el-select>
         </el-form-item>
+        <el-form-item label="任务标签">
+          <el-select 
+            v-model="taskForm.tags" 
+            multiple 
+            filterable 
+            allow-create
+            default-first-option
+            placeholder="请选择或输入任务标签"
+            style="width: 100%"
+          >
+            <el-option 
+              v-for="tag in availableTags" 
+              :key="tag.id" 
+              :label="tag.name" 
+              :value="tag.name"
+            />
+          </el-select>
+        </el-form-item>
       </el-form>
 
       <template #footer>
@@ -520,14 +538,19 @@ const showAddTaskDialog = (columnId?: string) => {
   taskDialog.isEdit = false
   taskDialog.visible = true
 
-  // 重置表单，确保状态默认为"planning"
+  // 获取最新的标签（如果有的话）
+  const latestTag = availableTags.value.length > 0 
+    ? [availableTags.value[availableTags.value.length - 1].name]
+    : []
+
+  // 重置表单，确保状态默认为"planning"，并默认选择最新的标签
   Object.assign(taskForm, {
     id: 0,
     title: '',
     description: '',
     status: 'planning',
     progress: 0,
-    tags: [],
+    tags: latestTag,
     completed: false
   })
 }
