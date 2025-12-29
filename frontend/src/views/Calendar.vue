@@ -141,6 +141,12 @@
         </el-icon>
         复制任务
       </div>
+      <div v-if="isFridaySaturdayOrSunday(contextMenu.selectedDay?.date)" class="menu-item" @click="() => exportWeekReportFromContextMenu()">
+        <el-icon>
+          <files/>
+        </el-icon>
+        导出周报
+      </div>
     </div>
 
     <!-- 任务详情弹窗 -->
@@ -383,9 +389,9 @@ const calendarDays = computed(() => {
           break
 
         case 'STARTED':
-          // 任务开始进行，标记从开始时间到下一个状态变更或当前时间的日期
+          // 任务开始进行，标记从开始时间到下一个状态变更的日期
           const startDate = activityDate
-          let endDate = dayjs() // 只显示到今天为止
+          let endDate = dayjs() // 默认显示到今天为止
 
           // 查找下一个状态变更
           for (let j = i + 1; j < sortedActivities.length; j++) {
@@ -396,23 +402,21 @@ const calendarDays = computed(() => {
             }
           }
 
-          // 确保结束日期不超过今天
-          if (endDate.isAfter(dayjs())) {
-            endDate = dayjs()
-          }
-
-          // 标记这个时间段内的所有日期
+          // 标记这个时间段内的所有日期（包括今天及之前的日期）
           let currentDay = startDate.clone()
           while (currentDay.isBefore(endDate) || currentDay.isSame(endDate)) {
-            activeDates.add(currentDay.format('YYYY-MM-DD'))
+            // 只显示今天及之前的日期，不显示未来日期
+            if (!currentDay.isAfter(dayjs(), 'day')) {
+              activeDates.add(currentDay.format('YYYY-MM-DD'))
+            }
             currentDay = currentDay.add(1, 'day')
           }
           break
 
         case 'RESUMED':
-          // 任务恢复，标记从恢复时间到下一个状态变更或当前时间的日期
+          // 任务恢复，标记从恢复时间到下一个状态变更的日期
           const resumeDate = activityDate
-          let resumeEndDate = dayjs() // 只显示到今天为止
+          let resumeEndDate = dayjs() // 默认显示到今天为止
 
           // 查找下一个状态变更
           for (let j = i + 1; j < sortedActivities.length; j++) {
@@ -423,25 +427,45 @@ const calendarDays = computed(() => {
             }
           }
 
-          // 确保结束日期不超过今天
-          if (resumeEndDate.isAfter(dayjs())) {
-            resumeEndDate = dayjs()
-          }
-
-          // 标记这个时间段内的所有日期
+          // 标记这个时间段内的所有日期（包括今天及之前的日期）
           let resumeCurrentDay = resumeDate.clone()
           while (resumeCurrentDay.isBefore(resumeEndDate) || resumeCurrentDay.isSame(resumeEndDate)) {
-            activeDates.add(resumeCurrentDay.format('YYYY-MM-DD'))
+            // 只显示今天及之前的日期，不显示未来日期
+            if (!resumeCurrentDay.isAfter(dayjs(), 'day')) {
+              activeDates.add(resumeCurrentDay.format('YYYY-MM-DD'))
+            }
             resumeCurrentDay = resumeCurrentDay.add(1, 'day')
           }
           break
 
         case 'COMPLETED':
-          // 任务完成，标记完成日期
-          activeDates.add(activityDate.format('YYYY-MM-DD'))
+          // 任务完成，标记完成日期（仅显示今天及之前的完成日期）
+          if (!activityDate.isAfter(dayjs(), 'day')) {
+            activeDates.add(activityDate.format('YYYY-MM-DD'))
+          }
           break
 
           // PAUSED 状态不标记日期，因为任务处于暂停状态
+      }
+    }
+
+    // 特殊处理：对于上周开始但本周仍在进行的任务，需要确保显示到今天
+    // 检查任务是否处于进行中状态且有开始记录
+    if (task.status === 'in-progress') {
+      const startedActivity = sortedActivities.find(a => a.activityType === 'STARTED')
+      if (startedActivity) {
+        const startDate = dayjs(startedActivity.startTime)
+        
+        // 如果任务在上周或更早开始，且没有完成记录，则确保显示到今天
+        const hasCompletedActivity = sortedActivities.some(a => a.activityType === 'COMPLETED')
+        if (startDate.isBefore(dayjs(), 'day') && !hasCompletedActivity) {
+          let currentDay = startDate.clone()
+          // 从开始日期到今天的所有日期
+          while (currentDay.isSameOrBefore(dayjs(), 'day')) {
+            activeDates.add(currentDay.format('YYYY-MM-DD'))
+            currentDay = currentDay.add(1, 'day')
+          }
+        }
       }
     }
 
@@ -707,15 +731,17 @@ const getActivityTypeText = (type: string) => {
 }
 
 const exportDailyReport = () => {
-  const selectedDateStr = currentDate.value.format('YYYY-MM-DD')
+  const selectedDateStr = dayjs().format('YYYY-MM-DD') // 使用当前日期，而不是日历显示的日期
   copyActiveTasks(selectedDateStr)
   ElMessage.success('导出日报成功')
 }
 
-// 复制本周活动任务到剪切板
-const copyActiveTasksForWeek = async () => {
-  const weekStart = currentDate.value.startOf('week').add(1, 'day') // 调整为从周一开始
-  const weekEnd = currentDate.value.endOf('week').add(1, 'day') // 调整为从周一开始
+// 复制指定周的活动任务到剪切板
+const copyActiveTasksForWeek = async (targetDate?: string) => {
+  // 如果传入了目标日期，使用该日期所在的周；否则使用当前日期（当前周）
+  const baseDate = targetDate ? dayjs(targetDate) : dayjs()
+  const weekStart = baseDate.startOf('week').add(1, 'day') // 调整为从周一开始
+  const weekEnd = baseDate.endOf('week').add(1, 'day') // 调整为从周一开始
   const weekStartStr = weekStart.format('YYYY-MM-DD')
   const weekEndStr = weekEnd.format('YYYY-MM-DD')
 
@@ -778,8 +804,27 @@ const copyActiveTasksForWeek = async () => {
 }
 
 const exportWeeklyReport = () => {
-  copyActiveTasksForWeek()
+  copyActiveTasksForWeek() // 使用当前日期所在的周
   ElMessage.success('导出周报成功')
+}
+
+// 判断日期是否为周五、周六或周日
+const isFridaySaturdayOrSunday = (dateStr: string): boolean => {
+  if (!dateStr) return false
+  const date = dayjs(dateStr)
+  const dayOfWeek = date.day() // 0=周日, 1=周一, ..., 6=周六
+  return dayOfWeek === 5 || dayOfWeek === 6 || dayOfWeek === 0
+}
+
+// 从右键菜单导出周报
+const exportWeekReportFromContextMenu = () => {
+  if (!contextMenu.value.selectedDay) {
+    ElMessage.error('未选择日期')
+    return
+  }
+  copyActiveTasksForWeek(contextMenu.value.selectedDay.date)
+  ElMessage.success('导出周报成功')
+  closeContextMenu()
 }
 
 // 格式化短时间显示
