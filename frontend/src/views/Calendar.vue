@@ -103,7 +103,7 @@
                   :class="['task-item', `status-${task.status}`]"
                   :title="task.title"
               >
-                {{ task.title }}
+                {{ truncateText(task.title, 14) }}
               </div>
             </div>
 
@@ -839,6 +839,12 @@ const formatShortDuration = (minutes: number): string => {
   } else {
     return `${mins}m`
   }
+}
+
+// 截断文本，超出部分显示省略号
+const truncateText = (text: string, maxLength: number): string => {
+  if (!text || text.length <= maxLength) return text
+  return text.substring(0, maxLength) + '...'
 }
 
 // 双击日期格子打开任务详情
