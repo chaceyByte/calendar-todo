@@ -746,7 +746,7 @@ const copyActiveTasksForWeek = async (targetDate?: string) => {
   const weekEndStr = weekEnd.format('YYYY-MM-DD')
 
   // 收集本周所有活动任务
-  const weeklyActiveTasks = []
+  const weeklyTasks = []
 
   for (let i = 0; i <= weekEnd.diff(weekStart, 'day'); i++) {
     const currentDay = weekStart.add(i, 'day')
@@ -754,29 +754,37 @@ const copyActiveTasksForWeek = async (targetDate?: string) => {
 
     // 获取当天的活动任务
     const dayActiveTasks = getActiveTasksForDay(currentDayStr)
-    weeklyActiveTasks.push({
-      date: currentDayStr,
-      tasks: dayActiveTasks
+    dayActiveTasks.forEach(task => {
+      weeklyTasks.push({
+        ...task,
+        date: currentDayStr
+      })
     })
   }
 
-  // 格式化周报内容
-  let clipboardText = `${weekStartStr} 至 ${weekEndStr} 活动任务周报\n\n`
-
-  weeklyActiveTasks.forEach(dayInfo => {
-    if (dayInfo.tasks.length > 0) {
-      clipboardText += `📅 ${dayInfo.date} (${dayjs(dayInfo.date).format('dddd')})\n`
-      dayInfo.tasks.forEach((task, index) => {
-        clipboardText += `  ${index + 1}. ${task.title}\n`
-        clipboardText += `     状态: ${getStatusText(task.status)}\n`
-        clipboardText += `     描述: ${task.description || '无'}\n`
-      })
-      clipboardText += '\n'
+  // 对任务进行去重（根据任务ID去重，保留第一次出现的任务）
+  const uniqueTasks = []
+  const seenTaskIds = new Set()
+  for (const task of weeklyTasks) {
+    if (!seenTaskIds.has(task.id)) {
+      seenTaskIds.add(task.id)
+      uniqueTasks.push(task)
     }
-  })
+  }
 
-  if (weeklyActiveTasks.every(dayInfo => dayInfo.tasks.length === 0)) {
-    clipboardText += '本周暂无活动任务'
+  // 按照tag分组任务
+  const taskGroups = groupTasksByTag(uniqueTasks)
+
+  // 格式化周报内容（按照tag分组）
+  let clipboardText = `时间范围: ${weekStartStr} 至 ${weekEndStr}\n`
+
+  if (weeklyTasks.length > 0) {
+    taskGroups.forEach((group) => {
+      clipboardText += `${group.tag}\n`
+      group.tasks.forEach((task) => {
+        clipboardText += `- ${task.title}\n`
+      })
+    })
   }
 
   // 使用现代的 Clipboard API 复制到剪切板
