@@ -740,11 +740,14 @@ const exportDailyReport = () => {
 const copyActiveTasksForWeek = async (targetDate?: string) => {
   // 如果传入了目标日期，使用该日期所在的周；否则使用当前日期（当前周）
   const baseDate = targetDate ? dayjs(targetDate) : dayjs()
-  const weekStart = baseDate.startOf('week').add(1, 'day') // 调整为从周一开始
-  const weekEnd = baseDate.endOf('week').add(1, 'day') // 调整为从周一开始
+  const weekStart = baseDate.startOf('week').add(-1, 'week').add(1,'day') // 调整为从周一开始
+  const weekEnd = baseDate.endOf('week').add(-1, 'week').add(1,'day') // 调整为从周一开始
+
   const weekStartStr = weekStart.format('YYYY-MM-DD')
   const weekEndStr = weekEnd.format('YYYY-MM-DD')
 
+  console.log('weekStartStr:', weekStartStr)
+  console.log('weekEndStr:', weekEndStr)
   // 收集本周所有活动任务
   const weeklyTasks = []
 
@@ -780,9 +783,9 @@ const copyActiveTasksForWeek = async (targetDate?: string) => {
 
   if (weeklyTasks.length > 0) {
     taskGroups.forEach((group) => {
-      clipboardText += `${group.tag}\n`
-      group.tasks.forEach((task) => {
-        clipboardText += `- ${task.title}\n`
+      clipboardText += `\n• ${group.tag}\n`
+      group.tasks.forEach((task,index) => {
+        clipboardText += `  ${index+1}. ${task.title}\n`
       })
     })
   }
