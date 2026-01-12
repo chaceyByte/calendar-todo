@@ -103,7 +103,7 @@
                   :class="['task-item', `status-${task.status}`]"
                   :title="task.title"
               >
-                {{ task.title }}
+                {{ truncateText(task.title, 14) }}
               </div>
             </div>
 
@@ -740,13 +740,16 @@ const exportDailyReport = () => {
 const copyActiveTasksForWeek = async (targetDate?: string) => {
   // 如果传入了目标日期，使用该日期所在的周；否则使用当前日期（当前周）
   const baseDate = targetDate ? dayjs(targetDate) : dayjs()
-  const weekStart = baseDate.startOf('week').add(1, 'day') // 调整为从周一开始
-  const weekEnd = baseDate.endOf('week').add(1, 'day') // 调整为从周一开始
+  const weekStart = baseDate.startOf('week').add(-1, 'week').add(1,'day') // 调整为从周一开始
+  const weekEnd = baseDate.endOf('week').add(-1, 'week').add(1,'day') // 调整为从周一开始
+
   const weekStartStr = weekStart.format('YYYY-MM-DD')
   const weekEndStr = weekEnd.format('YYYY-MM-DD')
 
+  console.log('weekStartStr:', weekStartStr)
+  console.log('weekEndStr:', weekEndStr)
   // 收集本周所有活动任务
-  const weeklyActiveTasks = []
+  const weeklyTasks = []
 
   for (let i = 0; i <= weekEnd.diff(weekStart, 'day'); i++) {
     const currentDay = weekStart.add(i, 'day')
@@ -754,29 +757,37 @@ const copyActiveTasksForWeek = async (targetDate?: string) => {
 
     // 获取当天的活动任务
     const dayActiveTasks = getActiveTasksForDay(currentDayStr)
-    weeklyActiveTasks.push({
-      date: currentDayStr,
-      tasks: dayActiveTasks
+    dayActiveTasks.forEach(task => {
+      weeklyTasks.push({
+        ...task,
+        date: currentDayStr
+      })
     })
   }
 
-  // 格式化周报内容
-  let clipboardText = `${weekStartStr} 至 ${weekEndStr} 活动任务周报\n\n`
-
-  weeklyActiveTasks.forEach(dayInfo => {
-    if (dayInfo.tasks.length > 0) {
-      clipboardText += `📅 ${dayInfo.date} (${dayjs(dayInfo.date).format('dddd')})\n`
-      dayInfo.tasks.forEach((task, index) => {
-        clipboardText += `  ${index + 1}. ${task.title}\n`
-        clipboardText += `     状态: ${getStatusText(task.status)}\n`
-        clipboardText += `     描述: ${task.description || '无'}\n`
-      })
-      clipboardText += '\n'
+  // 对任务进行去重（根据任务ID去重，保留第一次出现的任务）
+  const uniqueTasks = []
+  const seenTaskIds = new Set()
+  for (const task of weeklyTasks) {
+    if (!seenTaskIds.has(task.id)) {
+      seenTaskIds.add(task.id)
+      uniqueTasks.push(task)
     }
-  })
+  }
 
-  if (weeklyActiveTasks.every(dayInfo => dayInfo.tasks.length === 0)) {
-    clipboardText += '本周暂无活动任务'
+  // 按照tag分组任务
+  const taskGroups = groupTasksByTag(uniqueTasks)
+
+  // 格式化周报内容（按照tag分组）
+  let clipboardText = `时间范围: ${weekStartStr} 至 ${weekEndStr}\n`
+
+  if (weeklyTasks.length > 0) {
+    taskGroups.forEach((group) => {
+      clipboardText += `\n• ${group.tag}\n`
+      group.tasks.forEach((task,index) => {
+        clipboardText += `  ${index+1}. ${task.title}\n`
+      })
+    })
   }
 
   // 使用现代的 Clipboard API 复制到剪切板
@@ -839,6 +850,12 @@ const formatShortDuration = (minutes: number): string => {
   } else {
     return `${mins}m`
   }
+}
+
+// 截断文本，超出部分显示省略号
+const truncateText = (text: string, maxLength: number): string => {
+  if (!text || text.length <= maxLength) return text
+  return text.substring(0, maxLength) + '...'
 }
 
 // 双击日期格子打开任务详情
