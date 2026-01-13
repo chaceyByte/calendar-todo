@@ -1243,7 +1243,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: flex-end;
   text-align: right;
-  max-width: calc(100% - 8px);
+  /*max-width: calc(100% - 18px);*/
   width: fit-content;
   align-self: flex-end;
   margin-left: auto;
