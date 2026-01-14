@@ -6,6 +6,8 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.baomidou.mybatisplus.extension.toolkit.Db;
+import com.taskcalendar.context.CurrentUser;
+import com.taskcalendar.dto.CreateTaskRequest;
 import com.taskcalendar.dto.TaskDTO;
 import com.taskcalendar.entity.ActivityRecord;
 import com.taskcalendar.entity.Tag;
@@ -19,6 +21,7 @@ import com.taskcalendar.mapper.TaskTagMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.CollectionUtils;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -269,15 +272,36 @@ public class TaskService extends ServiceImpl<TaskMapper, Task> {
     /**
      * 创建任务时记录活动
      */
-    @Transactional
-    @Override
-    public boolean save(Task entity) {
-        boolean result = super.save(entity);
+    @Transactional(rollbackFor = Exception.class)
+    public Task saveNewTask(CreateTaskRequest entity) {
+        Task task = convertTaskFromCreateRequest(entity);
+        // 保存任务
+        boolean result = super.save(task);
+        // 保存任务和标签的关系
+        Long id = task.getId();
+        List<String> tags = entity.getTags();
+
+        if (!CollectionUtils.isEmpty(tags)) {
+            List<Long> tagsList = tags.stream().mapToLong(Long::valueOf).boxed().toList();
+            updateTaskTags(id, tagsList, CurrentUser.getUserId());
+        }
+
         if (result) {
             // 记录创建活动
-            recordActivity(entity.getId(), ActivityType.CREATED, "任务创建", "planning");
+            recordActivity(task.getId(), ActivityType.CREATED, "任务创建", "planning");
         }
-        return result;
+        return task;
+    }
+
+    private Task convertTaskFromCreateRequest(CreateTaskRequest createTaskRequest) {
+        Task task = new Task();
+        task.setTitle(createTaskRequest.getTitle());
+        task.setDescription(createTaskRequest.getDescription());
+        task.setStatus(createTaskRequest.getStatus());
+        task.setUrgency(createTaskRequest.getUrgency());
+        task.setStartDate(createTaskRequest.getStartDate());
+        task.setEndDate(createTaskRequest.getEndDate());
+        return task;
     }
 
     /**

@@ -231,7 +231,7 @@
               v-for="tag in availableTags" 
               :key="tag.id" 
               :label="tag.name" 
-              :value="tag.name"
+              :value="tag.id"
             />
           </el-select>
         </el-form-item>
@@ -483,7 +483,7 @@ const taskForm = reactive({
   status: 'planning' as string,
   urgency: '一般' as string,
   progress: 0,
-  tags: [] as string[],
+  tags: [] as (string | number)[],
   completed: false
 })
 
@@ -540,7 +540,7 @@ const showAddTaskDialog = (columnId?: string) => {
 
   // 获取最新的标签（如果有的话）
   const latestTag = availableTags.value.length > 0 
-    ? [availableTags.value[availableTags.value.length - 1].name]
+    ? [availableTags.value[availableTags.value.length - 1].id]
     : []
 
   // 重置表单，确保状态默认为"planning"，并默认选择最新的标签
@@ -549,6 +549,7 @@ const showAddTaskDialog = (columnId?: string) => {
     title: '',
     description: '',
     status: 'planning',
+    urgency: '一般', // 添加默认紧急程度
     progress: 0,
     tags: latestTag,
     completed: false
@@ -558,7 +559,12 @@ const showAddTaskDialog = (columnId?: string) => {
 const editTask = (task: Task) => {
   taskDialog.isEdit = true
   taskDialog.visible = true
-  Object.assign(taskForm, {...task})
+  // 将标签名称转换为标签ID
+  const tagIds = (task.tags || []).map(tagName => {
+    const tag = availableTags.value.find(t => t.name === tagName)
+    return tag ? tag.id : 0
+  }).filter(id => id > 0)
+  Object.assign(taskForm, {...task, tags: tagIds})
 }
 
 const saveTask = async () => {
@@ -569,6 +575,7 @@ const saveTask = async () => {
 
   try {
     if (taskDialog.isEdit) {
+      debugger;
       // 编辑任务
       await taskStore.updateTask(taskForm.id, {
         title: taskForm.title,
@@ -579,6 +586,7 @@ const saveTask = async () => {
       })
       ElMessage.success('任务更新成功')
     } else {
+      console.log(taskForm.tags,"-------")
       // 添加新任务
       const newTask = {
         title: taskForm.title,
@@ -586,9 +594,9 @@ const saveTask = async () => {
         status: taskForm.status as any,
         urgency: taskForm.urgency as any,
         progress: 0,
-        tags: [],
-        completed: false
+        tags: (taskForm.tags || []).map(tag => String(tag))
       }
+      console.log('调用addTask，参数:', newTask)
       await taskStore.addTask(newTask)
       ElMessage.success('任务添加成功')
     }
@@ -758,7 +766,7 @@ const removeTagFromTask = async (taskId: number, tagName: string) => {
       await taskStore.removeTagFromTask(taskId, tagName)
       // 更新本地状态
       task.tags = task.tags.filter(t => {
-        return t !== tagName;
+        return t.name != tagName;
       })
       ElMessage.success('标签已移除')
     }

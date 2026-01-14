@@ -1,6 +1,27 @@
 import request from '@/utils/request'
 
 // 任务相关的类型定义
+export interface Tag {
+  id: number
+  name: string
+  color?: string
+}
+
+// 用于创建任务的接口（发送给后端的数据格式）
+export interface CreateTaskData {
+  title: string
+  description?: string
+  startTime?: string
+  endTime?: string
+  status: 'planning' | 'in-progress' | 'completed' | 'cancelled'
+  priority?: 'low' | 'medium' | 'high'
+  urgency?: '非紧急' | '一般' | '紧急' | '加急'
+  progress?: number
+  tags?: string[]  // 标签ID的字符串数组
+  completed?: boolean
+}
+
+// 从后端获取的任务数据格式
 export interface Task {
   id?: number
   title: string
@@ -10,15 +31,12 @@ export interface Task {
   status: 'planning' | 'in-progress' | 'completed' | 'cancelled'
   priority?: 'low' | 'medium' | 'high'
   urgency?: '非紧急' | '一般' | '紧急' | '加急'
-  tags?: Tag[]
+  progress?: number
+  tags?: Tag[]  // 获取时返回的是Tag对象数组
   tagIds?: number[]
-  [key: string]: any
-}
-
-export interface Tag {
-  id: number
-  name: string
-  color?: string
+  completed?: boolean
+  createdAt?: string
+  updatedAt?: string
 }
 
 export interface TaskOperation {
@@ -42,7 +60,7 @@ export interface StagingTask {
 }
 
 // 任务相关的API函数
-export const createTask = async (taskData: Task) => {
+export const createTask = async (taskData: CreateTaskData) => {
   try {
     const response = await request.post('/tasks', taskData)
     return response.data || response

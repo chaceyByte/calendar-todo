@@ -1,9 +1,9 @@
 package com.taskcalendar.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.taskcalendar.context.CurrentUser;
 import com.taskcalendar.dto.ApiResponse;
+import com.taskcalendar.dto.CreateTaskRequest;
 import com.taskcalendar.dto.TaskDTO;
 import com.taskcalendar.dto.UpdateTagsRequest;
 import com.taskcalendar.entity.Task;
@@ -12,7 +12,6 @@ import com.taskcalendar.service.TaskService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -36,10 +35,10 @@ public class TaskController {
     }
 
     @PostMapping
-    public ApiResponse<Task> createTask(@RequestBody Task task) {
+    public ApiResponse<Task> createTask(@RequestBody CreateTaskRequest task) {
         // userId、createdAt、updatedAt字段将由MetaObjectHandler自动填充
-        taskService.save(task);
-        return ApiResponse.success("任务创建成功", task);
+        Task taskResult = taskService.saveNewTask(task);
+        return ApiResponse.success("任务创建成功", taskResult);
     }
 
     @PutMapping("/{id}")
@@ -114,7 +113,7 @@ public class TaskController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String keyword) {
-        
+
         IPage<TaskDTO> tasks = taskService.getArchivedTasks(page, size, keyword);
         return ApiResponse.success(tasks);
     }

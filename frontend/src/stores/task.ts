@@ -14,7 +14,8 @@ import {
   addTaskToStaging,
   removeTaskFromStaging,
   getStagingTasks,
-  type Task
+  type Task,
+  type CreateTaskData
 } from '@/api/task'
 
 export type TaskStatus = 'planning' | 'in-progress' | 'completed' | 'cancelled'
@@ -115,9 +116,12 @@ export const useTaskStore = defineStore('task', () => {
         title: task.title,
         description: task.description || '',
         status: task.status,
+        urgency: task.urgency || '一般',
         progress: task.progress || 0,
-        priority: task.priority || 'medium'
+        priority: task.priority || 'medium',
+        tags: (task.tags || []).map(tag => String(tag))
       }
+      console.log('发送创建任务请求，请求数据:', taskData)
       const newTask = await apiCreateTask(taskData)
       pushToUndoStack({
         type: 'create',
