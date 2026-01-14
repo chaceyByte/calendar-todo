@@ -12,6 +12,7 @@ import com.taskcalendar.service.TaskService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -58,6 +59,7 @@ public class TaskController {
 
         task.setId(id);
         task.setUserId(existingTask.getUserId());
+        task.setUpdatedAt(LocalDateTime.now());
         // updatedAt字段将由MetaObjectHandler自动填充
         taskService.updateById(task);
         return ApiResponse.success("任务更新成功", task);

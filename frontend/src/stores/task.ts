@@ -145,9 +145,8 @@ export const useTaskStore = defineStore('task', () => {
       if (!currentTask) throw new Error('任务不存在')
       const previousData = { ...currentTask }
       
-      // 确保必填字段存在
-      const taskData: Task = {
-        ...currentTask,
+      // 只发送需要更新的字段，排除createdAt和updatedAt
+      const taskData = {
         ...updatedTask
       }
       
