@@ -180,9 +180,9 @@
     </div>
 
     <!-- 添加快捷键提示 -->
-    <div class="shortcut-hint">
-      <el-tag size="small">快捷键: Alt + Enter 快速添加任务 | Ctrl+Z 撤销操作</el-tag>
-    </div>
+<!--    <div class="shortcut-hint">-->
+<!--      <el-tag size="small">快捷键: Alt + Enter 快速添加任务 | Ctrl+Z 撤销操作</el-tag>-->
+<!--    </div>-->
 
     <!-- 添加/编辑任务对话框 -->
     <el-dialog
@@ -720,8 +720,11 @@ const removeFromStaging = async (taskId: number) => {
     // 调用后端API
     await taskStore.removeFromStaging(taskId)
 
-    // 刷新暂存队列显示
-    await loadStagingTasks()
+    // 同时刷新主任务列表和暂存队列
+    await Promise.all([
+      loadTasks(),
+      loadStagingTasks()
+    ])
     ElMessage.success('任务已从暂存队列移除')
   } catch (error) {
     console.error('从暂存移除失败:', error)

@@ -96,7 +96,16 @@ public class TaskController {
             return ApiResponse.error("任务不存在");
         }
 
-        // 这里可以添加从暂存队列移除的逻辑
+        // 如果任务状态是paused，则恢复任务
+        if ("paused".equals(task.getStatus())) {
+            boolean result = taskService.resumeTask(id);
+            if (result) {
+                return ApiResponse.success("任务已从暂存队列移除并恢复", null);
+            } else {
+                return ApiResponse.error("从暂存队列移除失败");
+            }
+        }
+
         return ApiResponse.success("任务已从暂存队列移除", null);
     }
 
