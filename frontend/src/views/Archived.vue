@@ -65,10 +65,6 @@
                     <el-icon><view /></el-icon>
                     查看详情
                   </el-dropdown-item>
-                  <el-dropdown-item @click="editTask(task)">
-                    <el-icon><edit /></el-icon>
-                    编辑
-                  </el-dropdown-item>
                   <el-dropdown-item @click="showActivityDrawer(task)">
                     <el-icon><timer /></el-icon>
                     活动记录
