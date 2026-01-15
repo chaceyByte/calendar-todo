@@ -78,6 +78,9 @@
                 <span v-if="day.holidayType" :class="['holiday-badge', day.holidayType.toLowerCase()]">
                   {{ day.holidayType === 'REST' ? '休' : '补' }}
                 </span>
+                <span v-if="day.tasks.length > 0" class="task-count-badge">
+                  {{ day.tasks.length }}
+                </span>
               </div>
               <span :class="['lunar-date', { 'is-weekend': day.isWeekend }]">{{ formatLunarDate(day.date) }}</span>
             </div>
@@ -1166,6 +1169,54 @@ onUnmounted(() => {
   color: white; /* 白色字体 */
   font-size: 12px;
   font-weight: 500;
+}
+
+/* 任务计数徽章样式 */
+.task-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  color: white;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0 4px;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+  margin-left: 4px;
+  animation: pulse 2s infinite;
+}
+
+.calendar-day:not(.current-month) .task-count-badge {
+  background: linear-gradient(135deg, #cbd5e1, #94a3b8);
+  box-shadow: 0 2px 4px rgba(203, 213, 225, 0.3);
+}
+
+.calendar-day.today .task-count-badge {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
+  animation: bounce 0.5s ease-in-out;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
 }
 
 .day-number {
