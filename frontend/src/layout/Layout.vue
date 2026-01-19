@@ -61,7 +61,7 @@ const router = useRouter()
 const userStore = useUserStore()
 
 const tabs = ref([
-  { name: 'Home', title: '首页' },
+  { name: 'Home', title: '四象限' },
   { name: 'Calendar', title: '日历' },
   { name: 'Tasks', title: '任务' },
   { name: 'Tags', title: '标签' },
@@ -100,6 +100,8 @@ onMounted(async () => {
   justify-content: space-between;
   padding: 0 24px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  z-index: 2000; /* 确保导航条在最上层 */
+  position: relative;
 }
 
 .header-left {

@@ -14,8 +14,8 @@ export interface CreateTaskData {
   startTime?: string
   endTime?: string
   status: 'planning' | 'in-progress' | 'completed' | 'cancelled'
-  priority?: 'low' | 'medium' | 'high'
-  urgency?: '非紧急' | '一般' | '紧急' | '加急'
+  priority?: '-high' | '-middle' | '-low' | 'low' | 'middle' | 'high'
+  urgency?: '-high' | '-middle' | '-low' | 'low' | 'middle' | 'high'
   progress?: number
   tags?: string[]  // 标签ID的字符串数组
   completed?: boolean
@@ -29,14 +29,15 @@ export interface Task {
   startTime?: string
   endTime?: string
   status: 'planning' | 'in-progress' | 'completed' | 'cancelled'
-  priority?: 'low' | 'medium' | 'high'
-  urgency?: '非紧急' | '一般' | '紧急' | '加急'
+  priority?: '-high' | '-middle' | '-low' | 'low' | 'middle' | 'high'
+  urgency?: '-high' | '-middle' | '-low' | 'low' | 'middle' | 'high'
   progress?: number
   tags?: Tag[]  // 获取时返回的是Tag对象数组
   tagIds?: number[]
   completed?: boolean
   createdAt?: string
   updatedAt?: string
+  archivedAt?: string
 }
 
 export interface TaskOperation {
@@ -208,6 +209,49 @@ export const getArchivedTasks = async (page: number = 1, size: number = 20, keyw
     return response.data || response
   } catch (error) {
     console.error('获取归档任务失败:', error)
+    throw error
+  }
+}
+
+// 四象限任务相关API
+export const getQuadrantTasks = async () => {
+  try {
+    const response = await request.get('/tasks/quadrant')
+    return response.data || response
+  } catch (error) {
+    console.error('获取四象限任务失败:', error)
+    throw error
+  }
+}
+
+export const updateTaskPriorityUrgency = async (id: number, priority: string, urgency: string) => {
+  try {
+    const response = await request.put(`/tasks/${id}/priority-urgency`, null, {
+      params: { priority, urgency }
+    })
+    return response.data || response
+  } catch (error) {
+    console.error('更新任务重要紧急程度失败:', error)
+    throw error
+  }
+}
+
+export const archiveTask = async (id: number) => {
+  try {
+    const response = await request.post(`/tasks/${id}/archive`)
+    return response.data || response
+  } catch (error) {
+    console.error('归档任务失败:', error)
+    throw error
+  }
+}
+
+export const unarchiveTask = async (id: number) => {
+  try {
+    const response = await request.post(`/tasks/${id}/unarchive`)
+    return response.data || response
+  } catch (error) {
+    console.error('取消归档任务失败:', error)
     throw error
   }
 }

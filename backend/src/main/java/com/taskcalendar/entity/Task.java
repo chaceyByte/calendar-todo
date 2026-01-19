@@ -24,16 +24,19 @@ public class Task {
     private Integer progress;
     
     @TableField("priority")
-    private String priority; // low, medium, high
+    private String priority; // -high, -middle, -low, low, middle, high
     
     @TableField("urgency")
-    private String urgency; // 非紧急, 一般, 紧急, 加急
+    private String urgency; // -high, -middle, -low, low, middle, high
     
     @TableField("start_date")
     private LocalDateTime startDate;
     
     @TableField("end_date")
     private LocalDateTime endDate;
+    
+    @TableField("archived_at")
+    private LocalDateTime archivedAt;
     
     @TableField(value = "user_id", fill = FieldFill.INSERT)
     private Long userId;

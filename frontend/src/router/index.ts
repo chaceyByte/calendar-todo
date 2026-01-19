@@ -13,7 +13,7 @@ const router = createRouter({
         {
           path: 'home',
           name: 'Home',
-          component: () => import('@/views/Home.vue'),
+          component: () => import('@/views/FourQuadrant.vue'),
           meta: { title: '首页' }
         },
         {

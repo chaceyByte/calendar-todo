@@ -243,5 +243,99 @@ public class TaskController {
         }
     }
 
+    // 四象限任务管理接口
+    @GetMapping("/quadrant")
+    public ApiResponse<List<TaskDTO>> getQuadrantTasks() {
+        try {
+            List<TaskDTO> tasks = taskService.getQuadrantTasks();
+            return ApiResponse.success(tasks);
+        } catch (Exception e) {
+            return ApiResponse.error("获取四象限任务失败: " + e.getMessage());
+        }
+    }
+
+    // 更新任务重要紧急程度
+    @PutMapping("/{id}/priority-urgency")
+    public ApiResponse<Task> updatePriorityUrgency(@PathVariable Long id, 
+                                                   @RequestParam String priority, 
+                                                   @RequestParam String urgency) {
+        try {
+            // 验证优先级和紧急程度的有效性
+            if (!isValidPriority(priority) || !isValidUrgency(urgency)) {
+                return ApiResponse.error("无效的重要或紧急程度值");
+            }
+
+            Task task = taskService.getById(id);
+            if (task == null) {
+                return ApiResponse.error("任务不存在");
+            }
+
+            task.setPriority(priority);
+            task.setUrgency(urgency);
+            task.setUpdatedAt(LocalDateTime.now());
+            
+            taskService.updateById(task);
+            return ApiResponse.success("任务重要紧急程度更新成功", task);
+        } catch (Exception e) {
+            return ApiResponse.error("更新任务重要紧急程度失败: " + e.getMessage());
+        }
+    }
+
+    // 归档任务
+    @PostMapping("/{id}/archive")
+    public ApiResponse<Task> archiveTask(@PathVariable Long id) {
+        try {
+            Task task = taskService.getById(id);
+            if (task == null) {
+                return ApiResponse.error("任务不存在");
+            }
+
+            // 只有已完成的任务可以归档
+            if (!"completed".equals(task.getStatus())) {
+                return ApiResponse.error("只有已完成的任务可以归档");
+            }
+
+            task.setArchivedAt(LocalDateTime.now());
+            task.setUpdatedAt(LocalDateTime.now());
+            
+            taskService.updateById(task);
+            return ApiResponse.success("任务归档成功", task);
+        } catch (Exception e) {
+            return ApiResponse.error("任务归档失败: " + e.getMessage());
+        }
+    }
+
+    // 取消归档任务
+    @PostMapping("/{id}/unarchive")
+    public ApiResponse<Task> unarchiveTask(@PathVariable Long id) {
+        try {
+            Task task = taskService.getById(id);
+            if (task == null) {
+                return ApiResponse.error("任务不存在");
+            }
+
+            task.setArchivedAt(null);
+            task.setUpdatedAt(LocalDateTime.now());
+            
+            taskService.updateById(task);
+            return ApiResponse.success("任务取消归档成功", task);
+        } catch (Exception e) {
+            return ApiResponse.error("任务取消归档失败: " + e.getMessage());
+        }
+    }
+
+    // 验证优先级有效性
+    private boolean isValidPriority(String priority) {
+        return priority != null && (priority.equals("-high") || priority.equals("-middle") || 
+               priority.equals("-low") || priority.equals("low") || 
+               priority.equals("middle") || priority.equals("high"));
+    }
+
+    // 验证紧急程度有效性
+    private boolean isValidUrgency(String urgency) {
+        return urgency != null && (urgency.equals("-high") || urgency.equals("-middle") || 
+               urgency.equals("-low") || urgency.equals("low") || 
+               urgency.equals("middle") || urgency.equals("high"));
+    }
 
 }

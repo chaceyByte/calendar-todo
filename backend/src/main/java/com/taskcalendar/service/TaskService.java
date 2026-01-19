@@ -753,5 +753,42 @@ public class TaskService extends ServiceImpl<TaskMapper, Task> {
         return true;
     }
 
+    /**
+     * 获取四象限任务数据
+     * 返回按重要紧急程度分组的所有任务
+     */
+    public List<TaskDTO> getQuadrantTasks() {
+        List<Task> tasks = lambdaQuery()
+                .orderByDesc(Task::getCreatedAt)
+                .list();
+        
+        return convertTasksToDTOs(tasks);
+    }
+
+    /**
+     * 完成任务并记录归档时间
+     */
+    @Transactional
+    public boolean completeAndArchiveTask(Long taskId) {
+        Task task = getById(taskId);
+        if (task == null) {
+            throw new RuntimeException("任务不存在");
+        }
+
+        // 更新任务状态为已完成
+        task.setStatus("completed");
+        task.setArchivedAt(LocalDateTime.now());
+        task.setUpdatedAt(LocalDateTime.now());
+        
+        boolean result = updateById(task);
+        
+        if (result) {
+            // 记录完成活动
+            recordActivity(taskId, ActivityType.COMPLETED, "任务完成并归档", task.getStatus());
+        }
+        
+        return result;
+    }
+
 
 }
