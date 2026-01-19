@@ -314,7 +314,7 @@ public class TaskService extends ServiceImpl<TaskMapper, Task> {
         Task oldTask = getById(entity.getId());
         boolean result = super.updateById(entity);
 
-        if (result && oldTask != null && !oldTask.getStatus().equals(entity.getStatus())) {
+        if (result && oldTask != null && !oldTask.getStatus().equals(entity.getStatus()) && entity.getStatus() != null) {
             // 状态发生变化，记录活动
             ActivityType activityType = getActivityTypeFromStatus(entity.getStatus());
             String description = String.format("任务状态从 %s 变更为 %s",
@@ -442,18 +442,14 @@ public class TaskService extends ServiceImpl<TaskMapper, Task> {
      * 根据状态获取活动类型
      */
     private ActivityType getActivityTypeFromStatus(String status) {
-        switch (status) {
-            case "planning":
-                return ActivityType.STARTED;
-            case "in-progress":
-                return ActivityType.STARTED;
-            case "completed":
-                return ActivityType.COMPLETED;
-            case "paused":
-                return ActivityType.PAUSED;
-            default:
-                return ActivityType.OTHER;
-        }
+        return switch (status) {
+            case "planning" -> ActivityType.STARTED;
+            case "in-progress" -> ActivityType.DOING;
+            case "completed" -> ActivityType.COMPLETED;
+            case "paused" -> ActivityType.PAUSED;
+            case "resume" -> ActivityType.RESUMED;
+            default -> ActivityType.OTHER;
+        };
     }
 
     /**
@@ -723,14 +719,8 @@ public class TaskService extends ServiceImpl<TaskMapper, Task> {
                     // 如果找到开始活动，恢复为计划中
                     targetStatus = "planning";
                     break;
-
-                case WORK:
-                case MEETING:
-                case STUDY:
                 case OTHER:
-                    // 这些活动不影响任务状态，只需要删除记录
                     break;
-
                 default:
                     log.warn("不支持撤销的活动类型: {}", activityType);
             }
@@ -761,7 +751,7 @@ public class TaskService extends ServiceImpl<TaskMapper, Task> {
         List<Task> tasks = lambdaQuery()
                 .orderByDesc(Task::getCreatedAt)
                 .list();
-        
+
         return convertTasksToDTOs(tasks);
     }
 
@@ -779,14 +769,14 @@ public class TaskService extends ServiceImpl<TaskMapper, Task> {
         task.setStatus("completed");
         task.setArchivedAt(LocalDateTime.now());
         task.setUpdatedAt(LocalDateTime.now());
-        
+
         boolean result = updateById(task);
-        
+
         if (result) {
             // 记录完成活动
             recordActivity(taskId, ActivityType.COMPLETED, "任务完成并归档", task.getStatus());
         }
-        
+
         return result;
     }
 
