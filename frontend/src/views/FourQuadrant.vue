@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted, nextTick, onUnmounted } from 'vue'
+import { ref, computed, onMounted, nextTick, onUnmounted, watch } from 'vue'
 import { useTaskStore } from '@/stores/task'
 import { useTagStore } from '@/stores/tag'
 import type { Task } from '@/api/task'
-import * as echarts from 'echarts'
 import * as THREE from 'three'
 
 // 任务状态类型
@@ -42,7 +41,6 @@ const taskStore = useTaskStore()
 const tagStore = useTagStore()
 
 // 响应式数据
-const chartRef = ref<HTMLElement>()
 const threeContainerRef = ref<HTMLElement>()
 const tasks = ref<QuadrantTask[]>([])
 const selectedTask = ref<QuadrantTask | null>(null)
@@ -50,6 +48,39 @@ const tags = ref<Tag[]>([])
 const draggingTag = ref<Tag | null>(null)
 const scale = ref(1)
 const isArchivedView = ref(false)
+const isTaskDetailPanelVisible = ref(false) // 控制任务详情面板显示/隐藏
+const isTagsPanelVisible = ref(false) // 控制标签面板显示/隐藏
+const selectedTagId = ref<number | null>(null) // 选中的标签ID，用于过滤任务
+
+// 计算属性：获取当前任务中存在的标签
+const existingTags = computed(() => {
+  if (!tasks.value || tasks.value.length === 0) return []
+
+  // 获取所有任务中的标签ID集合
+  const tagIdsSet = new Set<number>()
+  tasks.value.forEach(task => {
+    if (task.tags && task.tags.length > 0) {
+      task.tags.forEach(tag => {
+        tagIdsSet.add(tag.id)
+      })
+    }
+  })
+
+  // 过滤出存在的标签
+  return tags.value.filter(tag => tagIdsSet.has(tag.id))
+})
+
+// 计算属性：根据选中的标签过滤任务
+const filteredTasks = computed(() => {
+  // 初始化时展示所有任务
+  if (selectedTagId.value === null) return tasks.value
+
+  // 点击标签时过滤出该标签下的任务
+  return tasks.value.filter(task => {
+    if (!task.tags || task.tags.length === 0) return false
+    return task.tags.some(tag => tag.id === selectedTagId.value)
+  })
+})
 
 // Three.js相关变量
 let scene: THREE.Scene
@@ -61,9 +92,6 @@ let isDragging = false
 let draggedObject: THREE.Group | null = null
 let dragPlane: THREE.Plane
 let dragOffset = new THREE.Vector3()
-
-// ECharts相关变量
-let chart: any
 
 // 缩放控制
 const zoomIn = () => {
@@ -80,10 +108,12 @@ const initThreeScene = () => {
 
   // 创建场景
   scene = new THREE.Scene()
-  scene.background = new THREE.Color(0xf8f9fa)
+  // scene.background = new THREE.Color(0xf8f9fa) // 移除背景色，使用透明背景
 
   // 创建正交相机以避免透视变形
-  const aspect = window.innerWidth / (window.innerHeight - 64)
+  const renderHeight = window.innerHeight - 64
+  const renderWidth = window.innerWidth
+  const aspect = renderWidth / renderHeight
   const viewHeight = 20 // 垂直可见范围（增大以容纳所有气球）
   const viewWidth = viewHeight * aspect
   camera = new THREE.OrthographicCamera(
@@ -95,8 +125,9 @@ const initThreeScene = () => {
   camera.lookAt(0, 0, 0)
 
   // 创建渲染器
-  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
-  renderer.setSize(window.innerWidth, window.innerHeight - 64)
+  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true })
+  renderer.setClearColor(0x000000, 0) // 设置完全透明背景
+  renderer.setSize(renderWidth, renderHeight)
   renderer.setPixelRatio(window.devicePixelRatio)
   threeContainerRef.value.appendChild(renderer.domElement)
 
@@ -136,7 +167,9 @@ const initThreeScene = () => {
 
   // 窗口大小调整（正交相机）
   const handleResize = () => {
-    const aspect = window.innerWidth / (window.innerHeight - 64)
+    const renderHeight = window.innerHeight - 64
+    const renderWidth = window.innerWidth
+    const aspect = renderWidth / renderHeight
     const viewHeight = 20 // 与初始化时的值保持一致
     const viewWidth = viewHeight * aspect
     camera.left = -viewWidth / 2
@@ -144,31 +177,36 @@ const initThreeScene = () => {
     camera.top = viewHeight / 2
     camera.bottom = -viewHeight / 2
     camera.updateProjectionMatrix()
-    renderer.setSize(window.innerWidth, window.innerHeight - 64)
-
-    // 调整echarts大小
-    if (chart) {
-      chart.resize()
-    }
+    renderer.setSize(renderWidth, renderHeight)
   }
   window.addEventListener('resize', handleResize)
 
   // 鼠标事件监听
   const handleMouseMove = (event: MouseEvent) => {
+    const renderHeight = window.innerHeight - 64
     mouse.x = (event.clientX / window.innerWidth) * 2 - 1
-    mouse.y = -(event.clientY / (window.innerHeight - 64)) * 2 + 1
-    
+    mouse.y = -((event.clientY - 64) / renderHeight) * 2 + 1
+
     // 拖动处理
     if (isDragging && draggedObject) {
       raycaster.setFromCamera(mouse, camera)
       const intersectionPoint = new THREE.Vector3()
       raycaster.ray.intersectPlane(dragPlane, intersectionPoint)
-      
+
       if (intersectionPoint) {
         draggedObject.position.copy(intersectionPoint.add(dragOffset))
-        
-        // 限制拖动范围（避免飞出视图）
-        const maxX = 10, maxY = 10
+
+        // 计算最大拖动范围（基于最大圆环1600px半径800px）
+        const renderHeight = window.innerHeight - 64
+        const renderWidth = window.innerWidth
+        const maxCircleRadius = 800 // 最大圆环半径1600px的半径
+        // 映射关系：pixels / renderSize = threeUnits / viewSize
+        const maxCircleThreeUnitsX = (maxCircleRadius / renderWidth) * (20 * (renderWidth / renderHeight))
+        const maxCircleThreeUnitsY = (maxCircleRadius / renderHeight) * 20
+
+        // 限制拖动范围（在最大圆环内）
+        const maxX = maxCircleThreeUnitsX
+        const maxY = maxCircleThreeUnitsY
         draggedObject.position.x = Math.max(-maxX, Math.min(maxX, draggedObject.position.x))
         draggedObject.position.y = Math.max(-maxY, Math.min(maxY, draggedObject.position.y))
       }
@@ -215,8 +253,9 @@ const initThreeScene = () => {
   }
 
   const handleMouseDown = (event: MouseEvent) => {
+    const renderHeight = window.innerHeight - 64
     mouse.x = (event.clientX / window.innerWidth) * 2 - 1
-    mouse.y = -(event.clientY / (window.innerHeight - 64)) * 2 + 1
+    mouse.y = -((event.clientY - 64) / renderHeight) * 2 + 1
     
     raycaster.setFromCamera(mouse, camera)
     
@@ -252,10 +291,23 @@ const initThreeScene = () => {
         const task = tasks.value.find(t => t.id === balloonGroup.userData.taskId)
         if (task) {
           selectedTask.value = task
+          isTaskDetailPanelVisible.value = true // 显示面板
+
+          // 3秒后自动隐藏面板
+          setTimeout(() => {
+            if (isTaskDetailPanelVisible.value) {
+              isTaskDetailPanelVisible.value = false
+            }
+          }, 3000)
         }
       }
     }
   }
+
+// 切换任务详情面板显示/隐藏
+const toggleTaskDetailPanel = () => {
+  isTaskDetailPanelVisible.value = !isTaskDetailPanelVisible.value
+}
 
   const handleMouseUp = () => {
     if (isDragging && draggedObject) {
@@ -279,22 +331,25 @@ const initThreeScene = () => {
 
 // 创建气球组（气球+标签+绳子）
 const createBalloonGroup = (task: QuadrantTask, position: THREE.Vector3) => {
+  console.log('createBalloonGroup 被调用，任务ID:', task.id, '任务标题:', task.title)
+  console.log('气球位置:', position)
+
   // 根据紧急程度和重要程度计算气球大小
   const priorityScore = getPriorityScore(task.priority)
   const urgencyScore = getUrgencyScore(task.urgency)
-  
+
   // 基础大小 + 重要程度影响 + 紧急程度影响
   const baseSize = 0.4
   const priorityFactor = Math.abs(priorityScore) * 0.15
   const urgencyFactor = Math.abs(urgencyScore) * 0.1
   const balloonSize = baseSize + priorityFactor + urgencyFactor
-  
+
   task.sphereSize = balloonSize
 
   // 创建气球组
   const balloonGroup = new THREE.Group()
   balloonGroup.position.copy(position)
-  balloonGroup.userData = { 
+  balloonGroup.userData = {
     taskId: task.id,
     isDragging: false,
     dragOffset: new THREE.Vector3(),
@@ -314,7 +369,10 @@ const createBalloonGroup = (task: QuadrantTask, position: THREE.Vector3) => {
     color: color,
     transparent: true,
     opacity: 0.9,
-    shininess: 60
+    shininess: 100,  // 增加高光亮度
+    specular: 0xffffff,  // 设置高光颜色为白色
+    emissive: 0x000000,
+    emissiveIntensity: 0
   })
   const balloon = new THREE.Mesh(balloonGeometry, balloonMaterial)
   balloon.position.y = balloonSize * 2 // 气球在绳子顶部
@@ -322,17 +380,29 @@ const createBalloonGroup = (task: QuadrantTask, position: THREE.Vector3) => {
   // 气球保持直立状态
   // balloon.rotation.z = 0 // 移除倾斜，保持直立
   
-  // 添加气球高光效果（垂直椭圆形高光）
-  const highlightGeometry = new THREE.SphereGeometry(balloonSize * 0.25, 16, 16)
-  highlightGeometry.scale(0.8, 1.1, 0.8)
-  const highlightMaterial = new THREE.MeshBasicMaterial({ 
+  // 添加主高光（左上方的明亮高光点）
+  const mainHighlightGeometry = new THREE.SphereGeometry(balloonSize * 0.35, 32, 32)
+  mainHighlightGeometry.scale(0.7, 1.2, 0.7)
+  const mainHighlightMaterial = new THREE.MeshBasicMaterial({ 
     color: 0xffffff, 
     transparent: true,
-    opacity: 0.4
+    opacity: 0.7  // 增加透明度，让高光更明显
   })
-  const highlight = new THREE.Mesh(highlightGeometry, highlightMaterial)
-  highlight.position.set(balloonSize * 0.4, balloonSize * 0.3, balloonSize * 0.4)
-  balloon.add(highlight)
+  const mainHighlight = new THREE.Mesh(mainHighlightGeometry, mainHighlightMaterial)
+  mainHighlight.position.set(balloonSize * 0.5, balloonSize * 0.5, balloonSize * 0.5)
+  balloon.add(mainHighlight)
+  
+  // 添加次高光（更柔和的反射光）
+  const secondaryHighlightGeometry = new THREE.SphereGeometry(balloonSize * 0.2, 24, 24)
+  secondaryHighlightGeometry.scale(0.6, 1.0, 0.6)
+  const secondaryHighlightMaterial = new THREE.MeshBasicMaterial({ 
+    color: 0xffffff, 
+    transparent: true,
+    opacity: 0.35  // 更柔和的次高光
+  })
+  const secondaryHighlight = new THREE.Mesh(secondaryHighlightGeometry, secondaryHighlightMaterial)
+  secondaryHighlight.position.set(-balloonSize * 0.25, balloonSize * 0.2, balloonSize * 0.6)
+  balloon.add(secondaryHighlight)
   
   // 添加气球底部结（气球打结处）
   const knotGeometry = new THREE.SphereGeometry(balloonSize * 0.1, 8, 8)
@@ -470,106 +540,6 @@ const createTextSprite = (task: QuadrantTask, label: THREE.Mesh, balloonSize: nu
   task.sprite = sprite
 }
 
-// 初始化饼图
-const initChart = () => {
-  if (!chartRef.value) return
-
-  chart = echarts.init(chartRef.value)
-
-  // 确保即使没有数据也有占位圆环可见
-  const getSafeData = (count: number) => count > 0 ? count : 0.1 // 最小值0.1确保渲染
-
-  // 计算饼图大小，使用更大的百分比确保可见
-  const option = {
-    backgroundColor: 'transparent',
-    series: [
-      // 外层圆环 - 任务状态分布
-      {
-        type: 'pie',
-        radius: ['55%', '60%'], // 增大半径，确保可见
-        center: ['50%', '50%'],
-        data: [
-          { value: getSafeData(tasks.value.filter(t => t.status === 'planning').length), name: '计划中', itemStyle: { color: 'rgba(24, 144, 255, 0.6)' } },
-          { value: getSafeData(tasks.value.filter(t => t.status === 'in-progress').length), name: '进行中', itemStyle: { color: 'rgba(250, 173, 20, 0.6)' } },
-          { value: 0, name: '已完成', itemStyle: { color: 'rgba(82, 196, 26, 0.6)' } }, // 四象限不显示已完成
-          { value: 0, name: '已取消', itemStyle: { color: 'rgba(217, 217, 217, 0.6)' } }  // 四象限不显示已取消
-        ],
-        label: { show: false },
-        itemStyle: {
-          borderColor: 'rgba(255, 255, 255, 0.3)',
-          borderWidth: 2
-        },
-        silent: true // 禁止交互
-      },
-      // 中层圆环 - 紧急程度分布
-      {
-        type: 'pie',
-        radius: ['42%', '48%'], // 增大半径
-        center: ['50%', '50%'],
-        data: [
-          { value: getSafeData(tasks.value.filter(t => t.urgency === 'high' || t.urgency === 'middle').length), name: '紧急', itemStyle: { color: 'rgba(255, 77, 79, 0.7)' } },
-          { value: getSafeData(tasks.value.filter(t => t.urgency === 'low' || t.urgency === '-low').length), name: '不紧急', itemStyle: { color: 'rgba(82, 196, 26, 0.7)' } },
-          { value: getSafeData(tasks.value.filter(t => t.urgency === 'low' || t.urgency === '-middle' || t.urgency === '-high').length), name: '一般', itemStyle: { color: 'rgba(250, 173, 20, 0.7)' } }
-        ],
-        label: { show: false },
-        itemStyle: {
-          borderColor: 'rgba(255, 255, 255, 0.4)',
-          borderWidth: 2
-        },
-        silent: true
-      },
-      // 内层圆环 - 重要程度分布
-      {
-        type: 'pie',
-        radius: ['30%', '36%'], // 增大半径
-        center: ['50%', '50%'],
-        data: [
-          { value: getSafeData(tasks.value.filter(t => t.priority === 'high' || t.priority === 'middle').length), name: '重要', itemStyle: { color: 'rgba(255, 77, 79, 0.8)' } },
-          { value: getSafeData(tasks.value.filter(t => t.priority === 'low' || t.priority === '-low').length), name: '不重要', itemStyle: { color: 'rgba(82, 196, 26, 0.8)' } },
-          { value: getSafeData(tasks.value.filter(t => t.priority === 'low' || t.priority === '-middle' || t.priority === '-high').length), name: '一般', itemStyle: { color: 'rgba(250, 173, 20, 0.8)' } }
-        ],
-        label: { show: false },
-        itemStyle: {
-          borderColor: 'rgba(255, 255, 255, 0.5)',
-          borderWidth: 2
-        },
-        emphasis: {
-          itemStyle: {
-            shadowBlur: 15,
-            shadowOffsetX: 0,
-            shadowColor: 'rgba(0, 0, 0, 0.3)'
-          }
-        },
-        silent: true
-      }
-    ],
-    graphic: {
-      type: 'text',
-      left: 'center',
-      top: 'center',
-      style: {
-        text: '归档',
-        fontSize: 14,
-        fontWeight: 'bold',
-        fill: '#666',
-        cursor: 'pointer'
-      },
-      onclick: () => {
-        showArchivedView()
-      }
-    }
-  }
-
-  chart.setOption(option)
-
-  // 点击中心进入归档视图
-  chart.on('click', (params: any) => {
-    if (params.componentType === 'series' && params.seriesIndex === 2) {
-      showArchivedView()
-    }
-  })
-}
-
 // 显示归档视图
 const showArchivedView = () => {
   isArchivedView.value = true
@@ -587,11 +557,11 @@ const updateTaskPriorityFromPosition = async (balloonGroup: THREE.Group) => {
   if (!task) return
 
   const position = balloonGroup.position
-  
+
   // 计算象限（基于位置）
   let priority: PriorityLevel
   let urgency: UrgencyLevel
-  
+
   // x轴：紧急程度（正值=右=紧急，负值=左=不紧急）
   if (position.x > 2) {
     urgency = 'high'
@@ -600,7 +570,7 @@ const updateTaskPriorityFromPosition = async (balloonGroup: THREE.Group) => {
   } else {
     urgency = 'middle'
   }
-  
+
   // y轴：重要程度（正值=上=重要，负值=下=不重要）
   if (position.y > 2) {
     priority = 'high'
@@ -609,9 +579,9 @@ const updateTaskPriorityFromPosition = async (balloonGroup: THREE.Group) => {
   } else {
     priority = 'middle'
   }
-  
+
   try {
-    await taskStore.updateTask(task.id!, { priority, urgency })
+    await taskStore.updateTask(task.id!, {priority, urgency})
     task.priority = priority
     task.urgency = urgency
   } catch (error) {
@@ -619,257 +589,295 @@ const updateTaskPriorityFromPosition = async (balloonGroup: THREE.Group) => {
   }
 }
 
-
+// 切换标签选择
+const toggleTagSelection = (tagId: number) => {
+  if (selectedTagId.value === tagId) {
+    // 如果再次点击已选中的标签，则取消选择
+    selectedTagId.value = null
+  } else {
+    selectedTagId.value = tagId
+  }
+}
 
 // 自动排布任务位置 - 在3D空间中根据象限分布球体
 const arrangeTasks = () => {
-  // 清除场景中现有的球体
-  if (scene) {
-    tasks.value.forEach(task => {
-      if (task.sphere) {
-        scene.remove(task.sphere)
-      }
+    // 使用过滤后的任务
+    const tasksToRender = filteredTasks.value
+
+    // 清除场景中现有的球体
+    if (scene) {
+      tasks.value.forEach(task => {
+        if (task.sphere) {
+          scene.remove(task.sphere)
+        }
+      })
+    }
+
+    // 将任务按象限分组
+    const quadrantTasks = [[], [], [], []] as QuadrantTask[][]
+
+    tasksToRender.forEach(task => {
+      const quadrantIndex = getTaskQuadrant(task)
+      quadrantTasks[quadrantIndex].push(task)
+    })
+
+    // 3D空间中的布局参数
+    const quadrantRadius = 6 // 每个象限的半径（减小以确保在相机可视范围内）
+    const sphereSpacing = 1.5 // 球体之间的最小间距
+    const zOffsetRange = 3 // Z轴偏移范围
+
+    // 为每个象限计算中心点（在3D空间中）
+    const quadrantCenters = [
+      new THREE.Vector3(quadrantRadius, quadrantRadius, 0),      // 第一象限：右上（紧急重要）
+      new THREE.Vector3(-quadrantRadius, quadrantRadius, 0),     // 第二象限：左上（不紧急重要）
+      new THREE.Vector3(-quadrantRadius, -quadrantRadius, 0),    // 第三象限：左下（不紧急不重要）
+      new THREE.Vector3(quadrantRadius, -quadrantRadius, 0)      // 第四象限：右下（紧急不重要）
+    ]
+
+    quadrantTasks.forEach((tasksInQuadrant, quadrantIndex) => {
+      const center = quadrantCenters[quadrantIndex]
+
+      // 计算球体在象限内的分布
+      const sphereCount = tasksInQuadrant.length
+      if (sphereCount === 0) return
+
+      // 计算环形布局参数
+      const ringRadius = Math.min(quadrantRadius * 0.6, sphereCount * sphereSpacing / (2 * Math.PI))
+
+      tasksInQuadrant.forEach((task, index) => {
+        // 计算角度（环形分布）
+        const angle = (index / sphereCount) * 2 * Math.PI
+
+        // 计算位置（在象限中心周围环形分布）
+        const offsetX = Math.cos(angle) * ringRadius
+        const offsetY = Math.sin(angle) * ringRadius
+        const offsetZ = (Math.random() - 0.5) * zOffsetRange // 随机Z轴偏移
+
+        const position = new THREE.Vector3(
+            center.x + offsetX,
+            center.y + offsetY,
+            center.z + offsetZ
+        )
+
+        // 创建3D气球组
+        createBalloonGroup(task, position)
+
+        // 保留2D位置信息（用于UI显示）
+        task.x = window.innerWidth / 2 + position.x * 50
+        task.y = window.innerHeight / 2 - position.y * 50
+        task.z = position.z
+
+        // 根据重要程度调整2D显示大小
+        task.radius = Math.max(30, Math.min(60, 35 + Math.abs(getPriorityScore(task.priority)) * 8))
+      })
     })
   }
-
-  // 将任务按象限分组
-  const quadrantTasks = [[], [], [], []] as QuadrantTask[][]
-  
-  tasks.value.forEach(task => {
-    const quadrantIndex = getTaskQuadrant(task)
-    quadrantTasks[quadrantIndex].push(task)
-  })
-  
-  // 3D空间中的布局参数
-  const quadrantRadius = 6 // 每个象限的半径（减小以确保在相机可视范围内）
-  const sphereSpacing = 1.5 // 球体之间的最小间距
-  const zOffsetRange = 3 // Z轴偏移范围
-  
-  // 为每个象限计算中心点（在3D空间中）
-  const quadrantCenters = [
-    new THREE.Vector3(quadrantRadius, quadrantRadius, 0),      // 第一象限：右上（紧急重要）
-    new THREE.Vector3(-quadrantRadius, quadrantRadius, 0),     // 第二象限：左上（不紧急重要）
-    new THREE.Vector3(-quadrantRadius, -quadrantRadius, 0),    // 第三象限：左下（不紧急不重要）
-    new THREE.Vector3(quadrantRadius, -quadrantRadius, 0)      // 第四象限：右下（紧急不重要）
-  ]
-  
-  quadrantTasks.forEach((tasksInQuadrant, quadrantIndex) => {
-    const center = quadrantCenters[quadrantIndex]
-    
-    // 计算球体在象限内的分布
-    const sphereCount = tasksInQuadrant.length
-    if (sphereCount === 0) return
-    
-    // 计算环形布局参数
-    const ringRadius = Math.min(quadrantRadius * 0.6, sphereCount * sphereSpacing / (2 * Math.PI))
-    
-    tasksInQuadrant.forEach((task, index) => {
-      // 计算角度（环形分布）
-      const angle = (index / sphereCount) * 2 * Math.PI
-      
-      // 计算位置（在象限中心周围环形分布）
-      const offsetX = Math.cos(angle) * ringRadius
-      const offsetY = Math.sin(angle) * ringRadius
-      const offsetZ = (Math.random() - 0.5) * zOffsetRange // 随机Z轴偏移
-      
-      const position = new THREE.Vector3(
-        center.x + offsetX,
-        center.y + offsetY,
-        center.z + offsetZ
-      )
-      
-      // 创建3D气球组
-      createBalloonGroup(task, position)
-      
-      // 保留2D位置信息（用于UI显示）
-      task.x = window.innerWidth / 2 + position.x * 50
-      task.y = window.innerHeight / 2 - position.y * 50
-      task.z = position.z
-      
-      // 根据重要程度调整2D显示大小
-      task.radius = Math.max(30, Math.min(60, 35 + Math.abs(getPriorityScore(task.priority)) * 8))
-    })
-  })
-}
 
 // 获取任务所在象限（x轴=紧急程度，y轴=重要程度）
-const getTaskQuadrant = (task: QuadrantTask): number => {
-  const urgencyScore = getUrgencyScore(task.urgency)   // x轴：紧急程度（正值=紧急，负值=不紧急）
-  const priorityScore = getPriorityScore(task.priority) // y轴：重要程度（正值=重要，负值=不重要）
-  
-  // 第一象限：x>0, y>0（右上）：紧急且重要
-  if (urgencyScore > 0 && priorityScore > 0) return 0
-  // 第二象限：x<0, y>0（左上）：不紧急但重要
-  if (urgencyScore <= 0 && priorityScore > 0) return 1
-  // 第三象限：x<0, y<0（左下）：不紧急且不重要
-  if (urgencyScore <= 0 && priorityScore <= 0) return 2
-  // 第四象限：x>0, y<0（右下）：紧急但不重要
-  return 3
-}
+  const getTaskQuadrant = (task: QuadrantTask): number => {
+    const urgencyScore = getUrgencyScore(task.urgency)   // x轴：紧急程度（正值=紧急，负值=不紧急）
+    const priorityScore = getPriorityScore(task.priority) // y轴：重要程度（正值=重要，负值=不重要）
 
-const getPriorityScore = (priority: PriorityLevel): number => {
-  const scores = { '-high': -3, '-middle': -2, '-low': -1, 'low': 0, 'middle': 1, 'high': 2 }
-  return scores[priority] || 0
-}
+    // 第一象限：x>0, y>0（右上）：紧急且重要
+    if (urgencyScore > 0 && priorityScore > 0) return 0
+    // 第二象限：x<0, y>0（左上）：不紧急但重要
+    if (urgencyScore <= 0 && priorityScore > 0) return 1
+    // 第三象限：x<0, y<0（左下）：不紧急且不重要
+    if (urgencyScore <= 0 && priorityScore <= 0) return 2
+    // 第四象限：x>0, y<0（右下）：紧急但不重要
+    return 3
+  }
 
-const getUrgencyScore = (urgency: UrgencyLevel): number => {
-  const scores = { '-high': -3, '-middle': -2, '-low': -1, 'low': 0, 'middle': 1, 'high': 2 }
-  return scores[urgency] || 0
-}
+  const getPriorityScore = (priority: PriorityLevel): number => {
+    const scores = {'-high': -3, '-middle': -2, '-low': -1, 'low': 0, 'middle': 1, 'high': 2}
+    return scores[priority] || 0
+  }
+
+  const getUrgencyScore = (urgency: UrgencyLevel): number => {
+    const scores = {'-high': -3, '-middle': -2, '-low': -1, 'low': 0, 'middle': 1, 'high': 2}
+    return scores[urgency] || 0
+  }
 
 // 双击创建任务（基于象限的紧急/重要程度）
-const createTaskInQuadrant = (quadrantIndex: number) => {
-  const quadrant = QUADRANTS[quadrantIndex]
-  let priority: PriorityLevel
-  let urgency: UrgencyLevel
-  
-  // 根据象限索引确定紧急和重要程度（x轴=紧急，y轴=重要）
-  switch(quadrantIndex) {
-    case 0: // 第一象限：右上（x>0, y>0）
-      priority = 'high'
-      urgency = 'high'
-      break
-    case 1: // 第二象限：左上（x<0, y>0）
-      priority = 'high'
-      urgency = '-high'
-      break
-    case 2: // 第三象限：左下（x<0, y<0）
-      priority = '-high'
-      urgency = '-high'
-      break
-    case 3: // 第四象限：右下（x>0, y<0）
-      priority = '-high'
-      urgency = 'high'
-      break
-    default:
-      priority = 'middle'
-      urgency = 'middle'
-  }
-  
-  const newTask: Partial<Task> = {
-    title: `新任务-${quadrant.name}`,
-    status: 'planning' as TaskStatus,
-    priority,
-    urgency,
-    progress: 0
-  }
-  
-  // 这里调用创建任务API
-  console.log('创建新任务:', newTask)
-  // taskStore.addTask(newTask)
-}
+  const createTaskInQuadrant = (quadrantIndex: number) => {
+    const quadrant = QUADRANTS[quadrantIndex]
+    let priority: PriorityLevel
+    let urgency: UrgencyLevel
 
-// 双击空白处隐藏视图
+    // 根据象限索引确定紧急和重要程度（x轴=紧急，y轴=重要）
+    switch (quadrantIndex) {
+      case 0: // 第一象限：右上（x>0, y>0）
+        priority = 'high'
+        urgency = 'high'
+        break
+      case 1: // 第二象限：左上（x<0, y>0）
+        priority = 'high'
+        urgency = '-high'
+        break
+      case 2: // 第三象限：左下（x<0, y<0）
+        priority = '-high'
+        urgency = '-high'
+        break
+      case 3: // 第四象限：右下（x>0, y<0）
+        priority = '-high'
+        urgency = 'high'
+        break
+      default:
+        priority = 'middle'
+        urgency = 'middle'
+    }
+
+    const newTask: Partial<Task> = {
+      title: `新任务-${quadrant.name}`,
+      status: 'planning' as TaskStatus,
+      priority,
+      urgency,
+      progress: 0
+    }
+
+    // 这里调用创建任务API
+    console.log('创建新任务:', newTask)
+    // taskStore.addTask(newTask)
+  }
+
+// 双击空白处隐藏所有视图
 const hideAllViews = () => {
   selectedTask.value = null
+  isTaskDetailPanelVisible.value = false
+  isTagsPanelVisible.value = false
+  selectedTagId.value = null // 取消标签选择
 }
-
 
 
 // 根据背景色获取对比色（确保文字可读性）
-const getContrastColor = (hexColor: string): string => {
-  // 移除#号
-  const hex = hexColor.replace('#', '')
-  
-  // 转换为RGB
-  const r = parseInt(hex.substr(0, 2), 16)
-  const g = parseInt(hex.substr(2, 2), 16)
-  const b = parseInt(hex.substr(4, 2), 16)
-  
-  // 计算亮度（YIQ公式）
-  const brightness = (r * 299 + g * 587 + b * 114) / 1000
-  
-  // 根据亮度返回黑色或白色
-  return brightness >= 128 ? '#000000' : '#ffffff'
-}
+  const getContrastColor = (hexColor: string): string => {
+    // 移除#号
+    const hex = hexColor.replace('#', '')
+
+    // 转换为RGB
+    const r = parseInt(hex.substr(0, 2), 16)
+    const g = parseInt(hex.substr(2, 2), 16)
+    const b = parseInt(hex.substr(4, 2), 16)
+
+    // 计算亮度（YIQ公式）
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000
+
+    // 根据亮度返回黑色或白色
+    return brightness >= 128 ? '#000000' : '#ffffff'
+  }
 
 // 标签拖拽
-const onTagDragStart = (tag: Tag, event: DragEvent) => {
-  draggingTag.value = tag
-  event.dataTransfer?.setData('text/plain', tag.id.toString())
-}
+  const onTagDragStart = (tag: Tag, event: DragEvent) => {
+    draggingTag.value = tag
+    event.dataTransfer?.setData('text/plain', tag.id.toString())
+  }
 
-const onTaskTagDrop = async (task: QuadrantTask, event: DragEvent) => {
-  event.preventDefault()
-  const tagId = event.dataTransfer?.getData('text/plain')
-  if (tagId && draggingTag.value) {
-    try {
-      await taskStore.updateTaskTags(task.id!, [parseInt(tagId)])
-      if (!task.tags) task.tags = []
-      task.tags.push(draggingTag.value)
-    } catch (error) {
-      console.error('添加标签失败:', error)
+  const onTaskTagDrop = async (task: QuadrantTask, event: DragEvent) => {
+    event.preventDefault()
+    const tagId = event.dataTransfer?.getData('text/plain')
+    if (tagId && draggingTag.value) {
+      try {
+        await taskStore.updateTaskTags(task.id!, [parseInt(tagId)])
+        if (!task.tags) task.tags = []
+        task.tags.push(draggingTag.value)
+      } catch (error) {
+        console.error('添加标签失败:', error)
+      }
     }
-  }
-  draggingTag.value = null
-}
-
-  // 清理Three.js资源
-const cleanupThree = () => {
-  if (renderer) {
-    renderer.dispose()
-  }
-  if (scene) {
-    scene.clear()
+    draggingTag.value = null
   }
 
-  // 清理echarts实例
-  if (chart) {
-    chart.dispose()
-  }
+// 监听标签选择变化，重新排布任务
+  watch(selectedTagId, () => {
+    nextTick(() => {
+      arrangeTasks()
+    })
+  })
 
-  // 移除事件监听器
-  window.removeEventListener('resize', () => {})
-  window.removeEventListener('mousemove', () => {})
-  window.removeEventListener('mousedown', () => {})
-  window.removeEventListener('mouseup', () => {})
-  window.removeEventListener('dragstart', () => {})
-}
+// 清理Three.js资源
+  const cleanupThree = () => {
+    if (renderer) {
+      renderer.dispose()
+    }
+    if (scene) {
+      scene.clear()
+    }
+
+    // 移除事件监听器
+    window.removeEventListener('resize', () => {
+    })
+    window.removeEventListener('mousemove', () => {
+    })
+    window.removeEventListener('mousedown', () => {
+    })
+    window.removeEventListener('mouseup', () => {
+    })
+    window.removeEventListener('dragstart', () => {
+    })
+  }
 
 // 初始化数据
-onMounted(async () => {
-  await Promise.all([
-    taskStore.fetchTasks(),
-    tagStore.fetchTags()
-  ])
-  
-  // 初始化任务数据，只显示非完成状态的任务（计划中、进行中、暂停）
-  tasks.value = taskStore.tasks
-    .filter(task => task.status !== 'completed' && task.status !== 'cancelled')
-    .map(task => ({
-      ...task,
-      x: window.innerWidth / 2, // 初始位置在屏幕中心
-      y: window.innerHeight / 2,
-      z: 0,
-      radius: 30,
-      sphereSize: 0.5,
-      isDragging: false,
-      quadrant: 0
-    }))
-  
-  tags.value = tagStore.tags as Tag[]
-  
-  // 初始化Three.js场景
-  nextTick(() => {
-    initThreeScene()
-    // 排布任务位置（创建3D球体）
-    arrangeTasks()
-    // 初始化图表
-    initChart()
+  onMounted(async () => {
+    console.log('onMounted 开始')
+    await Promise.all([
+      taskStore.fetchTasks(),
+      tagStore.fetchTags()
+    ])
+    console.log('数据加载完成')
+    console.log('taskStore.tasks 数量:', taskStore.tasks.length)
+    console.log('taskStore.tasks:', taskStore.tasks)
+
+    // 初始化任务数据，只显示非完成状态的任务（计划中、进行中、暂停）
+    tasks.value = taskStore.tasks
+        .filter(task => task.status !== 'completed' && task.status !== 'cancelled')
+        .map(task => ({
+          ...task,
+          x: window.innerWidth / 2, // 初始位置在屏幕中心
+          y: window.innerHeight / 2,
+          z: 0,
+          radius: 30,
+          sphereSize: 0.5,
+          isDragging: false,
+          quadrant: 0
+        }))
+
+    console.log('过滤后的 tasks.value 数量:', tasks.value.length)
+    console.log('过滤后的 tasks.value:', tasks.value)
+
+    tags.value = tagStore.tags as Tag[]
+
+    // 标签面板默认显示，3秒后自动隐藏
+    isTagsPanelVisible.value = true
+    setTimeout(() => {
+      if (isTagsPanelVisible.value) {
+        isTagsPanelVisible.value = false
+      }
+    }, 3000)
+
+    // 初始化Three.js场景
+    nextTick(() => {
+      initThreeScene()
+      // 排布任务位置（创建3D球体）
+      arrangeTasks()
+    })
   })
-})
 
 // 组件卸载时清理资源
-onUnmounted(() => {
-  cleanupThree()
-})
+  onUnmounted(() => {
+    cleanupThree()
+  })
+
 </script>
 
 <template>
-  <div class="four-quadrant-container" @dblclick="hideAllViews">
-    <!-- 饼状图 - 移到quadrant-area外面，作为背景 -->
-    <div ref="chartRef" class="pie-chart"></div>
+  <!-- CSS同心圆环（在容器外面，作为背景） -->
+  <div class="concentric-circles">
+    <div class="circle circle-outer"></div>
+    <div class="circle circle-middle"></div>
+    <div class="circle circle-inner"></div>
+  </div>
 
+  <div class="four-quadrant-container" @dblclick="hideAllViews">
     <!-- 四象限区域 -->
     <div class="quadrant-area" :style="{ transform: `scale(${scale})`, top: '64px', height: 'calc(100vh - 64px)' }">
       <!-- Three.js渲染容器 -->
@@ -897,48 +905,89 @@ onUnmounted(() => {
     </div>
 
     <!-- 任务详情面板 -->
-    <div v-if="selectedTask" class="task-detail-panel">
-      <h3>{{ selectedTask.title }}</h3>
-      <p>{{ selectedTask.description }}</p>
-      <div class="task-info">
-        <div>状态: {{ selectedTask.status }}</div>
-        <div>重要程度: {{ selectedTask.priority }}</div>
-        <div>紧急程度: {{ selectedTask.urgency }}</div>
-      </div>
-      
-      <!-- 任务标签展示 -->
-      <div class="task-tags-section">
-        <h4>标签</h4>
-        <div class="current-tags">
-          <span 
-            v-for="tag in selectedTask.tags" 
-            :key="tag.id"
-            class="task-tag-item"
-            :style="{ backgroundColor: tag.color, color: getContrastColor(tag.color) }"
-          >
-            {{ tag.name }}
-          </span>
-          <span v-if="!selectedTask.tags || selectedTask.tags.length === 0" class="no-tags">暂无标签</span>
+    <transition name="panel-slide">
+      <div v-if="selectedTask && isTaskDetailPanelVisible" class="task-detail-panel">
+        <button class="close-panel-btn" @click="isTaskDetailPanelVisible = false">×</button>
+        <h3>{{ selectedTask.title }}</h3>
+        <p>{{ selectedTask.description }}</p>
+        <div class="task-info">
+          <div>状态: {{ selectedTask.status }}</div>
+          <div>重要程度: {{ selectedTask.priority }}</div>
+          <div>紧急程度: {{ selectedTask.urgency }}</div>
+        </div>
+
+        <!-- 任务标签展示 -->
+        <div class="task-tags-section">
+          <h4>标签</h4>
+          <div class="current-tags">
+            <span
+              v-for="tag in selectedTask.tags"
+              :key="tag.id"
+              class="task-tag-item"
+              :style="{ backgroundColor: tag.color, color: getContrastColor(tag.color) }"
+            >
+              {{ tag.name }}
+            </span>
+            <span v-if="!selectedTask.tags || selectedTask.tags.length === 0" class="no-tags">暂无标签</span>
+          </div>
         </div>
       </div>
-    </div>
+    </transition>
+
+    <!-- 侧边按钮（当面板隐藏时显示） -->
+    <transition name="button-slide">
+      <button
+        v-if="selectedTask && !isTaskDetailPanelVisible"
+        class="side-toggle-btn"
+        @click="isTaskDetailPanelVisible = true"
+        title="显示任务详情"
+      >
+        >
+      </button>
+    </transition>
 
     <!-- 左下角标签列表 -->
-    <div class="tags-panel">
-      <h3>标签</h3>
-      <div class="tags-list">
-        <div
-          v-for="tag in tags"
-          :key="tag.id"
-          class="tag-item"
-          draggable="true"
-          @dragstart="onTagDragStart(tag, $event)"
-          :style="{ backgroundColor: tag.color }"
-        >
-          {{ tag.name }}
+    <transition name="panel-slide-left">
+      <div v-if="isTagsPanelVisible" class="tags-panel">
+        <button class="close-panel-btn" @click="isTagsPanelVisible = false">×</button>
+        <h3>标签</h3>
+        <div class="tags-list">
+          <!-- 显示所有按钮 -->
+          <div
+            v-if="selectedTagId !== null"
+            class="tag-item tag-all"
+            @click="selectedTagId = null"
+          >
+            显示所有
+          </div>
+          <!-- 标签列表 -->
+          <div
+            v-for="tag in existingTags"
+            :key="tag.id"
+            class="tag-item"
+            :class="{ 'tag-selected': selectedTagId === tag.id }"
+            @click="toggleTagSelection(tag.id)"
+            draggable="true"
+            @dragstart="onTagDragStart(tag, $event)"
+            :style="{ backgroundColor: tag.color }"
+          >
+            {{ tag.name }}
+          </div>
         </div>
       </div>
-    </div>
+    </transition>
+
+    <!-- 标签面板侧边按钮（当面板隐藏时显示） -->
+    <transition name="button-slide-left">
+      <button
+        v-if="!isTagsPanelVisible"
+        class="side-toggle-btn left-side"
+        @click="isTagsPanelVisible = true"
+        title="显示标签"
+      >
+        &gt;
+      </button>
+    </transition>
 
     <!-- 缩放控制 -->
     <div class="zoom-controls">
@@ -973,14 +1022,14 @@ onUnmounted(() => {
   width: 100vw;
   height: calc(100vh - 64px); /* 减去导航栏高度 */
   overflow: hidden !important;
-  background: radial-gradient(circle at center, #ffffff 0%, #f8f9fa 100%);
+  background: transparent;
   /* 隐藏滚动条 */
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE and Edge */
   max-width: 100vw;
   max-height: 100vh;
   box-sizing: border-box;
-  z-index: 1; /* 降低z-index，确保在导航栏下方 */
+  z-index: 1;
 }
 
 .four-quadrant-container::-webkit-scrollbar {
@@ -1032,6 +1081,7 @@ onUnmounted(() => {
   transform-origin: center;
   transition: transform 0.3s ease;
   overflow: hidden;
+  background: transparent;
 }
 
 .three-container {
@@ -1040,35 +1090,67 @@ onUnmounted(() => {
   left: 0;
   width: 100%;
   height: 100%;
-  z-index: 1;
+  z-index: 7;
   pointer-events: auto;
 }
 
-.pie-chart {
+/* 同心圆环样式 */
+.concentric-circles {
+  position: fixed;
+  top: 64px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 5;
+  background-color: #e6a176;
+  opacity: 0.4;
+}
+
+.circle {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 80%; /* 稍微缩小，确保不被裁剪 */
-  height: 80%;
-  max-width: 100%;
-  max-height: 100%;
-  z-index: 0; /* 作为背景，但要在four-quadrant-container的背景之上 */
-  opacity: 0.7; /* 增加不透明度，让饼图更明显 */
+  border-radius: 50%;
+  border-style: solid;
   pointer-events: none;
+}
+
+.circle-inner {
+  width: 300px;
+  height: 260px;
+  border-width: 0;
+  background-color: #f7e4c8; /* 浅蓝色背景 */
+  opacity: 0.4;
+}
+
+.circle-middle {
+  width: 900px;
+  height: 750px;
+  border-width: 0;
+  background-color: #b88a57; /* 浅灰色背景 */
+  opacity: 0.4;
+}
+
+.circle-outer {
+  width: 1500px;
+  height: 1300px;
+  border-width: 0;
+  background-color: #ffb347; /* 浅红色背景 */
+  opacity: 0.4;
 }
 
 /* 坐标轴样式 */
 .axis-lines {
   position: fixed;
-  top: 0;
   left: 0;
   width: 100vw;
-  height: 100vh;
+  height: calc(100vh - 64px);
   max-width: 100vw;
-  max-height: 100vh;
+  max-height: calc(100vh - 64px);
   pointer-events: none;
-  z-index: 2;
+  z-index: 6;
   overflow: hidden;
 }
 
@@ -1076,9 +1158,9 @@ onUnmounted(() => {
   position: absolute;
   top: 50%;
   left: 0;
-  width: 100vw;
-  max-width: 100vw;
-  height: 2px;
+  width: 100%;
+  max-width: 100%;
+  height: 1px;
   background: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.2) 5%, rgba(0,0,0,0.2) 95%, transparent 100%);
   transform: translateY(-50%);
 }
@@ -1086,10 +1168,9 @@ onUnmounted(() => {
 .axis-y {
   position: absolute;
   top: 0;
+  bottom: 0;
   left: 50%;
   width: 2px;
-  height: 100vh;
-  max-height: 100vh;
   background: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.2) 5%, rgba(0,0,0,0.2) 95%, transparent 100%);
   transform: translateX(-50%);
 }
@@ -1097,14 +1178,14 @@ onUnmounted(() => {
 /* 象限标签样式 */
 .quadrant-labels {
   position: fixed;
-  top: 0;
+  top: 64px;
   left: 0;
   width: 100vw;
-  height: 100vh;
+  height: calc(100vh - 64px);
   max-width: 100vw;
-  max-height: 100vh;
+  max-height: calc(100vh - 64px);
   pointer-events: none;
-  z-index: 3;
+  z-index: 8;
   overflow: hidden;
 }
 
@@ -1130,7 +1211,7 @@ onUnmounted(() => {
 }
 
 .quadrant-text-0 {
-  top: 60px; /* 避开顶部导航栏 */
+  top: 10px;
   left: 50%;
   transform: translateX(-50%);
 }
@@ -1148,7 +1229,7 @@ onUnmounted(() => {
 }
 
 .quadrant-text-3 {
-  bottom: 20px;
+  bottom: 10px;
   left: 50%;
   transform: translateX(-50%);
 }
@@ -1320,6 +1401,132 @@ onUnmounted(() => {
   font-style: italic;
 }
 
+/* 关闭面板按钮 */
+.close-panel-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: rgba(0, 0, 0, 0.1);
+  color: #666;
+  border-radius: 50%;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  line-height: 1;
+}
+
+.close-panel-btn:hover {
+  background: rgba(0, 0, 0, 0.2);
+  color: #333;
+}
+
+/* 侧边切换按钮 */
+.side-toggle-btn {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(24, 144, 255, 0.9);
+  color: white;
+  font-size: 24px;
+  font-weight: bold;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  transition: all 0.2s;
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.side-toggle-btn:hover {
+  transform: scale(1.1);
+  background: rgba(24, 144, 255, 1);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+}
+
+.side-toggle-btn.left-side {
+  top: calc(100vh - 80px);
+  left: 20px;
+  right: auto;
+  background: rgba(24, 144, 255, 0.9);
+}
+
+.side-toggle-btn.left-side:hover {
+  transform: scale(1.1);
+}
+
+/* 过渡动画 */
+.panel-slide-enter-active,
+.panel-slide-leave-active {
+  transition: all 0.3s ease;
+}
+
+.panel-slide-enter-from {
+  opacity: 0;
+  transform: translateX(100%);
+}
+
+.panel-slide-leave-to {
+  opacity: 0;
+  transform: translateX(100%);
+}
+
+.panel-slide-left-enter-active,
+.panel-slide-left-leave-active {
+  transition: all 0.3s ease;
+}
+
+.panel-slide-left-enter-from {
+  opacity: 0;
+  transform: translateX(-100%);
+}
+
+.panel-slide-left-leave-to {
+  opacity: 0;
+  transform: translateX(-100%);
+}
+
+.button-slide-enter-active,
+.button-slide-leave-active {
+  transition: all 0.3s ease;
+}
+
+.button-slide-enter-from {
+  opacity: 0;
+  transform: translateX(50%);
+}
+
+.button-slide-leave-to {
+  opacity: 0;
+  transform: translateX(50%);
+}
+
+.button-slide-left-enter-active,
+.button-slide-left-leave-active {
+  transition: all 0.3s ease;
+}
+
+.button-slide-left-enter-from {
+  opacity: 0;
+  transform: translateX(-50%);
+}
+
+.button-slide-left-leave-to {
+  opacity: 0;
+  transform: translateX(-50%);
+}
+
 .tags-panel {
   position: fixed;
   bottom: 20px;
@@ -1370,6 +1577,30 @@ onUnmounted(() => {
   cursor: grabbing;
   transform: scale(0.95);
 }
+
+.tag-selected {
+  transform: scale(1.1);
+  box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.4);
+  position: relative;
+}
+
+.tag-all {
+  background: #525252;
+  color: white;
+  padding: 6px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 500;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  transition: all 0.2s;
+}
+
+.tag-all:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
 
 .zoom-controls {
   position: fixed;
