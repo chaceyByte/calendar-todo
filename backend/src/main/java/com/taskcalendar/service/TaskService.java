@@ -298,7 +298,9 @@ public class TaskService extends ServiceImpl<TaskMapper, Task> {
         task.setTitle(createTaskRequest.getTitle());
         task.setDescription(createTaskRequest.getDescription());
         task.setStatus(createTaskRequest.getStatus());
+        task.setPriority(createTaskRequest.getPriority());
         task.setUrgency(createTaskRequest.getUrgency());
+        task.setProgress(createTaskRequest.getProgress());
         task.setStartDate(createTaskRequest.getStartDate());
         task.setEndDate(createTaskRequest.getEndDate());
         return task;
