@@ -10,6 +10,7 @@
 
 <style>
 @import '@/assets/fonts.css';
+@import '@/assets/main.css';
 
 * {
   margin: 0;
@@ -21,6 +22,7 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   height: 100vh;
-  background-color: #f5f7fa;
+  background-color: var(--color-bg);
+  color: var(--color-text);
 }
 </style>

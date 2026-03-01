@@ -1,112 +1,188 @@
 <template>
   <div class="archived-container">
-    <!-- 页面头部 -->
+    <!-- 页面头部 - 专业列表风格 -->
     <div class="page-header">
-      <h2>归档任务</h2>
-      <p class="page-description">查看和管理已完成的任务</p>
+      <div class="header-content">
+        <h1 class="page-title">归档任务</h1>
+        <p class="page-subtitle">回顾已完成的成就，分析历史数据</p>
+      </div>
+      <div class="header-stats">
+        <div class="stat-card">
+          <div class="stat-icon">
+            <el-icon><check /></el-icon>
+          </div>
+          <div class="stat-info">
+            <span class="stat-number">{{ total }}</span>
+            <span class="stat-label">已完成</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">
+            <el-icon><timer /></el-icon>
+          </div>
+          <div class="stat-info">
+            <span class="stat-number">{{ Math.floor(total / 10) }}</span>
+            <span class="stat-label">工作天</span>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <!-- 搜索和筛选区域 -->
+    <!-- 搜索和筛选区域 - 专业风格 -->
     <div class="search-section">
-      <el-row :gutter="20">
-        <el-col :span="8">
+      <div class="search-controls">
+        <div class="search-input-wrapper">
+          <el-icon class="search-icon"><search /></el-icon>
           <el-input
             v-model="searchKeyword"
-            placeholder="搜索任务标题或描述"
+            placeholder="搜索任务标题、描述或标签..."
             clearable
             @clear="handleSearch"
             @keyup.enter="handleSearch"
-          >
-            <template #prefix>
-              <el-icon><search /></el-icon>
-            </template>
-          </el-input>
-        </el-col>
-        <el-col :span="4">
-          <el-button type="primary" @click="handleSearch">
+            class="search-input"
+          />
+        </div>
+        <div class="action-buttons">
+          <el-button type="primary" class="btn-search" @click="handleSearch">
             <el-icon><search /></el-icon>
             搜索
           </el-button>
-        </el-col>
-        <el-col :span="12" style="text-align: right;">
-          <el-button @click="refreshData">
+          <el-button class="btn-refresh" @click="refreshData">
             <el-icon><refresh /></el-icon>
             刷新
           </el-button>
-        </el-col>
-      </el-row>
+        </div>
+      </div>
     </div>
 
-    <!-- 任务列表 -->
-    <div class="task-list">
-      <el-card v-if="tasks.length === 0" class="empty-state">
+    <!-- 任务列表区域 -->
+    <div class="task-section">
+      <!-- 空状态 -->
+      <div v-if="tasks.length === 0" class="empty-state">
         <div class="empty-content">
-          <el-icon size="48" color="#909399">
-            <document-remove />
-          </el-icon>
-          <p>暂无归档任务</p>
+          <div class="empty-icon">
+            <el-icon><document /></el-icon>
+          </div>
+          <h3 class="empty-title">暂无归档任务</h3>
+          <p class="empty-description">完成你的第一个任务，它将出现在这里</p>
         </div>
-      </el-card>
+      </div>
 
-      <div v-else class="task-grid">
-        <el-card
-          v-for="task in tasks"
-          :key="task.id"
-          class="task-card"
-          shadow="hover"
-        >
-          <div class="task-header">
-            <h3 class="task-title">{{ task.title }}</h3>
-            <el-dropdown trigger="click">
-              <el-icon><more /></el-icon>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item @click="viewTaskDetails(task)">
-                    <el-icon><view /></el-icon>
-                    查看详情
-                  </el-dropdown-item>
-                  <el-dropdown-item @click="showActivityDrawer(task)">
-                    <el-icon><timer /></el-icon>
-                    活动记录
-                  </el-dropdown-item>
-                  <el-dropdown-item @click="deleteTask(task.id)" divided>
-                    <el-icon><delete /></el-icon>
-                    删除
-                  </el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
-          </div>
+      <!-- 任务列表表格 -->
+      <div v-else class="task-list-container">
+        <!-- 列表头部 -->
+        <div class="list-header">
+          <div class="header-column task-title-col">任务标题</div>
+          <div class="header-column task-tags-col">标签</div>
+          <div class="header-column task-date-col">创建时间</div>
+          <div class="header-column task-progress-col">进度</div>
+          <div class="header-column task-actions-col">操作</div>
+        </div>
 
-          <div class="task-body">
-            <p class="task-description">{{ task.description || '暂无描述' }}</p>
-            
-            <div v-if="task.tags && task.tags.length > 0" class="task-tags">
-              <el-tag
-                v-for="tag in task.tags"
-                :key="tag"
-                size="small"
-                type="info"
-              >
-                {{ tag }}
-              </el-tag>
+        <!-- 任务列表 -->
+        <div class="task-list">
+          <div
+            v-for="task in tasks"
+            :key="task.id"
+            class="task-list-item"
+            @click="viewTaskDetails(task)"
+          >
+            <!-- 任务标题和描述 -->
+            <div class="list-column task-title-col">
+              <div class="task-title-wrapper">
+                <h4 class="task-title">{{ task.title }}</h4>
+                <p class="task-description">{{ task.description || '暂无描述' }}</p>
+              </div>
+            </div>
+
+            <!-- 标签 -->
+            <div class="list-column task-tags-col">
+              <div v-if="task.tags && task.tags.length > 0" class="tag-list">
+                <el-tag
+                  v-for="tag in task.tags.slice(0, 3)"
+                  :key="tag"
+                  size="small"
+                  class="tag-item"
+                  :style="{ backgroundColor: getTagColor(tag) }"
+                >
+                  {{ tag }}
+                </el-tag>
+                <el-tag
+                  v-if="task.tags.length > 3"
+                  size="small"
+                  class="tag-more"
+                >
+                  +{{ task.tags.length - 3 }}
+                </el-tag>
+              </div>
+              <span v-else class="no-tags">无标签</span>
+            </div>
+
+            <!-- 日期信息 -->
+            <div class="list-column task-date-col">
+              <div class="date-info">
+                <div class="date-item">
+                  <el-icon class="date-icon"><calendar /></el-icon>
+                  <span class="date-text">{{ formatDate(task.createdAt) }}</span>
+                </div>
+                <div class="date-item">
+                  <el-icon class="date-icon"><clock /></el-icon>
+                  <span class="date-text">{{ formatDate(task.updatedAt) }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 进度 -->
+            <div class="list-column task-progress-col">
+              <div class="progress-info">
+                <el-progress
+                  :percentage="task.progress || 100"
+                  :show-text="false"
+                  :stroke-width="6"
+                  status="success"
+                  class="progress-bar"
+                />
+                <span class="progress-text">{{ task.progress || 100 }}%</span>
+              </div>
+            </div>
+
+            <!-- 操作按钮 -->
+            <div class="list-column task-actions-col">
+              <div class="action-buttons" @click.stop>
+                <el-button
+                  size="small"
+                  type="primary"
+                  class="btn-detail"
+                  @click="viewTaskDetails(task)"
+                >
+                  <el-icon><view /></el-icon>
+                  详情
+                </el-button>
+                <el-button
+                  size="small"
+                  class="btn-activity"
+                  @click="showActivityDrawer(task)"
+                >
+                  <el-icon><timer /></el-icon>
+                  记录
+                </el-button>
+                <el-dropdown trigger="click" class="more-dropdown">
+                  <el-button size="small" class="btn-more">
+                    <el-icon><more /></el-icon>
+                  </el-button>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item @click="deleteTask(task.id)">
+                        <el-icon><delete /></el-icon>
+                        删除任务
+                      </el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
+              </div>
             </div>
           </div>
-
-          <div class="task-footer">
-            <div class="task-meta">
-              <span class="task-date">{{ formatDate(task.createdAt) }}</span>
-              <el-progress
-                v-if="task.progress > 0"
-                :percentage="task.progress"
-                :show-text="false"
-                :stroke-width="4"
-                status="success"
-              />
-            </div>
-            <el-tag type="success" size="small">已完成</el-tag>
-          </div>
-        </el-card>
+        </div>
       </div>
     </div>
 
@@ -115,11 +191,12 @@
       <el-pagination
         v-model:current-page="currentPage"
         v-model:page-size="pageSize"
-        :page-sizes="[10, 20, 50, 100]"
+        :page-sizes="[12, 24, 48, 96]"
         :total="total"
         layout="total, sizes, prev, pager, next, jumper"
         @size-change="handleSizeChange"
         @current-change="handleCurrentChange"
+        class="modern-pagination"
       />
     </div>
 
@@ -128,67 +205,54 @@
       v-model="detailDialog.visible"
       :title="`任务详情 - ${detailDialog.task?.title}`"
       width="600px"
+      class="detail-dialog"
     >
       <div v-if="detailDialog.task" class="task-detail">
-        <el-descriptions :column="1" border>
-          <el-descriptions-item label="任务标题">
-            {{ detailDialog.task.title }}
-          </el-descriptions-item>
+        <div class="detail-header">
+          <h3 class="detail-title">{{ detailDialog.task.title }}</h3>
+          <el-tag type="success" size="large" class="status-badge">
+            <el-icon><trophy /></el-icon>
+            已完成
+          </el-tag>
+        </div>
+        
+        <el-descriptions :column="1" border class="detail-descriptions">
           <el-descriptions-item label="任务描述">
-            {{ detailDialog.task.description || '暂无描述' }}
+            <span class="description-text">
+              {{ detailDialog.task.description || '暂无描述' }}
+            </span>
           </el-descriptions-item>
           <el-descriptions-item label="完成进度">
-            <el-progress :percentage="detailDialog.task.progress || 100" />
+            <el-progress
+              :percentage="detailDialog.task.progress || 100"
+              status="success"
+              :stroke-width="8"
+              class="detail-progress"
+            />
           </el-descriptions-item>
           <el-descriptions-item label="创建时间">
-            {{ formatDateTime(detailDialog.task.createdAt) }}
+            <span class="time-text">{{ formatDateTime(detailDialog.task.createdAt) }}</span>
           </el-descriptions-item>
-          <el-descriptions-item label="更新时间">
-            {{ formatDateTime(detailDialog.task.updatedAt) }}
+          <el-descriptions-item label="完成时间">
+            <span class="time-text">{{ formatDateTime(detailDialog.task.updatedAt) }}</span>
           </el-descriptions-item>
-          <el-descriptions-item v-if="detailDialog.task.tags && detailDialog.task.tags.length > 0" label="标签">
-            <el-tag
-              v-for="tag in detailDialog.task.tags"
-              :key="tag"
-              size="small"
-              type="info"
-              style="margin-right: 8px;"
-            >
-              {{ tag }}
-            </el-tag>
+          <el-descriptions-item v-if="detailDialog.task.tags && detailDialog.task.tags.length > 0" label="任务标签">
+            <div class="tag-list">
+              <el-tag
+                v-for="tag in detailDialog.task.tags"
+                :key="tag"
+                size="small"
+                class="detail-tag"
+                :style="{ backgroundColor: getTagColor(tag) }"
+              >
+                {{ tag }}
+              </el-tag>
+            </div>
           </el-descriptions-item>
         </el-descriptions>
       </div>
       <template #footer>
-        <el-button @click="detailDialog.visible = false">关闭</el-button>
-      </template>
-    </el-dialog>
-
-    <!-- 编辑任务对话框 -->
-    <el-dialog
-      v-model="editDialog.visible"
-      title="编辑任务"
-      width="500px"
-    >
-      <el-form :model="editDialog.form" label-width="80px">
-        <el-form-item label="标题">
-          <el-input v-model="editDialog.form.title" placeholder="请输入任务标题" />
-        </el-form-item>
-        <el-form-item label="描述">
-          <el-input
-            v-model="editDialog.form.description"
-            type="textarea"
-            :rows="3"
-            placeholder="请输入任务描述"
-          />
-        </el-form-item>
-        <el-form-item label="进度">
-          <el-slider v-model="editDialog.form.progress" :min="0" :max="100" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="editDialog.visible = false">取消</el-button>
-        <el-button type="primary" @click="saveTaskEdit">保存</el-button>
+        <el-button @click="detailDialog.visible = false" round>关闭</el-button>
       </template>
     </el-dialog>
 
@@ -197,8 +261,14 @@
       v-model="activityDrawer.visible"
       :title="`${activityDrawer.taskTitle} - 活动记录`"
       direction="rtl"
-      size="400px"
+      size="500px"
+      class="activity-drawer"
     >
+      <div class="drawer-header">
+        <h3 class="drawer-title">活动历史</h3>
+        <p class="drawer-subtitle">查看任务执行过程中的详细记录</p>
+      </div>
+      
       <div class="activity-timeline">
         <el-timeline>
           <el-timeline-item
@@ -206,6 +276,7 @@
             :key="activity.id"
             :timestamp="formatDateTime(activity.startTime)"
             :type="getActivityTimelineType(activity)"
+            class="timeline-item"
           >
             <div class="activity-content" :data-type="getActivityDataType(activity)">
               <div class="activity-title">
@@ -232,84 +303,51 @@
 
       <!-- 活动统计 -->
       <div class="activity-stats" v-if="activities.length > 0">
-        <el-card>
-          <template #header>活动统计</template>
-          <div class="stat-item">
-            <span>总活动时间:</span>
-            <span class="stat-value">
-              {{ activityStore.formatDuration(getTotalActivityTime()) }}
-            </span>
-          </div>
-          <div class="stat-item">
-            <span>活动记录数量:</span>
-            <span class="stat-value">{{ activities.length }} 条</span>
-          </div>
-          <div class="stat-item">
-            <span>实际工作天数:</span>
-            <span class="stat-value">{{ getWorkDaysCount() }} 天</span>
+        <el-card class="stats-card">
+          <template #header>
+            <div class="stats-header">
+              <el-icon><data-analysis /></el-icon>
+              <span>活动统计</span>
+            </div>
+          </template>
+          <div class="stats-grid">
+            <div class="stat-item">
+              <div class="stat-icon">⏱️</div>
+              <div class="stat-content">
+                <span class="stat-label">总活动时间</span>
+                <span class="stat-value">{{ activityStore.formatDuration(getTotalActivityTime()) }}</span>
+              </div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-icon">📝</div>
+              <div class="stat-content">
+                <span class="stat-label">活动记录</span>
+                <span class="stat-value">{{ activities.length }} 条</span>
+              </div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-icon">📅</div>
+              <div class="stat-content">
+                <span class="stat-label">工作天数</span>
+                <span class="stat-value">{{ getWorkDaysCount() }} 天</span>
+              </div>
+            </div>
           </div>
         </el-card>
       </div>
 
       <div class="activity-actions">
-        <el-button type="primary" @click="showManualActivityDialog({ id: activityDrawer.taskId } as Task)">
+        <el-button type="primary" @click="showManualActivityDialog({ id: activityDrawer.taskId } as Task)" round>
           <el-icon><plus /></el-icon>
           添加活动记录
         </el-button>
       </div>
     </el-drawer>
-
-    <!-- 手动添加活动记录对话框 -->
-    <el-dialog
-      v-model="manualActivityDialog.visible"
-      title="添加活动记录"
-      width="500px"
-    >
-      <el-form :model="manualActivityDialog.form" label-width="100px">
-        <el-form-item label="活动类型">
-          <el-select v-model="manualActivityDialog.form.activityType" style="width: 100%">
-            <el-option label="工作" value="WORK"/>
-            <el-option label="会议" value="MEETING"/>
-            <el-option label="学习" value="STUDY"/>
-            <el-option label="其他" value="OTHER"/>
-          </el-select>
-        </el-form-item>
-        <el-form-item label="开始时间">
-          <el-date-picker
-            v-model="manualActivityDialog.form.startTime"
-            type="datetime"
-            placeholder="选择开始时间"
-            style="width: 100%"
-          />
-        </el-form-item>
-        <el-form-item label="结束时间">
-          <el-date-picker
-            v-model="manualActivityDialog.form.endTime"
-            type="datetime"
-            placeholder="选择结束时间"
-            style="width: 100%"
-          />
-        </el-form-item>
-        <el-form-item label="描述">
-          <el-input
-            v-model="manualActivityDialog.form.description"
-            type="textarea"
-            :rows="3"
-            placeholder="描述活动内容"
-          />
-        </el-form-item>
-      </el-form>
-
-      <template #footer>
-        <el-button @click="manualActivityDialog.visible = false">取消</el-button>
-        <el-button type="primary" @click="saveManualActivity">保存</el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus/es'
 import {
   Search,
@@ -318,7 +356,15 @@ import {
   More,
   Timer,
   Delete,
-  Plus
+  Plus,
+  Check,
+  Clock,
+  TrendCharts,
+  View,
+  Trophy,
+  DataAnalysis,
+  Document,
+  Calendar
 } from '@element-plus/icons-vue'
 import { getArchivedTasks, deleteTask as deleteTaskApi, updateTask } from '@/api/task'
 import { useActivityStore, type ActivityRecord } from '@/stores/activity'
@@ -341,9 +387,12 @@ const activityStore = useActivityStore()
 const tasks = ref<Task[]>([])
 const total = ref(0)
 const currentPage = ref(1)
-const pageSize = ref(20)
+const pageSize = ref(12)
 const searchKeyword = ref('')
 const activities = ref<ActivityRecord[]>([])
+
+// 标签颜色映射 - 生成协调的颜色
+const tagColorMap = ref<Record<string, string>>({})
 
 // 对话框状态
 const detailDialog = reactive({
@@ -378,9 +427,37 @@ const manualActivityDialog = reactive({
   }
 })
 
+// 生成标签颜色
+const generateTagColor = (tag: string) => {
+  if (tagColorMap.value[tag]) {
+    return tagColorMap.value[tag]
+  }
+  
+  // 基于标签名称生成颜色
+  const colors = [
+    'rgba(13, 148, 136, 0.15)',  // Teal
+    'rgba(249, 115, 22, 0.15)',  // Orange
+    'rgba(16, 185, 129, 0.15)',  // Green
+    'rgba(59, 130, 246, 0.15)',  // Blue
+    'rgba(139, 92, 246, 0.15)',  // Purple
+    'rgba(236, 72, 153, 0.15)',  // Pink
+    'rgba(245, 158, 11, 0.15)',  // Amber
+    'rgba(107, 114, 128, 0.15)'  // Gray
+  ]
+  
+  const hash = tag.split('').reduce((acc, char) => char.charCodeAt(0) + ((acc << 5) - acc), 0)
+  const color = colors[Math.abs(hash) % colors.length]
+  tagColorMap.value[tag] = color
+  return color
+}
+
+// 获取标签颜色
+const getTagColor = (tag: string) => {
+  return tagColorMap.value[tag] || generateTagColor(tag)
+}
+
 // 获取活动类型描述
 const getActivityTypeDescription = (activityType: string) => {
-  // 从字符串中提取活动类型
   if (activityType.includes('CREATED') || activityType.includes('创建')) {
     return '创建'
   } else if (activityType.includes('STARTED') || activityType.includes('开始')) {
@@ -422,9 +499,15 @@ const loadArchivedTasks = async () => {
   try {
     const data = await getArchivedTasks(currentPage.value, pageSize.value, searchKeyword.value)
     if (data && data.records) {
-      // 后端返回的数据结构：response.data 包含 records 和 total 字段
       tasks.value = data.records || []
       total.value = data.total || 0
+      
+      // 为标签生成颜色
+      tasks.value.forEach(task => {
+        if (task.tags) {
+          task.tags.forEach(tag => generateTagColor(tag))
+        }
+      })
     }
   } catch (error) {
     console.error('加载归档任务失败:', error)
@@ -527,7 +610,6 @@ const formatDateTime = (date: string) => {
 
 // 获取活动时间线类型 - 基于数据库字段
 const getActivityTimelineType = (activity: ActivityRecord) => {
-  // 基于数据库的 activity_type 和 description 字段
   const activityType = activity.notes || activity.description || ''
   
   if (activityType.includes('CREATED') || activityType.includes('创建')) {
@@ -570,17 +652,14 @@ const getActivityDataType = (activity: ActivityRecord) => {
 
 // 获取活动描述 - 基于数据库字段
 const getActivityDescription = (activity: ActivityRecord) => {
-  // 优先使用数据库中的 description 字段
   if (activity.description) {
     return activity.description
   }
   
-  // 其次使用 notes 字段
   if (activity.notes) {
     return activity.notes
   }
   
-  // 根据活动类型返回默认描述
   if (activity.notes?.includes('CREATED') || activity.description?.includes('创建')) {
     return '任务创建'
   } else if (activity.notes?.includes('STARTED') || activity.description?.includes('开始')) {
@@ -624,7 +703,6 @@ const saveManualActivity = async () => {
       notes: `${manualActivityDialog.form.activityType}: ${manualActivityDialog.form.description}`
     })
 
-    // 刷新活动记录
     activities.value = await activityStore.getTaskActivities(manualActivityDialog.taskId)
 
     manualActivityDialog.visible = false
@@ -643,267 +721,582 @@ onMounted(() => {
 
 <style scoped>
 .archived-container {
-  padding: 24px;
-  max-width: 1200px;
+  padding: 32px;
+  max-width: 1400px;
   margin: 0 auto;
+  background: #FAF5FF;
+  min-height: 100vh;
 }
 
+/* 页面头部 - 专业列表风格 */
 .page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 32px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #E9D5FF;
 }
 
-.page-header h2 {
+.header-content {
+  flex: 1;
+}
+
+.page-title {
   margin: 0 0 8px 0;
-  font-size: 24px;
-  font-weight: 600;
-  color: #303133;
+  font-size: 32px;
+  font-weight: 700;
+  color: #4C1D95;
+  letter-spacing: -0.02em;
 }
 
-.page-description {
+.page-subtitle {
   margin: 0;
-  color: #606266;
-  font-size: 14px;
+  color: #6B21A8;
+  font-size: 16px;
+  font-weight: 500;
 }
 
+.header-stats {
+  display: flex;
+  gap: 16px;
+}
+
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #F3E8FF;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease-in-out;
+  cursor: pointer;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  border-color: #7C3AED;
+}
+
+.stat-icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #7C3AED;
+  color: white;
+  border-radius: 8px;
+  font-size: 18px;
+}
+
+.stat-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.stat-number {
+  font-size: 24px;
+  font-weight: 700;
+  color: #4C1D95;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #6B21A8;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* 搜索和筛选区域 - 专业风格 */
 .search-section {
   margin-bottom: 24px;
-  padding: 20px;
-  background: #f8f9fa;
-  border-radius: 8px;
+  padding: 20px 24px;
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #F3E8FF;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 }
 
-.task-list {
+.search-controls {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.search-input-wrapper {
+  position: relative;
+  flex: 1;
+  max-width: 500px;
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #6B21A8;
+  z-index: 1;
+}
+
+:deep(.search-input .el-input__wrapper) {
+  padding-left: 40px;
+  border-radius: 8px;
+  border: 1px solid #E9D5FF;
+  background: white;
+  transition: all 0.2s ease-in-out;
+}
+
+:deep(.search-input .el-input__wrapper:hover) {
+  border-color: #7C3AED;
+}
+
+:deep(.search-input .el-input__wrapper.is-focus) {
+  border-color: #7C3AED;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+:deep(.btn-search) {
+  background: #7C3AED;
+  border: none;
+  font-weight: 500;
+  border-radius: 6px;
+}
+
+:deep(.btn-search:hover) {
+  background: #6D28D9;
+  transform: translateY(-1px);
+}
+
+:deep(.btn-refresh) {
+  border: 1px solid #E9D5FF;
+  font-weight: 500;
+  border-radius: 6px;
+}
+
+:deep(.btn-refresh:hover) {
+  border-color: #7C3AED;
+  color: #7C3AED;
+  transform: translateY(-1px);
+}
+
+/* 任务列表区域 */
+.task-section {
   min-height: 400px;
 }
 
+/* 空状态 */
 .empty-state {
-  text-align: center;
-  padding: 60px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 40px;
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #F3E8FF;
 }
 
 .empty-content {
-  color: #909399;
-}
-
-.task-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-  gap: 20px;
-  margin-bottom: 24px;
-}
-
-.task-card {
-  transition: all 0.3s ease;
-}
-
-.task-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.task-header {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+}
+
+.empty-icon {
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #F3E8FF;
+  color: #7C3AED;
+  border-radius: 16px;
+  font-size: 32px;
+}
+
+.empty-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #4C1D95;
+}
+
+.empty-description {
+  margin: 0;
+  color: #6B21A8;
+  font-size: 14px;
+}
+
+/* 任务列表表格 */
+.task-list-container {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #F3E8FF;
+  overflow: hidden;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+}
+
+/* 列表头部 */
+.list-header {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr 200px;
+  gap: 16px;
+  padding: 16px 24px;
+  background: #F8FAFC;
+  border-bottom: 1px solid #E2E8F0;
+  font-weight: 600;
+  color: #4C1D95;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.header-column {
+  display: flex;
+  align-items: center;
+}
+
+/* 任务列表项 */
+.task-list {
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.task-list-item {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr 200px;
+  gap: 16px;
+  padding: 20px 24px;
+  border-bottom: 1px solid #F1F5F9;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  position: relative;
+}
+
+.task-list-item:hover {
+  background: #F8FAFC;
+  transform: translateX(4px);
+}
+
+.task-list-item:last-child {
+  border-bottom: none;
+}
+
+.list-column {
+  display: flex;
+  align-items: center;
+}
+
+/* 任务标题列 */
+.task-title-col {
   align-items: flex-start;
-  margin-bottom: 12px;
+}
+
+.task-title-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .task-title {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: #303133;
+  color: #1F2937;
   line-height: 1.4;
-  flex: 1;
-  margin-right: 12px;
-}
-
-.task-body {
-  margin-bottom: 16px;
 }
 
 .task-description {
-  margin: 0 0 12px 0;
-  color: #606266;
+  margin: 0;
+  color: #6B7280;
   font-size: 14px;
   line-height: 1.5;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-.task-tags {
+/* 标签列 */
+.task-tags-col {
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.tag-list {
   display: flex;
   flex-wrap: wrap;
+  gap: 4px;
+}
+
+.tag-item {
+  border: none;
+  font-size: 11px;
+  font-weight: 500;
+  color: #7C3AED;
+  background: rgba(124, 58, 237, 0.1);
+  border-radius: 6px;
+  padding: 2px 6px;
+}
+
+.tag-more {
+  border: none;
+  font-size: 11px;
+  color: #6B7280;
+  background: rgba(107, 114, 128, 0.1);
+  border-radius: 6px;
+  padding: 2px 6px;
+}
+
+.no-tags {
+  color: #9CA3AF;
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* 日期列 */
+.task-date-col {
+  flex-direction: column;
+  gap: 4px;
+}
+
+.date-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.date-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #6B7280;
+}
+
+.date-icon {
+  color: #7C3AED;
+  font-size: 12px;
+}
+
+.date-text {
+  font-size: 12px;
+  color: #6B7280;
+}
+
+/* 进度列 */
+.task-progress-col {
+  flex-direction: column;
   gap: 6px;
 }
 
-.task-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.task-meta {
+.progress-info {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.task-date {
-  font-size: 12px;
-  color: #909399;
+.progress-bar {
+  width: 100%;
 }
 
+.progress-text {
+  font-size: 12px;
+  color: #6B7280;
+  font-weight: 500;
+  text-align: center;
+}
+
+/* 操作列 */
+.task-actions-col {
+  justify-content: flex-end;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+:deep(.btn-detail) {
+  background: #7C3AED;
+  border: none;
+  font-weight: 500;
+  border-radius: 6px;
+  font-size: 12px;
+  padding: 6px 12px;
+}
+
+:deep(.btn-detail:hover) {
+  background: #6D28D9;
+  transform: translateY(-1px);
+}
+
+:deep(.btn-activity) {
+  border: 1px solid #E9D5FF;
+  font-weight: 500;
+  border-radius: 6px;
+  font-size: 12px;
+  padding: 6px 12px;
+  color: #7C3AED;
+}
+
+:deep(.btn-activity:hover) {
+  border-color: #7C3AED;
+  background: #7C3AED;
+  color: white;
+  transform: translateY(-1px);
+}
+
+:deep(.btn-more) {
+  border: 1px solid #E9D5FF;
+  border-radius: 6px;
+  font-size: 12px;
+  padding: 6px 8px;
+  color: #6B7280;
+}
+
+:deep(.btn-more:hover) {
+  border-color: #7C3AED;
+  color: #7C3AED;
+}
+
+/* 分页区域 */
 .pagination-section {
   display: flex;
   justify-content: center;
   margin-top: 32px;
 }
 
-.task-detail {
-  padding: 0 20px;
+:deep(.modern-pagination) {
+  background: white;
+  border: 1px solid #F3E8FF;
+  border-radius: 8px;
+  padding: 8px 16px;
 }
 
-.activity-timeline {
-  padding: 0 20px;
+/* 响应式设计 */
+@media (max-width: 1200px) {
+  .list-header,
+  .task-list-item {
+    grid-template-columns: 2fr 1fr 1fr 120px 180px;
+  }
 }
 
-.activity-content {
-  padding-bottom: 10px;
-}
-
-.activity-title {
-  font-weight: 600;
-  margin-bottom: 4px;
-}
-
-.activity-description {
-  font-size: 12px;
-  color: #606266;
-  margin-bottom: 4px;
-}
-
-.activity-duration {
-  font-size: 12px;
-  color: #909399;
+@media (max-width: 1024px) {
+  .list-header,
+  .task-list-item {
+    grid-template-columns: 2fr 1fr 150px 120px 160px;
+  }
+  
+  .task-tags-col {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
 @media (max-width: 768px) {
   .archived-container {
+    padding: 20px;
+  }
+  
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 20px;
+  }
+  
+  .page-title {
+    font-size: 24px;
+  }
+  
+  .header-stats {
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .search-controls {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .search-input-wrapper {
+    width: 100%;
+    max-width: none;
+  }
+  
+  .list-header {
+    display: none;
+  }
+  
+  .task-list-item {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
     padding: 16px;
   }
   
-  .task-grid {
-    grid-template-columns: 1fr;
-    gap: 16px;
+  .action-buttons {
+    justify-content: flex-start;
+    width: 100%;
   }
   
-  .search-section {
-    padding: 16px;
+  .task-title-col,
+  .task-tags-col,
+  .task-date-col,
+  .task-progress-col,
+  .task-actions-col {
+    width: 100%;
+  }
+  
+  .task-tags-col {
+    order: 2;
+  }
+  
+  .task-date-col {
+    order: 3;
+  }
+  
+  .task-progress-col {
+    order: 4;
+  }
+  
+  .task-actions-col {
+    order: 5;
   }
 }
 
-/* 活动记录抽屉样式 - 基于数据库字段优化 */
-.activity-timeline {
-  margin-bottom: 20px;
-}
-
-.activity-content {
-  padding: 8px 0;
-  border-left: 3px solid transparent;
-  padding-left: 12px;
-}
-
-.activity-title {
-  font-weight: 600;
-  margin-bottom: 8px;
-  font-size: 14px;
-  color: #303133;
-}
-
-.activity-details {
-  background: #f8f9fa;
-  border-radius: 6px;
-  padding: 12px;
-  margin-top: 8px;
-}
-
-.activity-time-range,
-.activity-duration,
-.activity-type {
-  display: flex;
-  align-items: center;
-  margin-bottom: 6px;
-  font-size: 12px;
-}
-
-.activity-time-range:last-child,
-.activity-duration:last-child,
-.activity-type:last-child {
-  margin-bottom: 0;
-}
-
-.time-label,
-.duration-label,
-.type-label {
-  color: #909399;
-  min-width: 70px;
-  margin-right: 8px;
-}
-
-.time-value,
-.duration-value,
-.type-value {
-  color: #606266;
-  font-weight: 500;
-}
-
-/* 根据活动类型设置不同的边框颜色 */
-.activity-content[data-type="created"] {
-  border-left-color: #409eff;
-}
-
-.activity-content[data-type="started"] {
-  border-left-color: #67c23a;
-}
-
-.activity-content[data-type="completed"] {
-  border-left-color: #e6a23c;
-}
-
-.activity-content[data-type="work"] {
-  border-left-color: #409eff;
-}
-
-.activity-content[data-type="meeting"] {
-  border-left-color: #67c23a;
-}
-
-.activity-content[data-type="study"] {
-  border-left-color: #909399;
-}
-
-.activity-stats {
-  margin-bottom: 20px;
-}
-
-.stat-item {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 8px;
-  font-size: 14px;
-}
-
-.stat-value {
-  font-weight: 600;
-  color: #409eff;
-}
-
-.activity-actions {
-  text-align: center;
-  padding-top: 16px;
-  border-top: 1px solid #ebeef5;
+@media (max-width: 480px) {
+  .header-stats {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .stat-card {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  
+  .action-buttons {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  :deep(.btn-detail),
+  :deep(.btn-activity) {
+    width: 100%;
+  }
 }
 </style>

@@ -1323,13 +1323,28 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   position: relative;
+  padding: 24px;
 }
 
+/* 顶部控制栏 - Glassmorphism风格 */
 .tasks-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 32px;
+  padding: 20px 24px;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(203, 213, 225, 0.3);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.tasks-header h2 {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0;
 }
 
 .header-right {
@@ -1338,6 +1353,7 @@ onUnmounted(() => {
   gap: 16px;
 }
 
+/* 暂存队列 - Glassmorphism效果 */
 .staging-queue {
   position: relative;
 }
@@ -1347,35 +1363,54 @@ onUnmounted(() => {
   right: 0;
   top: 0;
   bottom: 0;
-  width: 300px;
-  background: white;
-  border-left: 1px solid #e4e7ed;
+  width: 320px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  border-left: 1px solid var(--color-border-light);
   z-index: 10;
   display: flex;
   flex-direction: column;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
 }
 
 .panel-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px;
-  border-bottom: 1px solid #e4e7ed;
+  padding: 20px;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.panel-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text);
 }
 
 .staging-list {
   flex: 1;
   overflow-y: auto;
-  padding: 8px;
+  padding: 16px;
 }
 
 .staging-item {
   position: relative;
-  background: #f5f7fa;
-  border-radius: 6px;
-  padding: 12px 12px 12px 16px; /* 左侧增加4px间距给颜色条 */
-  margin-bottom: 8px;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: var(--radius);
+  padding: 16px 16px 16px 20px;
+  margin-bottom: 12px;
   cursor: move;
+  transition: var(--transition);
+  border-left: 4px solid var(--color-accent);
+}
+
+.staging-item:hover {
+  background: rgba(255, 255, 255, 0.9);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 
 .task-content {
@@ -1386,83 +1421,104 @@ onUnmounted(() => {
 
 .task-actions {
   display: flex;
-  gap: 4px;
+  gap: 8px;
+  margin-top: 8px;
 }
 
+/* 看板布局 - 现代网格 */
 .kanban-board {
   flex: 1;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
+  gap: 32px;
   transition: all 0.3s;
 }
 
 .kanban-board.with-staging {
-  margin-right: 300px;
+  margin-right: 340px;
 }
 
 .kanban-column {
-  background: #f8f9fa;
-  border-radius: 8px;
-  padding: 16px;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: var(--radius);
+  padding: 20px;
   display: flex;
   flex-direction: column;
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(203, 213, 225, 0.3);
+  transition: var(--transition);
+}
+
+.kanban-column:hover {
+  background: rgba(255, 255, 255, 0.8);
+  box-shadow: var(--shadow-md);
 }
 
 .column-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--color-border-light);
 }
 
 .column-header h3 {
   margin: 0;
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-text);
 }
 
 .task-count {
-  background: #409eff;
+  background: var(--color-primary);
   color: white;
-  border-radius: 10px;
-  padding: 2px 8px;
+  border-radius: var(--radius);
+  padding: 4px 12px;
   font-size: 12px;
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(13, 148, 136, 0.3);
 }
 
 .column-content {
   flex: 1;
   overflow-y: auto;
+  padding-right: 8px;
 }
 
+/* 任务卡片 - Glassmorphism效果 */
 .task-card {
   position: relative;
-  background: white;
-  border-radius: 6px;
-  padding: 12px 12px 12px 16px; /* 左侧增加4px间距给颜色条 */
-  margin-bottom: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: var(--radius);
+  padding: 16px 16px 16px 20px;
+  margin-bottom: 16px;
   cursor: move;
-  transition: all 0.3s;
+  transition: var(--transition);
+  border-left: 4px solid var(--color-primary);
+  box-shadow: var(--shadow-sm);
 }
 
 .task-card:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.95);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 
 .task-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
 
 .task-title {
   font-weight: 600;
   font-size: 14px;
   flex: 1;
-  margin-right: 8px;
+  margin-right: 12px;
+  color: var(--color-text);
+  line-height: 1.4;
 }
 
 .task-time-info {
@@ -1473,247 +1529,187 @@ onUnmounted(() => {
 .time-display {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   font-size: 12px;
-  color: #909399;
+  color: var(--color-text-muted);
   cursor: pointer;
-  padding: 4px 6px;
-  border-radius: 4px;
-  transition: all 0.3s;
+  padding: 6px 8px;
+  border-radius: var(--radius);
+  transition: var(--transition);
+  background: rgba(255, 255, 255, 0.6);
 }
 
 .time-display:hover {
-  background: #f5f7fa;
-  color: #409eff;
+  background: var(--color-primary);
+  color: white;
+}
+
+.task-body {
+  margin-bottom: 12px;
 }
 
 .task-description {
-  font-size: 12px;
-  color: #606266;
-  margin-bottom: 8px;
-  line-height: 1.4;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin-bottom: 12px;
+  line-height: 1.5;
 }
 
 .task-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  margin-bottom: 8px;
+  gap: 6px;
+  margin-bottom: 12px;
 }
 
 .task-footer {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
 }
 
 .task-date {
   font-size: 11px;
-  color: #909399;
+  color: var(--color-text-muted);
+  font-weight: 500;
 }
 
-.add-task-btn {
-  margin-top: 8px;
-}
-
-.load-more-btn {
-  margin-top: 8px;
+.add-task-btn, .load-more-btn {
+  margin-top: 12px;
 }
 
 .load-complete-hint {
   text-align: center;
-  margin-top: 8px;
-  padding: 4px;
+  margin-top: 16px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: var(--radius);
+  color: var(--color-text-muted);
+  font-size: 12px;
 }
 
 .full-width {
   width: 100%;
 }
 
-.shortcut-hint {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-}
-
+/* 右键菜单 - Glassmorphism */
 .task-context-menu {
   position: fixed;
-  background: white;
-  border: 1px solid #e4e7ed;
-  border-radius: 4px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
   z-index: 2000;
-  min-width: 120px;
+  min-width: 160px;
+  backdrop-filter: blur(8px);
+  overflow: hidden;
 }
 
 .menu-item {
-  padding: 6px 12px;
+  padding: 10px 16px;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 6px;
-  transition: background-color 0.3s;
-  font-size: 12px;
+  gap: 8px;
+  transition: var(--transition);
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .menu-item:hover {
-  background: #ba8156;
+  background: var(--color-primary);
   color: white;
-}
-
-/* 紧急程度颜色条 */
-.urgency-indicator {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 4px;
-  border-radius: 2px 0 0 2px;
-}
-
-.urgency-非紧急 {
-  background-color: #909399;
-}
-
-.urgency-一般 {
-  background-color: #409eff;
-}
-
-.urgency-紧急 {
-  background-color: #e6a23c;
-}
-
-.urgency-加急 {
-  background-color: #f56c6c;
 }
 
 /* 活动状态指示器 */
 .task-activity-indicator {
-  margin-top: 8px;
-  padding: 6px 8px;
-  background: #f5f7fa;
-  border-radius: 4px;
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: var(--radius);
   cursor: pointer;
-  transition: all 0.3s;
+  transition: var(--transition);
+  border-left: 4px solid var(--color-accent);
 }
 
 .task-activity-indicator:hover {
-  background: #e6f7ff;
+  background: rgba(255, 255, 255, 0.9);
+  transform: translateY(-1px);
 }
 
 .activity-status {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   font-size: 12px;
+  font-weight: 500;
 }
 
 .activity-text {
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .activity-time {
   font-size: 11px;
-  color: #909399;
-  margin-top: 2px;
+  color: var(--color-text-muted);
+  margin-top: 4px;
+  font-weight: 500;
 }
 
-/* 活动状态样式 */
-.activity-planning {
-  color: #909399;
-}
-
-.activity-in-progress {
-  color: #409eff;
-}
-
-.activity-completed {
-  color: #67c23a;
-}
-
-.activity-paused {
-  color: #e6a23c;
-}
-
-.activity-unknown {
-  color: #f56c6c;
-}
-
-.activity-created {
-  color: #409eff;
-}
-
-.activity-started {
-  color: #67c23a;
-}
-
-.activity-resumed {
-  color: #409eff;
-}
-
-.activity-work {
-  color: #409eff;
-}
-
-.activity-meeting {
-  color: #e6a23c;
-}
-
-.activity-study {
-  color: #67c23a;
-}
-
-.activity-other {
-  color: #909399;
-}
-
-/* 活动记录抽屉样式 */
+/* 活动记录抽屉 */
 .activity-timeline {
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
 .activity-content {
-  padding-bottom: 10px;
+  padding-bottom: 12px;
 }
 
 .activity-title {
   font-weight: 600;
   margin-bottom: 4px;
+  font-size: 14px;
 }
 
 .activity-description {
-  font-size: 12px;
-  color: #606266;
+  font-size: 13px;
+  color: var(--color-text-muted);
   margin-bottom: 4px;
+  line-height: 1.4;
 }
 
 .activity-duration {
   font-size: 12px;
-  color: #909399;
+  color: var(--color-primary);
+  font-weight: 500;
 }
 
 .activity-stats {
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
 .stat-item {
   display: flex;
   justify-content: space-between;
   margin-bottom: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-border-light);
 }
 
 .stat-value {
   font-weight: 600;
+  color: var(--color-primary);
 }
 
 .activity-actions {
   text-align: center;
+  padding: 16px;
 }
 
 /* 动画 */
 .slide-right-enter-active,
 .slide-right-leave-active {
-  transition: transform 0.3s ease;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .slide-right-enter-from,

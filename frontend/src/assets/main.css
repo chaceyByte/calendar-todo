@@ -1,1 +1,129 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
+
+/* 补充 Tailwind CSS 类名，确保 FourQuadrant.vue 中的样式生效 */
+.bg-amber-50 { background-color: #fffbeb; }
+.bg-amber-500 { background-color: #f59e0b; }
+.bg-rose-50 { background-color: #fff1f2; }
+.bg-rose-500 { background-color: #f43f5e; }
+.bg-blue-50 { background-color: #eff6ff; }
+.bg-blue-500 { background-color: #3b82f6; }
+.bg-emerald-50 { background-color: #ecfdf5; }
+.bg-emerald-500 { background-color: #10b981; }
+
+@layer base {
+  :root {
+    /* 主色调 - Teal色系 */
+    --color-primary: #0D9488;
+    --color-primary-light: #14B8A6;
+    --color-primary-dark: #0F766E;
+    
+    /* 强调色 - Orange色系 */
+    --color-accent: #F97316;
+    --color-accent-light: #FB923C;
+    --color-accent-dark: #EA580C;
+    
+    /* 中性色 */
+    --color-bg: #F0FDFA;
+    --color-bg-secondary: #E6FFFA;
+    --color-text: #134E4A;
+    --color-text-muted: #64748B;
+    --color-border: #CBD5E1;
+    --color-border-light: #E2E8F0;
+    
+    /* 功能色 */
+    --color-success: #10B981;
+    --color-warning: #F59E0B;
+    --color-error: #EF4444;
+    --color-info: #3B82F6;
+    
+    /* 阴影 */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    
+    /* 边框半径 */
+    --radius: 0.125rem; /* 2px */
+    --radius-md: 0.25rem; /* 4px */
+    --radius-lg: 0.5rem; /* 8px */
+    
+    /* 字体 */
+    --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    
+    /* 过渡动画 */
+    --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  html, body, #app {
+    font-family: var(--font-sans);
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    height: 100%;
+  }
+}
+
+@layer components {
+  /* 玻璃拟态卡片 */
+  .glass-card {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(203, 213, 225, 0.3);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    transition: var(--transition);
+  }
+  
+  .glass-card:hover {
+    background: rgba(255, 255, 255, 0.85);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+  }
+  
+  /* 按钮 */
+  .btn-primary {
+    background: var(--color-primary);
+    color: white;
+    border-radius: var(--radius);
+    transition: var(--transition);
+    border: none;
+    cursor: pointer;
+  }
+  
+  .btn-primary:hover {
+    background: var(--color-primary-dark);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+  }
+  
+  .btn-accent {
+    background: var(--color-accent);
+    color: white;
+    border-radius: var(--radius);
+    transition: var(--transition);
+    border: none;
+    cursor: pointer;
+  }
+  
+  .btn-accent:hover {
+    background: var(--color-accent-dark);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+  }
+  
+  /* 输入框 */
+  .input-field {
+    border-radius: var(--radius);
+    border: 1px solid var(--color-border);
+    background: rgba(255, 255, 255, 0.8);
+    transition: var(--transition);
+  }
+  
+  .input-field:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
+  }
+}

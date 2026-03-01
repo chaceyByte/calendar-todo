@@ -145,83 +145,138 @@ onMounted(() => refreshCaptcha())
 .login-page {
   display: flex;
   height: 100vh;
-  font-family: 'Alibaba PuHuiTi', 'Source Han Sans CN', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: var(--font-sans);
+  background: var(--color-bg);
 }
 
-/* 左侧品牌 */
+/* 左侧品牌 - 创意前卫渐变 */
 .brand-panel {
   flex: 1;
-  background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  color: #fff;
-}
-.brand-title {
-  font-size: 32px;
-  font-weight: 700;
-  margin: 0 0 8px;
-}
-.brand-desc {
-  font-size: 14px;
-  font-weight: 400;
-  opacity: 0.9;
-  margin: 0;
+  color: white;
+  position: relative;
+  overflow: hidden;
 }
 
-/* 右侧登录 */
+.brand-panel::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+  animation: float 20s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  33% { transform: translate(30px, -30px) rotate(120deg); }
+  66% { transform: translate(-20px, 20px) rotate(240deg); }
+}
+
+.brand-title {
+  font-size: 48px;
+  font-weight: 800;
+  margin: 0 0 12px;
+  letter-spacing: -0.02em;
+  text-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  position: relative;
+  z-index: 1;
+}
+
+.brand-desc {
+  font-size: 18px;
+  font-weight: 500;
+  opacity: 0.9;
+  margin: 0;
+  position: relative;
+  z-index: 1;
+}
+
+/* 右侧登录 - Glassmorphism卡片 */
 .login-panel {
   width: 480px;
-  background: #fff;
   display: flex;
   justify-content: center;
   align-items: center;
-}
-.login-card {
-  width: 360px;
-}
-.login-title {
-  font-size: 24px;
-  font-weight: 600;
-  color: #111827;
-  margin: 0 0 4px;
-}
-.login-subtitle {
-  font-size: 14px;
-  color: #6b7280;
-  margin: 0 0 32px;
+  padding: 40px;
 }
 
-/* 输入框统一高度 & 聚焦发光 */
+.login-card {
+  width: 400px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(203, 213, 225, 0.3);
+  border-radius: var(--radius);
+  padding: 40px;
+  box-shadow: var(--shadow-lg);
+}
+
+.login-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0 0 8px;
+  letter-spacing: -0.01em;
+}
+
+.login-subtitle {
+  font-size: 14px;
+  color: var(--color-text-muted);
+  margin: 0 0 32px;
+  font-weight: 500;
+}
+
+/* 输入框 - 现代设计 */
 :deep(.el-input__inner) {
   height: 48px;
   line-height: 48px;
-  border-radius: 8px;
-  border: 1px solid #e5e7eb;
+  border-radius: var(--radius);
+  border: 1px solid var(--color-border);
+  background: rgba(255, 255, 255, 0.8);
+  font-weight: 500;
+  transition: var(--transition);
 }
+
+:deep(.el-input__inner:focus) {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
+}
+
 :deep(.el-input__wrapper) {
-  box-shadow: 0 0 0 1px #e5e7eb;
-}
-:deep(.el-input__wrapper.is-focus) {
-  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.2);
+  box-shadow: none;
+  background: transparent;
 }
 
 .captcha-row {
   display: flex;
   gap: 12px;
 }
+
 .captcha-img {
   height: 48px;
   width: 120px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
   overflow: hidden;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  background: rgba(255, 255, 255, 0.8);
+  transition: var(--transition);
 }
+
+.captcha-img:hover {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
+}
+
 .captcha-img img {
   width: 100%;
   height: 100%;
@@ -231,29 +286,30 @@ onMounted(() => refreshCaptcha())
 .login-btn {
   width: 100%;
   height: 48px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+  border-radius: var(--radius);
+  background: var(--color-primary);
   border: none;
   font-size: 16px;
+  font-weight: 600;
+  transition: var(--transition);
+  box-shadow: 0 4px 6px rgba(13, 148, 136, 0.3);
 }
+
 .login-btn:hover {
-  opacity: 0.95;
+  background: var(--color-primary-dark);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(13, 148, 136, 0.4);
 }
 
 .form-footer {
   text-align: center;
   font-size: 14px;
-  color: #9ca3af;
-}
-.split {
-  margin: 0 8px;
+  color: var(--color-text-muted);
 }
 
-.tips {
-  margin-top: 24px;
-  font-size: 12px;
-  color: #9ca3af;
-  text-align: center;
+.split {
+  margin: 0 12px;
+  color: var(--color-border);
 }
 
 /* 响应式 */

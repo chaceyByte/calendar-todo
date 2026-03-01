@@ -2,11 +2,12 @@
 import { ref, onMounted, reactive } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getQuadrantTasks, updateTaskPriorityUrgency, createTask, deleteTask, type Task } from '@/api/task'
+import { Check, Plus, Sort, Document } from '@element-plus/icons-vue'
 
 // 任务数据
 const tasks = ref<Task[]>([])
 
-// 象限定义
+// 象限定义 - 使用绿色主题配色方案
 const quadrants = [
   {
     id: 'not-urgent-important',
@@ -14,7 +15,9 @@ const quadrants = [
     desc: '重要但不紧急 (制定计划)',
     bgColor: 'bg-amber-50',
     accentColor: 'bg-amber-500',
-    hexColor: '#f59e0b'
+    hexColor: '#f59e0b',
+    gradient: 'linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)',
+    borderColor: '#F59E0B'
   },
   {
     id: 'urgent-important',
@@ -22,7 +25,9 @@ const quadrants = [
     desc: '紧急且重要 (立即执行)',
     bgColor: 'bg-rose-50',
     accentColor: 'bg-rose-500',
-    hexColor: '#f43f5e'
+    hexColor: '#f43f5e',
+    gradient: 'linear-gradient(135deg, #FECDD3 0%, #FDA4AF 100%)',
+    borderColor: '#F43F5E'
   },
   {
     id: 'not-urgent-not-important',
@@ -30,7 +35,9 @@ const quadrants = [
     desc: '不紧急且不重要 (稍后或取消)',
     bgColor: 'bg-blue-50',
     accentColor: 'bg-blue-500',
-    hexColor: '#3b82f6'
+    hexColor: '#3b82f6',
+    gradient: 'linear-gradient(135deg, #DBEAFE 0%, #93C5FD 100%)',
+    borderColor: '#3B82F6'
   },
   {
     id: 'urgent-not-important',
@@ -38,7 +45,9 @@ const quadrants = [
     desc: '不重要但紧急 (委派或减少)',
     bgColor: 'bg-emerald-50',
     accentColor: 'bg-emerald-500',
-    hexColor: '#10b981'
+    hexColor: '#10b981',
+    gradient: 'linear-gradient(135deg, #D1FAE5 0%, #A7F3D0 100%)',
+    borderColor: '#10B981'
   }
 ]
 
@@ -68,6 +77,11 @@ const priorityUrgencyToQuadrant = (priority: string, urgency: string) => {
 const getTaskQuadrant = (task: Task) => {
   if (!task.priority || !task.urgency) return 'not-urgent-not-important'
   return priorityUrgencyToQuadrant(task.priority, task.urgency)
+}
+
+// 根据任务状态筛选任务
+const getFilteredTasks = (quadrantId: string) => {
+  return tasks.value.filter(t => getTaskQuadrant(t) === quadrantId && t.status !== 'completed')
 }
 
 const draggedTask = ref<Task | null>(null)
@@ -104,7 +118,7 @@ onMounted(() => {
   loadTasks()
 })
 
-const onDragStart = (task) => {
+const onDragStart = (task: Task) => {
   draggedTask.value = task;
 };
 
@@ -131,6 +145,7 @@ const onDropCenter = async () => {
     }
   }
   isOverCenter.value = false
+  draggedTask.value = null
 }
 
 const onDropQuadrant = async (e: DragEvent, quadrantId: string) => {
@@ -216,86 +231,92 @@ const getTextPositionClass = (quadrantId) => {
 </script>
 
 <template>
-  <div class="quadrant-container">
+  <div class="quadrant-page-container">
+    <!-- 页面标题 -->
+<!--    <div class="page-header">-->
+<!--      <h1 class="page-title">四象限任务管理</h1>-->
+<!--      <p class="page-subtitle">基于艾森豪威尔矩阵，科学管理任务优先级</p>-->
+<!--    </div>-->
 
-    <!-- 中心完成区域 -->
-    <div
-        class="finish-center w-24 h-24 rounded-full bg-slate-900 shadow-2xl flex items-center justify-center border-4 border-white transition-all duration-300"
-        :class="{'scale-125 bg-green-600': isOverCenter}"
-        @dragover.prevent="onDragOverCenter"
-        @dragleave="isOverCenter = false"
-        @drop="onDropCenter"
-    >
-      <div class="text-white text-center">
-        <p class="text-[10px] font-bold uppercase">拖入</p>
-        <p class="text-xs uppercase">完成</p>
-      </div>
-    </div>
-
-    <!-- 四个象限 -->
-    <div
-        v-for="quad in quadrants"
-        :key="quad.id"
-        :class="[quad.bgColor, 'quadrant-item', getQuadrantClass(quad.id), 'rounded-xl p-3 flex flex-col border-2 border-transparent transition-all overflow-hidden shadow-sm']"
-        @dragover.prevent
-        @drop="onDropQuadrant($event, quad.id)"
-    >
-      <!-- 第一、二象限的头部 -->
-      <div v-if="['not-urgent-important', 'urgent-important'].includes(quad.id)"
-           :class="['quadrant-header', getTextPositionClass(quad.id)]">
-        <div class="header-content">
-          <h2 class="font-black text-slate-800 flex items-center gap-2">
-            <span class="w-2 h-6" :class="quad.accentColor"></span>
-            {{ quad.title }}
-          </h2>
-          <p class="text-[10px] text-slate-500 font-bold uppercase mt-1">{{ quad.desc }}</p>
-        </div>
-        <button
-            @click="openAddModal(quad.id)"
-            class="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm hover:scale-110 active:scale-95 transition-transform"
-        >
-          <span class="text-xl font-bold">+</span>
-        </button>
-      </div>
-
-      <!-- 任务列表 -->
-      <div class="flex-1 overflow-y-auto no-scrollbar space-y-0.5 px-5 py-2"
-           :class="{'pb-16': ['urgent-not-important', 'not-urgent-not-important'].includes(quad.id)}">
-        <div
-            v-for="task in tasks.filter(t => getTaskQuadrant(t) === quad.id && t.status !== 'completed')"
-            :key="task.id"
-            draggable="true"
-            @dragstart="onDragStart(task)"
-            @dragend="onDragEnd"
-            class="task-card bg-white rounded-lg shadow border-l-4 ml-2 mr-1 hover:shadow-md transition-all duration-200 hover:-translate-y-0.5"
-            :style="{ borderLeftColor: quad.hexColor }"
-        >
-          <p class="text-sm font-medium text-slate-800 px-5 py-2">{{ task.title || task.description }}</p>
-        </div>
-
-        <!-- 空状态 -->
-        <div v-if="tasks.filter(t => getTaskQuadrant(t) === quad.id && t.status !== 'completed').length === 0 && !loading"
-             class="h-full flex items-center justify-center opacity-20 italic text-xs">
-          暂无任务
+    <!-- 主四象限容器 -->
+    <div class="quadrant-main-container">
+      <!-- 中心完成区域 -->
+      <div
+          class="finish-center"
+          :class="{'active': isOverCenter}"
+          @dragover.prevent="onDragOverCenter"
+          @dragleave="isOverCenter = false"
+          @drop="onDropCenter"
+      >
+        <div class="finish-content">
+          <div class="finish-icon">
+            <el-icon><check /></el-icon>
+          </div>
+          <div class="finish-text">
+            <p class="finish-title">拖入完成</p>
+            <p class="finish-subtitle">完成任务</p>
+          </div>
         </div>
       </div>
 
-      <!-- 第三、四象限的头部（放在任务列表下方） -->
-      <div v-if="['urgent-not-important', 'not-urgent-not-important'].includes(quad.id)"
-           :class="['quadrant-bottom-header', getTextPositionClass(quad.id)]">
-        <div class="header-content">
-          <h2 class="font-black text-slate-800 flex items-center gap-2">
-            <span class="w-2 h-6" :class="quad.accentColor"></span>
-            {{ quad.title }}
-          </h2>
-          <p class="text-[10px] text-slate-500 font-bold uppercase mt-1">{{ quad.desc }}</p>
+      <!-- 四个象限 -->
+      <div
+          v-for="quad in quadrants"
+          :key="quad.id"
+          class="quadrant-item"
+          :class="getQuadrantClass(quad.id)"
+          :style="{ background: quad.gradient, borderColor: quad.borderColor }"
+          @dragover.prevent
+          @drop="onDropQuadrant($event, quad.id)"
+      >
+        <!-- 象限头部 -->
+        <div class="quadrant-header" :class="getTextPositionClass(quad.id)">
+          <div class="header-content">
+            <div class="quadrant-badge" :style="{ backgroundColor: quad.borderColor }"></div>
+            <div class="header-text">
+              <h3 class="quadrant-title">{{ quad.title }}</h3>
+              <p class="quadrant-desc">{{ quad.desc }}</p>
+            </div>
+          </div>
+          <button
+              @click="openAddModal(quad.id)"
+              class="add-task-btn"
+              :style="{ backgroundColor: quad.borderColor }"
+          >
+            <el-icon><plus /></el-icon>
+          </button>
         </div>
-        <button
-            @click="openAddModal(quad.id)"
-            class="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm hover:scale-110 active:scale-95 transition-transform"
-        >
-          <span class="text-xl font-bold">+</span>
-        </button>
+
+        <!-- 任务列表 -->
+        <div class="task-list" :class="{'bottom-space': ['urgent-not-important', 'not-urgent-not-important'].includes(quad.id)}">
+          <div class="task-list-content">
+            <div
+                v-for="task in getFilteredTasks(quad.id)"
+                :key="task.id"
+                draggable="true"
+                @dragstart="onDragStart(task)"
+                @dragend="onDragEnd"
+                class="task-card"
+                :style="{ borderLeftColor: quad.borderColor }"
+            >
+              <div class="task-content">
+                <div class="task-title">{{ task.title || task.description }}</div>
+                <div class="task-drag-handle">
+                  <el-icon><sort /></el-icon>
+                </div>
+              </div>
+            </div>
+
+            <!-- 空状态 -->
+            <div v-if="getFilteredTasks(quad.id).length === 0 && !loading"
+                class="empty-state">
+              <div class="empty-icon">
+                <el-icon><document /></el-icon>
+              </div>
+              <p class="empty-text">暂无任务</p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -355,129 +376,398 @@ const getTextPositionClass = (quadrantId) => {
 </template>
 
 <style scoped>
-.quadrant-container {
-  height: 100%;
+/* 页面整体布局 */
+.quadrant-page-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #F0FDFA 0%, #E0F2F1 100%);
+  padding: 32px;
+  overflow: hidden;
+}
+
+/* 页面标题 */
+.page-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.page-title {
+  font-size: 36px;
+  font-weight: 700;
+  color: #134E4A;
+  margin: 0 0 8px 0;
+  letter-spacing: -0.02em;
+}
+
+.page-subtitle {
+  font-size: 16px;
+  color: #0D9488;
+  margin: 0;
+  font-weight: 500;
+}
+
+/* 主四象限容器 */
+.quadrant-main-container {
   display: grid;
   grid-template-columns: 1fr 1fr;
   grid-template-rows: 1fr 1fr;
-  gap: 12px;
+  gap: 20px;
   position: relative;
-  align-items: stretch;
-  justify-items: stretch;
+  max-width: 1200px;
+  margin: 0 auto;
+  height: calc(100vh - 200px);
+  min-height: 500px;
+  max-height: 700px;
 }
 
-.drop-zone-active {
-  filter: brightness(0.9);
-  outline: 2px dashed #6366f1;
-}
-
+/* 中心完成区域 */
 .finish-center {
   position: absolute;
-  top: calc(50% - 48px); /* 减去按钮高度的一半 */
-  left: calc(50% - 48px); /* 减去按钮宽度的一半 */
-  z-index: 60; /* 确保在缺口之上 */
-  transform-origin: center;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 120px;
+  height: 120px;
+  background: linear-gradient(135deg, #0D9488 0%, #14B8A6 100%);
+  border-radius: 50%;
+  border: 4px solid white;
+  box-shadow: 0 20px 40px rgba(13, 148, 136, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  z-index: 60;
 }
 
+.finish-center.active {
+  background: linear-gradient(135deg, #F97316 0%, #FB923C 100%);
+  transform: translate(-50%, -50%) scale(1.1);
+  box-shadow: 0 25px 50px rgba(249, 115, 22, 0.4);
+}
+
+.finish-content {
+  text-align: center;
+  color: white;
+}
+
+.finish-icon {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.finish-title {
+  font-size: 12px;
+  font-weight: 700;
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.finish-subtitle {
+  font-size: 10px;
+  margin: 0;
+  opacity: 0.9;
+}
+
+/* 象限项样式 */
+.quadrant-item {
+  position: relative;
+  border-radius: 16px;
+  border: 2px solid;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.quadrant-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+/* 象限缺口效果 */
+.quadrant-top-left {
+  border-radius: 16px 16px 8px 16px;
+}
+
+.quadrant-top-right {
+  border-radius: 16px 16px 16px 8px;
+}
+
+.quadrant-bottom-left {
+  border-radius: 16px 8px 16px 16px;
+}
+
+.quadrant-bottom-right {
+  border-radius: 8px 16px 16px 16px;
+}
+
+/* 象限头部 */
+.quadrant-header {
+  display: flex;
+  align-items: center;
+  padding: 20px;
+  min-height: 80px;
+}
+
+.text-top-left {
+  justify-content: space-between;
+}
+
+.text-top-right {
+  justify-content: space-between;
+  flex-direction: row-reverse;
+}
+
+.text-bottom-left {
+  justify-content: space-between;
+  margin-top: auto;
+}
+
+.text-bottom-right {
+  justify-content: space-between;
+  flex-direction: row-reverse;
+  margin-top: auto;
+}
+
+.header-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.quadrant-badge {
+  width: 4px;
+  height: 24px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.quadrant-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1F2937;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.quadrant-desc {
+  font-size: 12px;
+  color: #6B7280;
+  margin: 0;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* 添加任务按钮 */
+.add-task-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: none;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 16px;
+}
+
+.add-task-btn:hover {
+  transform: scale(1.1);
+}
+
+/* 任务列表 */
+.task-list {
+  flex: 1;
+  overflow: hidden;
+  padding: 0 20px 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.bottom-space {
+  padding-bottom: 60px;
+}
+
+.task-list-content {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.task-list-content::-webkit-scrollbar {
+  width: 4px;
+}
+
+.task-list-content::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 2px;
+}
+
+.task-list-content::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 2px;
+}
+
+.task-list-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* 任务卡片 */
 .task-card {
+  background: white;
+  border-radius: 8px;
+  border-left: 4px solid;
+  margin-bottom: 8px;
   cursor: grab;
-  transition: transform 0.1s, box-shadow 0.1s;
-  margin: 0.5rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.task-card:hover {
+  transform: translateX(4px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
 .task-card:active {
   cursor: grabbing;
 }
 
-.dragging {
+.task-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+}
+
+.task-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1F2937;
+  line-height: 1.4;
+  flex: 1;
+  margin: 0;
+}
+
+.task-drag-handle {
+  color: #9CA3AF;
+  font-size: 14px;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+}
+
+.task-card:hover .task-drag-handle {
+  opacity: 1;
+}
+
+/* 空状态 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 120px;
+  color: #9CA3AF;
+}
+
+.empty-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
   opacity: 0.5;
-  transform: scale(0.95);
 }
 
-/* 象限缺口样式 */
-.quadrant-item {
-  position: relative;
+.empty-text {
+  font-size: 12px;
+  font-style: italic;
+  margin: 0;
 }
 
-/* 使用不同的圆角组合创建缺口效果 */
-.quadrant-top-left {
-  border-radius: 12px 12px 0 12px;
+/* 响应式设计 */
+@media (max-width: 1024px) {
+  .quadrant-main-container {
+    height: calc(100vh - 180px);
+    gap: 16px;
+    max-height: 600px;
+  }
+  
+  .quadrant-header {
+    padding: 16px;
+    min-height: 70px;
+  }
+  
+  .task-list {
+    padding: 0 16px 16px;
+  }
 }
 
-.quadrant-top-right {
-  border-radius: 12px 12px 12px 0;
+@media (max-width: 768px) {
+  .quadrant-page-container {
+    padding: 20px;
+  }
+  
+  .page-title {
+    font-size: 28px;
+  }
+  
+  .quadrant-main-container {
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(4, 1fr);
+    height: auto;
+    min-height: 800px;
+    max-height: none;
+  }
+  
+  .finish-center {
+    display: none;
+  }
+  
+  .quadrant-item {
+    min-height: 200px;
+  }
+  
+  .quadrant-title {
+    font-size: 16px;
+  }
+  
+  .quadrant-desc {
+    font-size: 11px;
+  }
 }
 
-.quadrant-bottom-left {
-  border-radius: 12px 0 12px 12px;
-  padding-top: 3rem;
-}
-
-.quadrant-bottom-right {
-  border-radius: 0 12px 12px 12px;
-  padding-top: 3rem;
-}
-
-/* 象限头部文字定位 */
-.quadrant-header {
-  display: flex;
-  margin-bottom: 1rem;
-  position: relative;
-}
-
-.text-top-left .header-content {
-  margin-right: auto;
-}
-
-.text-top-right .header-content {
-  order: 2;
-  margin-left: auto;
-}
-
-.text-top-right button {
-  order: 1;
-  margin-right: 0.5rem;
-}
-
-.text-bottom-left {
-  display: flex;
-  justify-content: flex-start;
-  align-items: flex-end;
-  margin-top: auto;
-}
-
-.text-bottom-left .header-content {
-  text-align: left;
-}
-
-.text-bottom-left button {
-  margin-left: auto;
-}
-
-.text-bottom-right {
-  display: flex;
-  justify-content: flex-end;
-  align-items: flex-end;
-  margin-top: auto;
-}
-
-.text-bottom-right .header-content {
-  text-align: right;
-  margin-left: auto;
-}
-
-.text-bottom-right button {
-  order: -1;
-  margin-right: 0.5rem;
-}
-
-/* 隐藏滚动条 */
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-
-.no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+@media (max-width: 480px) {
+  .quadrant-page-container {
+    padding: 16px;
+  }
+  
+  .page-title {
+    font-size: 24px;
+  }
+  
+  .quadrant-header {
+    padding: 12px;
+    min-height: 60px;
+  }
+  
+  .task-list {
+    padding: 0 12px 12px;
+  }
+  
+  .task-content {
+    padding: 10px 12px;
+  }
+  
+  .task-title {
+    font-size: 13px;
+  }
 }
 </style>

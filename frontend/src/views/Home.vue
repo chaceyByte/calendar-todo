@@ -1,12 +1,14 @@
 <template>
   <div class="home-container">
-    <!-- 统计卡片区域 -->
+    <!-- 统计卡片区域 - 现代块级布局 -->
     <div class="stats-grid">
-      <el-card class="stat-card">
+      <el-card class="stat-card glass-card stat-card-primary">
         <template #header>
           <div class="card-header">
-            <el-icon><clock /></el-icon>
-            <span>时间最长的5个任务</span>
+            <div class="card-icon-wrapper">
+              <el-icon class="card-icon"><clock /></el-icon>
+            </div>
+            <h3 class="card-title">时间最长的5个任务</h3>
           </div>
         </template>
         <div class="stat-content">
@@ -24,11 +26,13 @@
         </div>
       </el-card>
 
-      <el-card class="stat-card">
+      <el-card class="stat-card glass-card stat-card-secondary">
         <template #header>
           <div class="card-header">
-            <el-icon><trend-charts /></el-icon>
-            <span>每日处理任务数</span>
+            <div class="card-icon-wrapper">
+              <el-icon class="card-icon"><trend-charts /></el-icon>
+            </div>
+            <h3 class="card-title">每日处理任务数</h3>
           </div>
         </template>
         <div class="stat-content">
@@ -36,11 +40,13 @@
         </div>
       </el-card>
 
-      <el-card class="stat-card">
+      <el-card class="stat-card glass-card stat-card-accent">
         <template #header>
           <div class="card-header">
-            <el-icon><document-add /></el-icon>
-            <span>每日创建任务数</span>
+            <div class="card-icon-wrapper">
+              <el-icon class="card-icon"><document-add /></el-icon>
+            </div>
+            <h3 class="card-title">每日创建任务数</h3>
           </div>
         </template>
         <div class="stat-content">
@@ -49,12 +55,14 @@
       </el-card>
     </div>
 
-    <!-- 甘特图区域 -->
-    <el-card class="gantt-card">
+    <!-- 甘特图区域 - 大胆块级设计 -->
+    <el-card class="gantt-card glass-card">
       <template #header>
-        <div class="card-header">
-          <el-icon><data-analysis /></el-icon>
-          <span>任务处理记录甘特图</span>
+        <div class="gantt-header">
+          <div class="card-icon-wrapper">
+            <el-icon class="card-icon"><data-analysis /></el-icon>
+          </div>
+          <h2 class="gantt-title">任务处理记录甘特图</h2>
         </div>
       </template>
       <div class="gantt-content">
@@ -441,50 +449,111 @@ onMounted(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 32px;
+  padding: 24px 0;
 }
 
+/* 统计卡片网格 - 现代块级布局 */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 32px;
 }
 
+/* Glassmorphism卡片 - 创意前卫 */
 .stat-card {
-  height: 300px;
+  height: 320px;
+  border: none;
+  overflow: hidden;
+}
+
+.stat-card-primary {
+  --card-accent: var(--color-primary);
+}
+
+.stat-card-secondary {
+  --card-accent: var(--color-accent);
+}
+
+.stat-card-accent {
+  --card-accent: var(--color-warning);
 }
 
 .card-header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.card-icon-wrapper {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius);
+  background: var(--card-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 20px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.card-icon {
+  font-size: 20px;
   font-weight: 600;
+}
+
+.card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0;
+  letter-spacing: -0.01em;
 }
 
 .stat-content {
   height: 240px;
   display: flex;
   flex-direction: column;
+  padding-top: 8px;
 }
 
 .task-item {
-  margin-bottom: 12px;
+  margin-bottom: 16px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: var(--radius);
+  border-left: 4px solid var(--card-accent);
+  transition: var(--transition);
+}
+
+.task-item:hover {
+  background: rgba(255, 255, 255, 0.9);
+  transform: translateX(4px);
 }
 
 .task-info {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 4px;
+  align-items: center;
+  margin-bottom: 8px;
 }
 
 .task-title {
   font-size: 14px;
-  color: #606266;
+  font-weight: 500;
+  color: var(--color-text);
 }
 
 .task-duration {
   font-size: 12px;
-  color: #909399;
+  font-weight: 600;
+  color: var(--card-accent);
+  background: rgba(255, 255, 255, 0.8);
+  padding: 2px 8px;
+  border-radius: var(--radius);
 }
 
 .chart {
@@ -492,12 +561,32 @@ onMounted(() => {
   height: 100%;
 }
 
+/* 甘特图卡片 - 大胆设计 */
 .gantt-card {
   flex: 1;
+  border: none;
+  overflow: hidden;
+}
+
+.gantt-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.gantt-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0;
+  letter-spacing: -0.01em;
 }
 
 .gantt-content {
-  height: 400px;
+  height: 420px;
+  padding-top: 8px;
 }
 
 .gantt-chart {

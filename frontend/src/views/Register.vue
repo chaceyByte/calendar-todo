@@ -215,75 +215,124 @@ const goToLogin = () => {
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+  font-family: var(--font-sans);
+  position: relative;
+  overflow: hidden;
+}
+
+.register-container::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+  animation: float 20s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  33% { transform: translate(30px, -30px) rotate(120deg); }
+  66% { transform: translate(-20px, 20px) rotate(240deg); }
 }
 
 .register-card {
-  width: 400px;
-  padding: 40px;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  width: 420px;
+  padding: 48px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(203, 213, 225, 0.3);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  position: relative;
+  z-index: 1;
 }
 
 .register-header {
   text-align: center;
-  margin-bottom: 30px;
+  margin-bottom: 32px;
 }
 
 .register-header h1 {
-  margin: 0 0 10px 0;
-  font-size: 28px;
-  font-weight: 600;
-  color: #303133;
+  margin: 0 0 12px 0;
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--color-text);
+  letter-spacing: -0.01em;
 }
 
 .register-header p {
   margin: 0;
-  color: #909399;
+  color: var(--color-text-muted);
   font-size: 14px;
+  font-weight: 500;
 }
 
 .register-form {
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
 .register-button {
   width: 100%;
-  margin-top: 10px;
+  height: 48px;
+  background: var(--color-primary);
+  border-radius: var(--radius);
+  border: none;
+  font-size: 16px;
+  font-weight: 600;
+  transition: var(--transition);
+  box-shadow: 0 4px 6px rgba(13, 148, 136, 0.3);
+  margin-top: 12px;
+}
+
+.register-button:hover {
+  background: var(--color-primary-dark);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(13, 148, 136, 0.4);
 }
 
 .register-footer {
   text-align: center;
-  border-top: 1px solid #e4e7ed;
-  padding-top: 20px;
+  border-top: 1px solid var(--color-border-light);
+  padding-top: 24px;
+}
+
+.register-footer p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 14px;
 }
 
 .captcha-container {
   display: flex;
   align-items: center;
+  gap: 12px;
 }
 
 .captcha-image {
   width: 120px;
-  height: 40px;
+  height: 48px;
   cursor: pointer;
-  border: 1px solid #dcdfe6;
-  border-radius: 4px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
   display: flex;
   justify-content: center;
   align-items: center;
+  background: rgba(255, 255, 255, 0.8);
+  transition: var(--transition);
+  overflow: hidden;
+}
+
+.captcha-image:hover {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
 }
 
 .captcha-image img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-}
-
-.register-footer p {
-  margin: 0;
-  color: #909399;
-  font-size: 14px;
 }
 </style>
