@@ -1,0 +1,254 @@
+/* ========================================
+   主题变量系统 - 亮色/暗色模式
+   ======================================== */
+
+/* 基础变量定义 */
+:root {
+  /* 主色调 */
+  --color-primary: #0071e3;
+  --color-primary-hover: #0077ed;
+  --color-primary-light: rgba(0, 113, 227, 0.1);
+
+  /* 背景色 */
+  --bg-page: #f7f9fb;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f5f5f7;
+  --bg-input: #f5f5f7;
+  --bg-hover: rgba(0, 0, 0, 0.04);
+  --bg-active: rgba(0, 0, 0, 0.08);
+
+  /* 文字色 */
+  --text-primary: #1d1d1f;
+  --text-secondary: #86868b;
+  --text-tertiary: #a1a1a6;
+  --text-inverse: #ffffff;
+
+  /* 边框和分割线 */
+  --border-color: rgba(0, 0, 0, 0.08);
+  --border-light: rgba(0, 0, 0, 0.04);
+  --divider-color: rgba(0, 0, 0, 0.06);
+
+  /* 阴影 */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.12);
+  --shadow-xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+
+  /* 功能色 */
+  --color-success: #34c759;
+  --color-success-bg: #f0fff4;
+  --color-warning: #ff9500;
+  --color-warning-bg: #fff8e7;
+  --color-error: #ff3b30;
+  --color-error-bg: #ffebeb;
+  --color-info: #0071e3;
+  --color-info-bg: rgba(0, 113, 227, 0.1);
+
+  /* 状态色 */
+  --holiday-color: #1d7f3e;
+  --holiday-bg: #d4f5e0;
+  --makeup-color: #b45c1a;
+  --makeup-bg: #ffe8d4;
+  --weekend-color: #86868b;
+  --weekend-bg: #e3e3e8;
+
+  /* 侧边栏专用 */
+  --sidebar-bg: #ffffff;
+  --sidebar-text: #64748b;
+  --sidebar-text-hover: #0f172a;
+  --sidebar-active: #0058be;
+  --sidebar-active-bg: rgba(0, 88, 190, 0.1);
+  --sidebar-border: #e2e8f0;
+
+  /* 日历专用 */
+  --calendar-grid-line: #e2e8f0;
+  --calendar-today-bg: rgba(0, 88, 190, 0.1);
+  --calendar-task-card-bg: #ffffff;
+  --calendar-task-card-border: #e2e8f0;
+  --calendar-hour-line: #f1f5f9;
+
+  /* 滚动条 */
+  --scrollbar-thumb: #e0e3e5;
+  --scrollbar-thumb-hover: #c2c6d6;
+
+  /* 玻璃态效果 */
+  --glass-bg: rgba(255, 255, 255, 0.8);
+  --glass-border: rgba(255, 255, 255, 0.3);
+
+  /* 按钮 */
+  --btn-primary-bg: #0058be;
+  --btn-primary-text: #ffffff;
+  --btn-secondary-bg: #f2f4f6;
+  --btn-secondary-text: #64748b;
+
+  /* 输入框 */
+  --input-bg: #f2f4f6;
+  --input-border: transparent;
+  --input-text: #0f172a;
+  --input-placeholder: #6b7280;
+
+  /* 标签 */
+  --tag-bg: #f2f4f6;
+  --tag-text: #64748b;
+
+  /* 象限颜色 */
+  --quadrant-1-bg: #fef2f2;
+  --quadrant-1-border: #fecaca;
+  --quadrant-2-bg: #fefce8;
+  --quadrant-2-border: #fde047;
+  --quadrant-3-bg: #f0fdf4;
+  --quadrant-3-border: #86efac;
+  --quadrant-4-bg: #f8fafc;
+  --quadrant-4-border: #cbd5e1;
+}
+
+/* 暗色模式变量 */
+[data-theme="dark"] {
+  /* 主色调 */
+  --color-primary: #0a84ff;
+  --color-primary-hover: #409cff;
+  --color-primary-light: rgba(10, 132, 255, 0.2);
+
+  /* 背景色 */
+  --bg-page: #000000;
+  --bg-card: #1c1c1e;
+  --bg-card-hover: #2c2c2e;
+  --bg-input: #2c2c2e;
+  --bg-hover: rgba(255, 255, 255, 0.05);
+  --bg-active: rgba(255, 255, 255, 0.1);
+
+  /* 文字色 */
+  --text-primary: #ffffff;
+  --text-secondary: #98989d;
+  --text-tertiary: #636366;
+  --text-inverse: #1d1d1f;
+
+  /* 边框和分割线 */
+  --border-color: rgba(255, 255, 255, 0.1);
+  --border-light: rgba(255, 255, 255, 0.05);
+  --divider-color: rgba(255, 255, 255, 0.08);
+
+  /* 阴影 - 暗色模式下更柔和 */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+
+  /* 功能色 - 暗色模式下更鲜艳 */
+  --color-success: #30d158;
+  --color-success-bg: rgba(48, 209, 88, 0.15);
+  --color-warning: #ff9f0a;
+  --color-warning-bg: rgba(255, 159, 10, 0.15);
+  --color-error: #ff453a;
+  --color-error-bg: rgba(255, 69, 58, 0.15);
+  --color-info: #0a84ff;
+  --color-info-bg: rgba(10, 132, 255, 0.15);
+
+  /* 状态色 */
+  --holiday-color: #30d158;
+  --holiday-bg: rgba(48, 209, 88, 0.2);
+  --makeup-color: #ff9f0a;
+  --makeup-bg: rgba(255, 159, 10, 0.2);
+  --weekend-color: #98989d;
+  --weekend-bg: rgba(255, 255, 255, 0.1);
+
+  /* 侧边栏专用 */
+  --sidebar-bg: #1c1c1e;
+  --sidebar-text: #98989d;
+  --sidebar-text-hover: #ffffff;
+  --sidebar-active: #0a84ff;
+  --sidebar-active-bg: rgba(10, 132, 255, 0.2);
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+
+  /* 日历专用 */
+  --calendar-grid-line: rgba(255, 255, 255, 0.1);
+  --calendar-today-bg: rgba(10, 132, 255, 0.2);
+  --calendar-task-card-bg: #2c2c2e;
+  --calendar-task-card-border: rgba(255, 255, 255, 0.1);
+  --calendar-hour-line: rgba(255, 255, 255, 0.05);
+
+  /* 滚动条 */
+  --scrollbar-thumb: #3a3a3c;
+  --scrollbar-thumb-hover: #48484a;
+
+  /* 玻璃态效果 */
+  --glass-bg: rgba(28, 28, 30, 0.8);
+  --glass-border: rgba(255, 255, 255, 0.1);
+
+  /* 按钮 */
+  --btn-primary-bg: #0a84ff;
+  --btn-primary-text: #ffffff;
+  --btn-secondary-bg: #2c2c2e;
+  --btn-secondary-text: #98989d;
+
+  /* 输入框 */
+  --input-bg: #2c2c2e;
+  --input-border: rgba(255, 255, 255, 0.1);
+  --input-text: #ffffff;
+  --input-placeholder: #636366;
+
+  /* 标签 */
+  --tag-bg: #2c2c2e;
+  --tag-text: #98989d;
+
+  /* 象限颜色 */
+  --quadrant-1-bg: rgba(255, 69, 58, 0.15);
+  --quadrant-1-border: rgba(255, 69, 58, 0.3);
+  --quadrant-2-bg: rgba(255, 159, 10, 0.15);
+  --quadrant-2-border: rgba(255, 159, 10, 0.3);
+  --quadrant-3-bg: rgba(48, 209, 88, 0.15);
+  --quadrant-3-border: rgba(48, 209, 88, 0.3);
+  --quadrant-4-bg: rgba(255, 255, 255, 0.1);
+  --quadrant-4-border: rgba(255, 255, 255, 0.2);
+}
+
+/* ========================================
+   Element Plus 暗色主题覆盖
+   ======================================== */
+
+[data-theme="dark"] {
+  /* Element Plus 变量覆盖 */
+  --el-bg-color: var(--bg-card);
+  --el-bg-color-page: var(--bg-page);
+  --el-bg-color-overlay: var(--bg-card);
+
+  --el-text-color-primary: var(--text-primary);
+  --el-text-color-regular: var(--text-primary);
+  --el-text-color-secondary: var(--text-secondary);
+  --el-text-color-placeholder: var(--text-tertiary);
+
+  --el-border-color: var(--border-color);
+  --el-border-color-light: var(--border-light);
+  --el-border-color-lighter: var(--border-light);
+  --el-border-color-extra-light: var(--border-light);
+
+  --el-fill-color: var(--bg-input);
+  --el-fill-color-light: var(--bg-card-hover);
+  --el-fill-color-lighter: var(--bg-hover);
+  --el-fill-color-extra-light: var(--bg-active);
+
+  --el-mask-color: rgba(0, 0, 0, 0.6);
+  --el-mask-color-extra-light: rgba(0, 0, 0, 0.3);
+}
+
+/* ========================================
+   平滑过渡动画
+   ======================================== */
+
+/* 主题切换时的平滑过渡 */
+*,
+*::before,
+*::after {
+  transition: background-color 0.3s ease,
+              border-color 0.3s ease,
+              color 0.3s ease,
+              box-shadow 0.3s ease;
+}
+
+/* 排除不需要过渡的元素 */
+.no-transition,
+.no-transition *,
+.no-transition *::before,
+.no-transition *::after {
+  transition: none !important;
+}

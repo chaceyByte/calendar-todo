@@ -1,0 +1,72 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+}
+
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--glass-border);
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Element Plus 暗色模式适配 */
+[data-theme="dark"] {
+  .el-dialog {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+  }
+
+  .el-dialog__title {
+    color: var(--text-primary);
+  }
+
+  .el-input__wrapper {
+    background: var(--bg-input);
+    border-color: var(--border-color);
+  }
+
+  .el-input__inner {
+    color: var(--text-primary);
+  }
+
+  .el-button--default {
+    background: var(--bg-input);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+  }
+
+  .el-empty__description {
+    color: var(--text-secondary);
+  }
+}

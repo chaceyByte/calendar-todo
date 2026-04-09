@@ -1,0 +1,61 @@
+name: Build Windows
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: rust-version/package-lock.json
+
+      - name: Setup Rust
+        uses: dtolnay/rust-action@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Install dependencies
+        working-directory: rust-version
+        run: npm install
+
+      - name: Build frontend
+        working-directory: rust-version
+        run: npm run build
+
+      - name: Build Tauri Windows app
+        working-directory: rust-version
+        run: npm run tauri build -- --target x86_64-pc-windows-msvc
+
+      - name: Upload MSI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-msi-installer
+          path: rust-version/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi
+          if-no-files-found: warn
+
+      - name: Upload NSIS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-nsis-installer
+          path: rust-version/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
+          if-no-files-found: warn
+
+      - name: List build outputs
+        shell: pwsh
+        run: |
+          Write-Host "Build outputs:"
+          Get-ChildItem -Path rust-version/src-tauri/target/x86_64-pc-windows-msvc/release/bundle -Recurse -File | ForEach-Object {
+            Write-Host "  $($_.FullName) - $([math]::Round($_.Length/1MB, 2)) MB"
+          }
