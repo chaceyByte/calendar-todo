@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "四象限任务管理",
+  "productName": "TaskManager",
   "version": "0.1.0",
   "identifier": "com.taskmanager.quadrant",
   "build": {
@@ -18,7 +18,8 @@
         "resizable": true,
         "fullscreen": false,
         "decorations": true,
-        "dragDropEnabled": false
+        "dragDropEnabled": false,
+        "devtools": true
       }
     ],
     "security": {

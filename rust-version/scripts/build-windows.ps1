@@ -30,90 +30,90 @@ function Show-Header {
 }
 
 function Test-Environment {
-    Write-ColorOutput "📋 检查打包环境..." Yellow
+    Write-ColorOutput "Checking environment..." Yellow
     
     # 检查 Node.js
     try {
         $nodeVersion = node --version
-        Write-ColorOutput "  ✓ Node.js: $nodeVersion" Green
+        Write-ColorOutput "  [OK] Node.js: $nodeVersion" Green
     }
     catch {
-        Write-ColorOutput "  ✗ Node.js 未安装或未添加到 PATH" Red
+        Write-ColorOutput "  [ERROR] Node.js not installed or not in PATH" Red
         exit 1
     }
     
     # 检查 npm
     try {
         $npmVersion = npm --version
-        Write-ColorOutput "  ✓ npm: $npmVersion" Green
+        Write-ColorOutput "  [OK] npm: $npmVersion" Green
     }
     catch {
-        Write-ColorOutput "  ✗ npm 未找到" Red
+        Write-ColorOutput "  [ERROR] npm not found" Red
         exit 1
     }
     
     # 检查 Rust
     try {
         $rustVersion = rustc --version
-        Write-ColorOutput "  ✓ Rust: $rustVersion" Green
+        Write-ColorOutput "  [OK] Rust: $rustVersion" Green
     }
     catch {
-        Write-ColorOutput "  ✗ Rust 未安装或未添加到 PATH" Red
-        Write-ColorOutput "    请访问 https://rustup.rs/ 安装 Rust" Yellow
+        Write-ColorOutput "  [ERROR] Rust not installed or not in PATH" Red
+        Write-ColorOutput "  Please install Rust from https://rustup.rs/" Yellow
         exit 1
     }
     
     # 检查 Cargo
     try {
         $cargoVersion = cargo --version
-        Write-ColorOutput "  ✓ Cargo: $cargoVersion" Green
+        Write-ColorOutput "  [OK] Cargo: $cargoVersion" Green
     }
     catch {
-        Write-ColorOutput "  ✗ Cargo 未找到" Red
+        Write-ColorOutput "  [ERROR] Cargo not found" Red
         exit 1
     }
     
-    Write-ColorOutput "✓ 环境检查通过" Green
+    Write-ColorOutput "Environment check passed" Green
     Write-Host ""
 }
 
 function Install-Dependencies {
-    Write-ColorOutput "📦 安装依赖..." Yellow
+    Write-ColorOutput "Installing dependencies..." Yellow
     try {
         npm install
-        Write-ColorOutput "✓ 依赖安装完成" Green
+        Write-ColorOutput "Dependencies installed" Green
     }
     catch {
-        Write-ColorOutput "✗ 依赖安装失败" Red
+        Write-ColorOutput "Failed to install dependencies" Red
         exit 1
     }
     Write-Host ""
 }
 
 function Build-Frontend {
-    Write-ColorOutput "🔨 构建前端项目..." Yellow
+    Write-ColorOutput "Building frontend..." Yellow
     try {
         npm run build
-        Write-ColorOutput "✓ 前端构建完成" Green
+        Write-ColorOutput "Frontend build completed" Green
     }
     catch {
-        Write-ColorOutput "✗ 前端构建失败" Red
+        Write-ColorOutput "Frontend build failed" Red
         exit 1
     }
     Write-Host ""
 }
 
 function Build-WindowsApp {
-    Write-ColorOutput "🪟 开始构建 Windows 应用..." Yellow
-    Write-ColorOutput "   目标平台: x86_64-pc-windows-msvc" Cyan
+    Write-ColorOutput "Building Windows application..." Yellow
+    Write-ColorOutput "   Target: x86_64-pc-windows-msvc" Cyan
     Write-Host ""
     
     try {
         npm run tauri build -- --target x86_64-pc-windows-msvc
-        Write-ColorOutput "✓ Windows 应用构建完成" Green
+        Write-ColorOutput "Windows application build completed" Green
     }
     catch {
-        Write-ColorOutput "✗ Windows 应用构建失败" Red
+        Write-ColorOutput "Windows application build failed" Red
         exit 1
     }
     Write-Host ""
@@ -136,7 +136,7 @@ function Get-LatestFile {
 }
 
 function Show-BuildOutputs {
-    Write-ColorOutput "📂 查找生成的安装包..." Yellow
+    Write-ColorOutput "Looking for generated installer files..." Yellow
     
     $projectRoot = Split-Path -Parent $PSScriptRoot
     $targetDir = Join-Path $projectRoot "src-tauri\target\x86_64-pc-windows-msvc\release\bundle"
@@ -148,12 +148,14 @@ function Show-BuildOutputs {
     if (Test-Path $msiDir) {
         $msiFile = Get-LatestFile -Directory $msiDir -Filter "*.msi"
         if ($msiFile) {
-            $foundFiles += @{
-                Type = "MSI 安装包"
-                Name = $msiFile.Name
-                Path = $msiFile.FullName
-                Size = "{0:N2} MB" -f ($msiFile.Length / 1MB)
-            }
+            $sizeMB = [math]::Round($msiFile.Length / 1MB, 2)
+            $sizeStr = "$sizeMB MB"
+            $fileInfo = New-Object PSObject
+            Add-Member -InputObject $fileInfo -MemberType NoteProperty -Name Type -Value "MSI Installer"
+            Add-Member -InputObject $fileInfo -MemberType NoteProperty -Name Name -Value $msiFile.Name
+            Add-Member -InputObject $fileInfo -MemberType NoteProperty -Name Path -Value $msiFile.FullName
+            Add-Member -InputObject $fileInfo -MemberType NoteProperty -Name Size -Value $sizeStr
+            $foundFiles += $fileInfo
         }
     }
     
@@ -162,34 +164,36 @@ function Show-BuildOutputs {
     if (Test-Path $nsisDir) {
         $exeFile = Get-LatestFile -Directory $nsisDir -Filter "*.exe"
         if ($exeFile) {
-            $foundFiles += @{
-                Type = "EXE 安装包 (NSIS)"
-                Name = $exeFile.Name
-                Path = $exeFile.FullName
-                Size = "{0:N2} MB" -f ($exeFile.Length / 1MB)
-            }
+            $sizeMB = [math]::Round($exeFile.Length / 1MB, 2)
+            $sizeStr = "$sizeMB MB"
+            $fileInfo = New-Object PSObject
+            Add-Member -InputObject $fileInfo -MemberType NoteProperty -Name Type -Value "EXE Installer (NSIS)"
+            Add-Member -InputObject $fileInfo -MemberType NoteProperty -Name Name -Value $exeFile.Name
+            Add-Member -InputObject $fileInfo -MemberType NoteProperty -Name Path -Value $exeFile.FullName
+            Add-Member -InputObject $fileInfo -MemberType NoteProperty -Name Size -Value $sizeStr
+            $foundFiles += $fileInfo
         }
     }
     
     if ($foundFiles.Count -gt 0) {
-        Write-ColorOutput "✓ 找到以下生成的文件:" Green
+        Write-ColorOutput "Found generated files:" Green
         Write-Host ""
         foreach ($file in $foundFiles) {
             Write-ColorOutput "  [$($file.Type)]" Cyan
-            Write-ColorOutput "    文件: $($file.Name)" White
-            Write-ColorOutput "    路径: $($file.Path)" Gray
-            Write-ColorOutput "    大小: $($file.Size)" Gray
+            Write-ColorOutput "    File: $($file.Name)" White
+            Write-ColorOutput "    Path: $($file.Path)" Gray
+            Write-ColorOutput "    Size: $($file.Size)" Gray
             Write-Host ""
         }
     }
     else {
-        Write-ColorOutput "⚠ 未找到生成的安装包文件" Yellow
+        Write-ColorOutput "Warning: No installer files found" Yellow
     }
 }
 
 function Show-Footer {
     Write-ColorOutput "========================================" Cyan
-    Write-ColorOutput "  Windows 打包流程完成!" White
+    Write-ColorOutput "  Windows build completed!" White
     Write-ColorOutput "========================================" Cyan
 }
 
