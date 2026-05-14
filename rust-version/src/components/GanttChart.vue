@@ -67,25 +67,7 @@ const timeTicks = computed(() => {
   return ticks
 })
 
-// 当前时间偏移（分钟，相对于工作开始时间）
-const currentTimeOffset = computed(() => {
-  const currentMinutes = now.value.hour() * 60 + now.value.minute()
-  return currentMinutes - workStartMinutes.value
-})
 
-// 当前时间是否在工作时段内
-const currentTimeVisible = computed(() => {
-  return currentTimeOffset.value >= 0 && currentTimeOffset.value <= totalWorkMinutes.value
-})
-
-// 当前时间线样式
-const currentTimeStyle = computed(() => {
-  if (!currentTimeVisible.value) return { display: 'none' }
-  const leftPercent = (currentTimeOffset.value / totalWorkMinutes.value) * 100
-  return {
-    left: `calc(180px + ${leftPercent}%)`
-  }
-})
 
 // 任务段样式
 const getSegmentStyle = (segment: TimeSegment) => {
@@ -94,7 +76,7 @@ const getSegmentStyle = (segment: TimeSegment) => {
   const durationMinutes = segment.endMinutes - segment.startMinutes
   const widthPercent = (durationMinutes / totalWorkMinutes.value) * 100
   return {
-    left: `${leftPercent}%`,
+    left: `${Math.max(leftPercent, 0)}%`,
     width: `${Math.max(widthPercent, 1)}%`
   }
 }
@@ -157,13 +139,6 @@ const isArchived = (status: string): boolean => status === 'archived'
 
     <!-- Body with Glass Effect -->
     <div class="gantt-body">
-      <!-- Current Time Indicator -->
-      <div v-if="currentTimeVisible" class="current-time-indicator" :style="currentTimeStyle">
-        <div class="current-time-pulse"></div>
-        <div class="current-time-line"></div>
-        <span class="current-time-badge">{{ now.format('HH:mm') }}</span>
-      </div>
-
       <!-- Vertical Grid Lines -->
       <div class="grid-lines">
         <div
@@ -342,64 +317,6 @@ const isArchived = (status: string): boolean => status === 'archived'
   min-height: 350px;
 }
 
-/* Current Time Indicator */
-.current-time-indicator {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  z-index: 50;
-  pointer-events: none;
-}
-
-.current-time-line {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 100%;
-  background: linear-gradient(to bottom, var(--color-error), rgba(255, 59, 48, 0.3));
-  box-shadow: 0 0 12px rgba(255, 59, 48, 0.4);
-}
-
-.current-time-pulse {
-  position: absolute;
-  top: -4px;
-  left: -4px;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--color-error);
-  box-shadow: 0 0 0 4px rgba(255, 59, 48, 0.2);
-  animation: pulse-glow 2s ease-in-out infinite;
-}
-
-@keyframes pulse-glow {
-  0%, 100% {
-    box-shadow: 0 0 0 4px rgba(255, 59, 48, 0.2);
-    transform: scale(1);
-  }
-  50% {
-    box-shadow: 0 0 0 8px rgba(255, 59, 48, 0.1);
-    transform: scale(1.1);
-  }
-}
-
-.current-time-badge {
-  position: absolute;
-  top: 10px;
-  left: 8px;
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--color-error);
-  white-space: nowrap;
-  background: var(--glass-bg);
-  backdrop-filter: blur(8px);
-  padding: 3px 8px;
-  border-radius: 6px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(255, 59, 48, 0.15);
-}
-
 /* Grid Lines */
 .grid-lines {
   position: absolute;
@@ -569,8 +486,8 @@ const isArchived = (status: string): boolean => status === 'archived'
   position: absolute;
   inset: 0;
   border-radius: 10px;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
 }
 
 .segment-content {
@@ -625,34 +542,46 @@ const isArchived = (status: string): boolean => status === 'archived'
 
 /* Quadrant Colors - Glass Style */
 .task-segment.quadrant-1 {
-  background: linear-gradient(135deg, rgba(0, 113, 227, 0.18) 0%, rgba(0, 113, 227, 0.06) 100%);
-  border-color: rgba(0, 113, 227, 0.2);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 1px 3px rgba(0, 113, 227, 0.1);
+  background: linear-gradient(135deg, rgba(0, 113, 227, 0.15) 0%, rgba(0, 113, 227, 0.04) 100%);
+  border-color: rgba(0, 113, 227, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 2px 8px rgba(0, 113, 227, 0.08),
+    0 0 0 1px rgba(0, 113, 227, 0.05);
 }
 
 .task-segment.quadrant-2 {
-  background: linear-gradient(135deg, rgba(48, 209, 88, 0.18) 0%, rgba(48, 209, 88, 0.06) 100%);
-  border-color: rgba(48, 209, 88, 0.2);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 1px 3px rgba(48, 209, 88, 0.1);
+  background: linear-gradient(135deg, rgba(48, 209, 88, 0.15) 0%, rgba(48, 209, 88, 0.04) 100%);
+  border-color: rgba(48, 209, 88, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 2px 8px rgba(48, 209, 88, 0.08),
+    0 0 0 1px rgba(48, 209, 88, 0.05);
 }
 
 .task-segment.quadrant-3 {
-  background: linear-gradient(135deg, rgba(255, 149, 0, 0.18) 0%, rgba(255, 149, 0, 0.06) 100%);
-  border-color: rgba(255, 149, 0, 0.2);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 1px 3px rgba(255, 149, 0, 0.1);
+  background: linear-gradient(135deg, rgba(255, 149, 0, 0.15) 0%, rgba(255, 149, 0, 0.04) 100%);
+  border-color: rgba(255, 149, 0, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 2px 8px rgba(255, 149, 0, 0.08),
+    0 0 0 1px rgba(255, 149, 0, 0.05);
 }
 
 .task-segment.quadrant-4 {
-  background: linear-gradient(135deg, rgba(175, 82, 222, 0.18) 0%, rgba(175, 82, 222, 0.06) 100%);
-  border-color: rgba(175, 82, 222, 0.2);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 1px 3px rgba(175, 82, 222, 0.1);
+  background: linear-gradient(135deg, rgba(175, 82, 222, 0.15) 0%, rgba(175, 82, 222, 0.04) 100%);
+  border-color: rgba(175, 82, 222, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 2px 8px rgba(175, 82, 222, 0.08),
+    0 0 0 1px rgba(175, 82, 222, 0.05);
 }
 
 /* Archived State */
 .task-segment.is-archived {
-  opacity: 0.55;
-  background: linear-gradient(135deg, rgba(120, 120, 128, 0.1) 0%, rgba(120, 120, 128, 0.04) 100%);
-  border-color: rgba(120, 120, 128, 0.15);
+  opacity: 0.5;
+  background: linear-gradient(135deg, rgba(120, 120, 128, 0.08) 0%, rgba(120, 120, 128, 0.03) 100%);
+  border-color: rgba(120, 120, 128, 0.12);
 }
 
 /* Empty State */
