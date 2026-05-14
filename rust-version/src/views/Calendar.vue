@@ -57,67 +57,13 @@
             </div>
           </div>
 
-          <!-- Timeline -->
-          <div class="timeline-container">
-            <div class="timeline">
-              <!-- 上午工作时间背景区域 -->
-              <div class="work-hours-bg morning-bg" :style="workHoursBgStyle"></div>
-              <!-- 下午工作时间背景区域 -->
-              <div class="work-hours-bg afternoon-bg" :style="afternoonWorkHoursBgStyle"></div>
-              
-              <!-- 时间刻度线 -->
-              <div
-                v-for="hour in displayHours"
-                :key="hour"
-                class="timeline-hour"
-              >
-                <span class="hour-label">{{ formatHour(hour) }}</span>
-                <div class="hour-line"></div>
-              </div>
-              
-              <!-- 当前时间线 -->
-              <div v-if="isToday" class="current-time-line" :style="currentTimeLineStyle">
-                <span class="current-time-dot"></span>
-                <div class="current-time-line-body"></div>
-              </div>
-              
-              <!-- Task Cards positioned on timeline -->
-              <div
-                v-for="task in positionedTasksWithLayout"
-                :key="task.id"
-                class="timeline-task-card"
-                :class="[
-                  getTaskColorClass(task.taskQuadrant),
-                  {
-                    'has-conflict': task.hasConflict,
-                    [`conflict-index-${task.conflictIndex}`]: task.hasConflict,
-                    'is-archived': task.taskStatus === 'archived'
-                  }
-                ]"
-                :style="getTaskCardStyle(task)"
-              >
-                <!-- 任务时长徽章 -->
-                <div class="task-duration-badge" v-if="task.durationMinutes && task.durationMinutes >= 30">
-                  {{ formatDurationShort(task.durationMinutes) }}
-                </div>
-                <!-- 状态指示器 -->
-                <div class="task-status-indicator" :class="task.taskStatus"></div>
-                <!-- 任务标题 -->
-                <span class="task-card-title">{{ task.title }}</span>
-                <!-- 任务时间 -->
-                <span class="task-card-time">{{ formatTaskTime(task) }}</span>
-                <!-- 视觉化标签 -->
-                <div v-if="task.tags && task.tags.length > 0" class="task-tags">
-                  <span
-                    v-for="(tag, idx) in task.tags.slice(0, 2)"
-                    :key="idx"
-                    class="task-tag-item"
-                    :class="getTagColorClass(tag)"
-                  >{{ tag.replace('#', '') }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
+          <!-- Gantt Chart View -->
+          <GanttChart 
+            :tasks="dayTasks"
+            :work-day-start="workDayStart"
+            :work-day-end="workDayEnd"
+            @edit-task="editTask"
+          />
         </div>
 
         <!-- Right: Sidebar -->
@@ -240,6 +186,7 @@
                   :key="task.id"
                   class="task-tag"
                   :class="getTaskColorClass(task.taskQuadrant)"
+                  @click="editTask(task)"
                 >
                   <span class="task-dot" :class="getTaskColorClass(task.taskQuadrant)"></span>
                   {{ task.title }}
@@ -256,6 +203,26 @@
 
       <!-- Month View -->
       <div v-else class="month-view">
+        <!-- Month Navigation Header -->
+        <div class="month-nav-header">
+          <div class="month-title-block">
+            <h2 class="month-date-title">{{ currentDate.format('YYYY年MM月') }}</h2>
+          </div>
+          <div class="month-nav">
+            <button class="nav-arrow" @click="prev">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="15 18 9 12 15 6"/>
+              </svg>
+            </button>
+            <button class="today-nav-btn" @click="goToToday">Today</button>
+            <button class="nav-arrow" @click="next">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
         <!-- Weekday Headers -->
         <div class="weekday-headers">
           <div v-for="day in weekDaysWithNames" :key="day.key" class="weekday" :class="{ 'is-weekend': day.isWeekend }">
@@ -264,9 +231,22 @@
         </div>
 
         <!-- Calendar Days -->
-        <div class="calendar-days">
+        <div v-if="loading" class="loading-indicator">
+          <div class="spinner"></div>
+          <span>Loading calendar...</span>
+        </div>
+        <div v-else-if="!calendarData?.days || calendarData.days.length === 0" class="empty-calendar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          <p>无法加载日历数据</p>
+        </div>
+        <div v-else class="calendar-days">
           <div
-            v-for="day in calendarData?.days || []"
+            v-for="day in calendarData.days"
             :key="day.date"
             class="day-cell"
             :class="{
@@ -287,6 +267,7 @@
                 :key="task.id"
                 class="task-tag"
                 :class="getTaskColorClass(task.task_quadrant)"
+                @click="editTask(task)"
               >
                 <span class="task-dot" :class="getTaskColorClass(task.task_quadrant)"></span>
                 {{ task.title }}
@@ -315,6 +296,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import dayjs from 'dayjs'
 import 'dayjs/locale/zh-cn'
+import GanttChart, { type GanttTask, type TimeSegment } from '../components/GanttChart.vue'
 
 dayjs.locale('zh-cn')
 
@@ -367,19 +349,11 @@ interface MonthCalendarData {
   days: DayData[]
 }
 
-interface Task {
+interface RawTask {
   id: number
   title: string
-  startTime: string
-  endTime?: string
-  taskQuadrant: number
-  taskStatus: string
-  participants?: { name: string; avatar: string }[]
-  tags?: string[]
-  durationMinutes?: number
-  hasConflict?: boolean
-  conflictIndex?: number
-  conflictTotal?: number
+  quadrant?: number | string
+  status?: number | string
 }
 
 // 工作时段配置接口
@@ -431,77 +405,33 @@ const workDayEnd = computed(() => {
   return hour + minute / 60
 })
 
-// 上午工作时段
+// 上午工作时段（用于计算 workDayStart）
 const morningSession = computed(() => {
   if (!dayWorkHours.value) {
-    return { start: 8.5, end: 12, startTime: '08:30', endTime: '12:00' }
+    return { start: 8.5, end: 12 }
   }
   const start = parseTime(dayWorkHours.value.morning_session.start_time)
   const end = parseTime(dayWorkHours.value.morning_session.end_time)
   return {
     start: start.hour + start.minute / 60,
-    end: end.hour + end.minute / 60,
-    startTime: dayWorkHours.value.morning_session.start_time,
-    endTime: dayWorkHours.value.morning_session.end_time
+    end: end.hour + end.minute / 60
   }
 })
 
-// 下午工作时段
+// 下午工作时段（用于计算 workDayEnd）
 const afternoonSession = computed(() => {
   if (!dayWorkHours.value) {
-    return { start: 13.5, end: 17.5, startTime: '13:30', endTime: '17:30' }
+    return { start: 13.5, end: 17.5 }
   }
   const start = parseTime(dayWorkHours.value.afternoon_session.start_time)
   const end = parseTime(dayWorkHours.value.afternoon_session.end_time)
   return {
     start: start.hour + start.minute / 60,
-    end: end.hour + end.minute / 60,
-    startTime: dayWorkHours.value.afternoon_session.start_time,
-    endTime: dayWorkHours.value.afternoon_session.end_time
+    end: end.hour + end.minute / 60
   }
 })
 
-// 计算包含所有任务的时间范围
-const timelineStartHour = computed(() => {
-  let minHour = Math.floor(workDayStart.value)
-  
-  // 检查所有任务，找到最早的开始时间
-  dayTasks.value.forEach(task => {
-    if (task.startTime) {
-      const hour = timeToMinutes(task.startTime) / 60
-      minHour = Math.min(minHour, Math.floor(hour))
-    }
-  })
-  
-  return minHour
-})
-
-const timelineEndHour = computed(() => {
-  let maxHour = Math.ceil(workDayEnd.value)
-  
-  // 检查所有任务，找到最晚的结束时间
-  dayTasks.value.forEach(task => {
-    if (task.endTime) {
-      const hour = timeToMinutes(task.endTime) / 60
-      maxHour = Math.max(maxHour, Math.ceil(hour))
-    } else if (task.startTime) {
-      const hour = timeToMinutes(task.startTime) / 60 + 1
-      maxHour = Math.max(maxHour, Math.ceil(hour))
-    }
-  })
-  
-  return maxHour
-})
-
-// 时间线显示的小时范围（只显示整点，包含所有任务）
-const displayHours = computed(() => {
-  const startHour = timelineStartHour.value
-  const endHour = timelineEndHour.value
-  return Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i)
-})
-
 const weekdays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
-const miniWeekdays = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 
 const weekDaysWithNames = computed(() => {
   return weekdays.map((weekday, index) => ({
@@ -641,17 +571,6 @@ const getTaskColorClass = (quadrant: number) => {
   return colors[quadrant - 1] || 'blue'
 }
 
-const getStatusLabel = (status: string) => {
-  const labels: Record<string, string> = {
-    'planning': '规划中',
-    'in_progress': '进行中',
-    'paused': '已暂停',
-    'completed': '已完成',
-    'archived': '已归档'
-  }
-  return labels[status] || status
-}
-
 const getTypeLabel = (dateType: string) => {
   const labels: Record<string, string> = {
     'holiday': '休假',
@@ -671,7 +590,7 @@ const weekDays = computed(() => {
   for (let i = 0; i < 7; i++) {
     const day = mondayOfWeek.add(i, 'day')
     const dateStr = day.format('YYYY-MM-DD')
-    const dayData = calendarData.value?.days.find(d => d.date === dateStr)
+    const dayData = calendarData.value?.days?.find(d => d.date === dateStr)
 
     if (dayData) {
       days.push({
@@ -713,344 +632,203 @@ const weekDays = computed(() => {
   return days
 })
 
-// Day view tasks - 合并工作记录、日历任务和进行中任务
-const dayTasks = computed((): Task[] => {
-  const dateStr = currentDate.value.format('YYYY-MM-DD')
-  const tasks: Task[] = []
-  const taskIds = new Set<number>()
+// 将 UTC 时间字符串转换为本地时间的分钟数（从0点开始）
+const timeStrToMinutes = (timeStr: string): number => {
+  const normalized = timeStr.endsWith('Z') || timeStr.includes('+') ? timeStr : timeStr + 'Z'
+  const d = dayjs(normalized)
+  return d.hour() * 60 + d.minute()
+}
 
-  // 1. 首先添加当天有工作记录的任务
-  // 只添加非规划中状态的任务（status != 0）
-  dayWorkRecords.value.forEach(record => {
-    if (!taskIds.has(record.task_id) && record.task_status !== 0) {
-      taskIds.add(record.task_id)
-      tasks.push({
-        id: record.task_id,
-        title: record.task_title,
-        startTime: record.start_time,
-        endTime: record.end_time,
-        taskQuadrant: record.task_quadrant,
-        taskStatus: getStatusText(record.task_status),
-        participants: [
-          { name: 'User', avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${record.task_id}` }
-        ],
-        tags: record.task_quadrant === 1 ? ['#URGENT', '#CORE'] :
-              record.task_quadrant === 2 ? ['#STRATEGY', '#DEEPWORK'] :
-              record.task_quadrant === 3 ? ['#EXTERNAL'] : ['#EMAIL']
+// 从日期字符串提取时间部分的分钟数
+const extractTimeMinutes = (dateTimeStr: string): number => {
+  // 支持 ISO 格式 (2024-01-01T08:30:00Z) 或纯时间格式 (08:30:00)
+  if (dateTimeStr.includes('T')) {
+    return timeStrToMinutes(dateTimeStr)
+  }
+  const parts = dateTimeStr.split(':')
+  return parseInt(parts[0]) * 60 + parseInt(parts[1])
+}
+
+// 获取任务标签
+const getTaskTags = (quadrant: number): string[] => {
+  switch (quadrant) {
+    case 1: return ['#URGENT', '#CORE']
+    case 2: return ['#STRATEGY', '#DEEPWORK']
+    case 3: return ['#EXTERNAL']
+    default: return ['#EMAIL']
+  }
+}
+
+// 解析象限值（支持字符串和数字）
+const parseQuadrant = (quadrant: number | string | undefined): number => {
+  if (typeof quadrant === 'number') return quadrant
+  if (typeof quadrant === 'string') {
+    const map: Record<string, number> = {
+      'ImportantUrgent': 1,
+      'ImportantNotUrgent': 2,
+      'NotImportantUrgent': 3,
+      'NotImportantNotUrgent': 4
+    }
+    return map[quadrant] || 1
+  }
+  return 1
+}
+
+// Day view tasks - 甘特图格式，合并所有未归档任务的时间段
+const dayTasks = computed((): GanttTask[] => {
+  const dateStr = currentDate.value.format('YYYY-MM-DD')
+  const isToday = currentDate.value.isSame(dayjs(), 'day')
+  const taskMap = new Map<number, GanttTask>()
+
+  // 工作开始时间的分钟数
+  const workStartMinutes = Math.floor(workDayStart.value) * 60
+  const workEndMinutes = Math.ceil(workDayEnd.value) * 60
+
+  // 辅助：添加或合并任务段
+  const addTaskSegment = (
+    taskId: number,
+    title: string,
+    quadrant: number,
+    status: string,
+    startMinutes: number,
+    endMinutes: number,
+    isRunning: boolean = false
+  ) => {
+    // 限制在工作时间范围内
+    const clampedStart = Math.max(startMinutes, workStartMinutes)
+    const clampedEnd = Math.min(endMinutes, workEndMinutes)
+    if (clampedStart >= clampedEnd) return
+
+    const existing = taskMap.get(taskId)
+    const segment: TimeSegment = {
+      startMinutes: clampedStart,
+      endMinutes: clampedEnd,
+      isRunning
+    }
+
+    if (existing) {
+      existing.segments.push(segment)
+      // 如果有任意段是 running，任务状态更新为 in_progress
+      if (isRunning) existing.taskStatus = 'in_progress'
+    } else {
+      taskMap.set(taskId, {
+        id: taskId,
+        title,
+        taskQuadrant: quadrant,
+        taskStatus: isRunning ? 'in_progress' : status,
+        tags: getTaskTags(quadrant),
+        segments: [segment]
       })
     }
+  }
+
+  // 1. 处理当天工作记录 - 每个记录生成一个时间段
+  dayWorkRecords.value.forEach(record => {
+    if (record.task_status === 0) return // 跳过规划中
+
+    const startMinutes = extractTimeMinutes(record.start_time)
+    const endMinutes = record.end_time
+      ? extractTimeMinutes(record.end_time)
+      : (isToday ? dayjs().hour() * 60 + dayjs().minute() : workEndMinutes)
+
+    addTaskSegment(
+      record.task_id,
+      record.task_title,
+      record.task_quadrant,
+      getStatusText(record.task_status),
+      startMinutes,
+      endMinutes,
+      !record.end_time && isToday
+    )
   })
 
-  // 2. 从日历数据中获取当天的任务
+  // 2. 从日历数据中获取当天的任务（补充未在工作记录中的）
   const dayData = calendarData.value?.days.find(d => d.date === dateStr)
   if (dayData?.tasks) {
     dayData.tasks.forEach(t => {
-      if (!taskIds.has(t.task_id)) {
-        taskIds.add(t.task_id)
-        tasks.push({
-          id: t.task_id,
-          title: t.title,
-          startTime: t.start_time,
-          endTime: t.end_time,
-          taskQuadrant: t.task_quadrant,
-          taskStatus: t.task_status,
-          participants: [
-            { name: 'User', avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${t.task_id}` }
-          ],
-          tags: t.task_quadrant === 1 ? ['#URGENT', '#CORE'] :
-                t.task_quadrant === 2 ? ['#STRATEGY', '#DEEPWORK'] :
-                t.task_quadrant === 3 ? ['#EXTERNAL'] : ['#EMAIL']
-        })
-      }
+      if (taskMap.has(t.task_id)) return // 已有工作记录，跳过
+      if (!t.start_time) return
+
+      const startMinutes = extractTimeMinutes(t.start_time)
+      const endMinutes = t.end_time
+        ? extractTimeMinutes(t.end_time)
+        : (isToday ? dayjs().hour() * 60 + dayjs().minute() : workEndMinutes)
+
+      addTaskSegment(
+        t.task_id,
+        t.title,
+        t.task_quadrant,
+        t.task_status,
+        startMinutes,
+        endMinutes,
+        !t.end_time && isToday
+      )
     })
   }
 
-  // 3. 添加进行中的任务（跨天任务）
-  // 只添加有今天工作记录的进行中的任务
-  inProgressTasks.value.forEach(task => {
-    if (!taskIds.has(task.id)) {
-      // 查找该任务在今天的工作记录
-      const todayWorkRecords = dayWorkRecords.value.filter(
-        record => record.task_id === task.id
-      )
+  // 3. 处理进行中的跨天任务（status = 1，未归档）
+  // 如果没有今天的工作记录，从今天工作开始时间起算
+  inProgressTasks.value.forEach((task: RawTask) => {
+    if (taskMap.has(task.id)) return // 已有今天工作记录
 
-      // 如果有今天的工作记录，则显示
-      if (todayWorkRecords.length > 0) {
-        taskIds.add(task.id)
+    const quadrant = parseQuadrant(task.quadrant)
+    const nowMinutes = isToday ? dayjs().hour() * 60 + dayjs().minute() : workEndMinutes
 
-        // 使用工作记录的开始和结束时间
-        todayWorkRecords.forEach(record => {
-          tasks.push({
-            id: task.id,
-            title: task.title,
-            startTime: record.start_time,
-            endTime: record.end_time,
-            taskQuadrant: task.quadrant ? (typeof task.quadrant === 'string' ? ['', 'ImportantUrgent', 'ImportantNotUrgent', 'NotImportantUrgent', 'NotImportantNotUrgent'].indexOf(task.quadrant) : task.quadrant) : 1,
-            taskStatus: 'in_progress',
-            participants: [
-              { name: 'User', avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${task.id}` }
-            ],
-            tags: task.quadrant === 'ImportantUrgent' || task.quadrant === 1 ? ['#URGENT', '#CORE'] :
-                  task.quadrant === 'ImportantNotUrgent' || task.quadrant === 2 ? ['#STRATEGY', '#DEEPWORK'] :
-                  task.quadrant === 'NotImportantUrgent' || task.quadrant === 3 ? ['#EXTERNAL'] : ['#EMAIL']
-          })
-        })
+    addTaskSegment(
+      task.id,
+      task.title,
+      quadrant,
+      'in_progress',
+      workStartMinutes,
+      nowMinutes,
+      isToday
+    )
+  })
+
+  // 4. 处理当天归档的任务
+  archivedTasks.value.forEach((task: RawTask) => {
+    if (taskMap.has(task.id)) return // 已有今天工作记录
+
+    const quadrant = parseQuadrant(task.quadrant)
+
+    addTaskSegment(
+      task.id,
+      task.title,
+      quadrant,
+      'archived',
+      workStartMinutes,
+      workEndMinutes,
+      false
+    )
+  })
+
+  // 对每个任务的 segments 按开始时间排序并合并重叠段
+  const result: GanttTask[] = []
+  taskMap.forEach(task => {
+    task.segments.sort((a, b) => a.startMinutes - b.startMinutes)
+
+    // 合并重叠或相邻的段
+    const merged: TimeSegment[] = []
+    task.segments.forEach(seg => {
+      const last = merged[merged.length - 1]
+      if (last && seg.startMinutes <= last.endMinutes) {
+        // 重叠或相邻，合并
+        last.endMinutes = Math.max(last.endMinutes, seg.endMinutes)
+        if (seg.isRunning) last.isRunning = true
+      } else {
+        merged.push({ ...seg })
       }
-    }
-  })
-
-  // 4. 添加当天归档的任务
-  // 只添加有今天工作记录的归档任务
-  archivedTasks.value.forEach(task => {
-    if (!taskIds.has(task.id)) {
-      // 查找该任务在今天的工作记录
-      const todayWorkRecords = dayWorkRecords.value.filter(
-        record => record.task_id === task.id
-      )
-
-      // 如果有今天的工作记录，则显示
-      if (todayWorkRecords.length > 0) {
-        taskIds.add(task.id)
-
-        // 使用工作记录的开始和结束时间
-        todayWorkRecords.forEach(record => {
-          tasks.push({
-            id: task.id,
-            title: task.title,
-            startTime: record.start_time,
-            endTime: record.end_time,
-            taskQuadrant: task.quadrant || 1,
-            taskStatus: 'archived',
-            participants: [
-              { name: 'User', avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${task.id}` }
-            ],
-            tags: task.quadrant === 1 ? ['#URGENT', '#CORE'] :
-                  task.quadrant === 2 ? ['#STRATEGY', '#DEEPWORK'] :
-                  task.quadrant === 3 ? ['#EXTERNAL'] : ['#EMAIL']
-          })
-        })
-      }
-    }
-  })
-
-  return tasks
-})
-
-// 检查是否是今天
-const isToday = computed(() => {
-  return currentDate.value.isSame(dayjs(), 'day')
-})
-
-// 当前时间线位置（相对于时间线开始）
-const currentTimeLineStyle = computed(() => {
-  const now = dayjs()
-  const hour = now.hour()
-  const minute = now.minute()
-  const offsetMinutes = hour * 60 + minute
-  const timelineStartMinutes = timelineStartHour.value * 60
-  const timelineEndMinutes = timelineEndHour.value * 60
-  
-  // 如果当前时间在时间线范围内才显示
-  if (offsetMinutes < timelineStartMinutes || offsetMinutes > timelineEndMinutes) {
-    return { display: 'none' }
-  }
-  
-  const relativeMinutes = offsetMinutes - timelineStartMinutes
-  const top = relativeMinutes * 1.5 // 1.5px per minute
-  return {
-    top: `${top}px`
-  }
-})
-
-// 工作时间背景样式（显示上午和下午两个时段，中间跳过午休）
-const workHoursBgStyle = computed(() => {
-  const minuteHeight = 1.5
-  const timelineStartMinutes = timelineStartHour.value * 60
-  
-  // 上午时段
-  const morningStartMinutes = morningSession.value.start * 60 - timelineStartMinutes
-  const morningEndMinutes = morningSession.value.end * 60 - timelineStartMinutes
-  const morningHeight = (morningEndMinutes - morningStartMinutes) * minuteHeight
-  
-  // 返回上午时段的样式
-  return {
-    top: `${morningStartMinutes * minuteHeight}px`,
-    height: `${morningHeight}px`
-  }
-})
-
-// 下午工作时段背景样式
-const afternoonWorkHoursBgStyle = computed(() => {
-  const minuteHeight = 1.5
-  const timelineStartMinutes = timelineStartHour.value * 60
-  
-  // 下午时段
-  const afternoonStartMinutes = afternoonSession.value.start * 60 - timelineStartMinutes
-  const afternoonEndMinutes = afternoonSession.value.end * 60 - timelineStartMinutes
-  const afternoonHeight = (afternoonEndMinutes - afternoonStartMinutes) * minuteHeight
-  
-  return {
-    top: `${afternoonStartMinutes * minuteHeight}px`,
-    height: `${afternoonHeight}px`
-  }
-})
-
-// 将时间转换为分钟数（从0点开始）
-const timeToMinutes = (timeStr: string): number => {
-  // 处理 ISO 格式时间字符串，如 "2026-04-08T08:30:00" 或 "08:30:00"
-  let timePart = timeStr
-  
-  // 如果是完整的 ISO 日期时间格式，提取时间部分
-  if (timeStr.includes('T')) {
-    timePart = timeStr.split('T')[1]
-  }
-  
-  // 解析时间部分
-  const parts = timePart.split(':')
-  const hour = parseInt(parts[0] || '0')
-  const minute = parseInt(parts[1] || '0')
-  
-  return hour * 60 + minute
-}
-
-// 将时间转换为相对于时间线开始的分钟数（用于定位）
-const timeToRelativeMinutes = (timeStr: string): number => {
-  const totalMinutes = timeToMinutes(timeStr)
-  const timelineStartMinutes = timelineStartHour.value * 60
-  return totalMinutes - timelineStartMinutes
-}
-
-// 检测任务时间是否重叠
-const checkTaskOverlap = (task1: Task, task2: Task): boolean => {
-  const start1 = timeToMinutes(task1.startTime)
-  const end1 = task1.endTime ? timeToMinutes(task1.endTime) : start1 + 60
-  const start2 = timeToMinutes(task2.startTime)
-  const end2 = task2.endTime ? timeToMinutes(task2.endTime) : start2 + 60
-  
-  return start1 < end2 && start2 < end1
-}
-
-// 计算任务布局（处理重叠）
-const positionedTasksWithLayout = computed((): Task[] => {
-  console.log('dayTasks:', dayTasks.value)
-  console.log('dayWorkRecords:', dayWorkRecords.value)
-  console.log('calendarData:', calendarData.value)
-  
-  const tasks = dayTasks.value.filter(task => task.startTime)
-  console.log('Filtered tasks with startTime:', tasks)
-  
-  // 计算每个任务的持续时间
-  const tasksWithMeta = tasks.map(task => {
-    const startMinutes = timeToMinutes(task.startTime)
-    const endMinutes = task.endTime ? timeToMinutes(task.endTime) : startMinutes + 60
-    const durationMinutes = endMinutes - startMinutes
-    
-    return {
-      ...task,
-      durationMinutes,
-      _startMinutes: startMinutes,
-      _endMinutes: endMinutes
-    }
-  })
-  
-  // 按开始时间排序
-  tasksWithMeta.sort((a, b) => a._startMinutes - b._startMinutes)
-  
-  // 检测冲突并分组
-  const conflictGroups: typeof tasksWithMeta[] = []
-  
-  tasksWithMeta.forEach(task => {
-    let added = false
-    for (const group of conflictGroups) {
-      // 检查是否与组内任何任务冲突
-      const hasConflict = group.some(t => checkTaskOverlap(t, task))
-      if (hasConflict) {
-        group.push(task)
-        added = true
-        break
-      }
-    }
-    if (!added) {
-      conflictGroups.push([task])
-    }
-  })
-  
-  // 为每个任务分配冲突索引
-  const result: Task[] = []
-  conflictGroups.forEach(group => {
-    const total = group.length
-    group.forEach((task, index) => {
-      result.push({
-        ...task,
-        hasConflict: total > 1,
-        conflictIndex: index,
-        conflictTotal: total
-      })
     })
+
+    task.segments = merged
+    result.push(task)
   })
-  
+
+  // 按任务 ID 排序（稳定展示）
+  result.sort((a, b) => a.id - b.id)
+
   return result
 })
-
-const getTaskCardStyle = (task: Task) => {
-  const startMinutes = timeToMinutes(task.startTime)
-  const endMinutes = task.endTime ? timeToMinutes(task.endTime) : startMinutes + 60
-  const duration = endMinutes - startMinutes
-
-  // 计算相对于工作时间开始的偏移量
-  const relativeStartMinutes = timeToRelativeMinutes(task.startTime)
-
-  // 每个小时 = 90px, 所以 1分钟 = 1.5px
-  const minuteHeight = 1.5
-  const top = relativeStartMinutes * minuteHeight
-  // 高度与持续时间成比例，最小24px确保能显示内容
-  const height = Math.max(duration * minuteHeight - 2, 24)
-
-  // 处理冲突任务的偏移
-  let left = '60px'
-  const cardWidth = 100 // 固定宽度100px
-
-  if (task.hasConflict && task.conflictTotal && task.conflictIndex !== undefined) {
-    // 冲突任务并排显示，每个任务偏移 cardWidth + 10px 间隙
-    const offset = task.conflictIndex * (cardWidth + 10)
-    left = `${60 + offset}px`
-  }
-
-  return {
-    top: `${top}px`,
-    height: `${height}px`,
-    left
-  }
-}
-
-// 格式化短时长（用于徽章）
-const formatDurationShort = (minutes: number): string => {
-  const hours = Math.floor(minutes / 60)
-  const mins = minutes % 60
-  if (hours > 0) {
-    return `${hours}h${mins > 0 ? mins + 'm' : ''}`
-  }
-  return `${mins}m`
-}
-
-const formatHour = (hour: number) => {
-  return `${String(hour).padStart(2, '0')}:00`
-}
-
-const formatTaskTime = (task: Task) => {
-  // 提取时间部分（支持 ISO 格式和纯时间格式）
-  const extractTime = (timeStr: string): string => {
-    if (timeStr.includes('T')) {
-      return timeStr.split('T')[1].substring(0, 5)
-    }
-    return timeStr.substring(0, 5)
-  }
-  
-  const start = extractTime(task.startTime)
-  if (!task.endTime) return start
-  const end = extractTime(task.endTime)
-  return `${start} - ${end}`
-}
 
 const getStatusText = (status: number): string => {
   const statusMap: Record<number, string> = {
@@ -1061,18 +839,6 @@ const getStatusText = (status: number): string => {
     4: 'archived'
   }
   return statusMap[status] || 'planning'
-}
-
-// 获取标签颜色类
-const getTagColorClass = (tag: string): string => {
-  const tagLower = tag.toLowerCase()
-  if (tagLower.includes('urgent') || tagLower.includes('紧急')) return 'tag-urgent'
-  if (tagLower.includes('core') || tagLower.includes('核心')) return 'tag-core'
-  if (tagLower.includes('strategy') || tagLower.includes('战略')) return 'tag-strategy'
-  if (tagLower.includes('deepwork') || tagLower.includes('深度')) return 'tag-deepwork'
-  if (tagLower.includes('external') || tagLower.includes('外部')) return 'tag-external'
-  if (tagLower.includes('email') || tagLower.includes('邮件')) return 'tag-email'
-  return 'tag-default'
 }
 
 // Mini calendar days
@@ -1134,28 +900,36 @@ const showAddTaskModal = () => {
   console.log('Add task clicked')
 }
 
+const editTask = (taskOrId: number | { id: number; title?: string }) => {
+  const id = typeof taskOrId === 'number' ? taskOrId : taskOrId.id
+  if ((window as any).openEditTaskDialog) {
+    (window as any).openEditTaskDialog({ id })
+  }
+}
+
 watch(currentDate, async (newDate, oldDate) => {
-  // 只有在Day视图下且日期真正变化时才加载工作记录
-  if (currentView.value === 'day' && newDate.format('YYYY-MM-DD') !== oldDate?.format('YYYY-MM-DD')) {
+  if (currentView.value === 'day' && oldDate && newDate.format('YYYY-MM-DD') !== oldDate.format('YYYY-MM-DD')) {
     await loadDayWorkRecords()
     await loadDayWorkHours()
     await loadInProgressTasks()
     await loadArchivedTasks()
   }
-  loadCalendarData()
-}, { immediate: false })
+  await loadCalendarData()
+}, { immediate: true })
 
-watch(currentView, (newView) => {
+watch(currentView, async (newView) => {
   if (newView === 'day') {
-    loadDayWorkRecords()
-    loadDayWorkHours()
-    loadInProgressTasks()
-    loadArchivedTasks()
+    await Promise.all([
+      loadDayWorkRecords(),
+      loadDayWorkHours(),
+      loadInProgressTasks(),
+      loadArchivedTasks()
+    ])
   }
-  loadCalendarData()
+  await loadCalendarData()
 })
 
-watch(() => currentDate.value.format('YYYY-MM'), (newMonth) => {
+watch(() => currentDate.value.format('YYYY-MM'), () => {
   miniCalendarDate.value = currentDate.value
 })
 
@@ -1382,325 +1156,6 @@ onMounted(() => {
 .today-nav-btn:hover {
   background: var(--bg-page);
   border-color: #d0d7de;
-}
-
-/* Timeline */
-.timeline-container {
-  flex: 1;
-  overflow-y: auto;
-  max-height: 600px;
-}
-
-.timeline {
-  position: relative;
-  padding-right: 16px;
-  /* 动态计算高度：根据时间线范围 */
-  min-height: calc((v-bind('timelineEndHour') - v-bind('timelineStartHour')) * 90px);
-}
-
-/* 工作时间背景 */
-.work-hours-bg {
-  position: absolute;
-  left: 60px;
-  right: 0;
-  background: rgba(59, 130, 246, 0.03);
-  border-left: 2px solid var(--color-primary-light);
-  border-right: 2px solid var(--color-primary-light);
-  pointer-events: none;
-  z-index: 1;
-}
-
-.work-hours-bg.morning-bg {
-  background: rgba(59, 130, 246, 0.03);
-}
-
-.work-hours-bg.afternoon-bg {
-  background: rgba(59, 130, 246, 0.03);
-}
-
-.timeline-hour {
-  display: flex;
-  align-items: center;
-  height: 90px;
-  position: relative;
-}
-
-.hour-label {
-  width: 50px;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-tertiary);
-  flex-shrink: 0;
-}
-
-.hour-line {
-  flex: 1;
-  height: 1px;
-  background: var(--bg-input);
-  margin-left: 12px;
-}
-
-/* 当前时间线 */
-.current-time-line {
-  position: absolute;
-  left: 60px;
-  right: 0;
-  display: flex;
-  align-items: center;
-  z-index: 20;
-  pointer-events: none;
-}
-
-.current-time-dot {
-  width: 10px;
-  height: 10px;
-  background: var(--color-danger);
-  border-radius: 50%;
-  margin-left: -5px;
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.3);
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.3); }
-  50% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0.1); }
-}
-
-.current-time-line-body {
-  flex: 1;
-  height: 2px;
-  background: linear-gradient(90deg, var(--color-danger) 0%, rgba(239, 68, 68, 0.3) 100%);
-}
-
-/* Timeline Task Cards */
-.timeline-task-card {
-  position: absolute;
-  left: 60px;
-  width: 100px;
-  border-radius: 8px;
-  padding: 6px 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  z-index: 10;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  overflow: hidden;
-  box-sizing: border-box;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-}
-
-.timeline-task-card:hover {
-  transform: translateX(4px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-  z-index: 15;
-}
-
-.timeline-task-card.blue {
-  background: linear-gradient(135deg, var(--color-primary-light) 0%, rgba(59, 130, 246, 0.05) 100%);
-  border-left: 4px solid var(--color-primary);
-}
-
-.timeline-task-card.green {
-  background: linear-gradient(135deg, var(--color-success-bg) 0%, rgba(16, 185, 129, 0.05) 100%);
-  border-left: 4px solid var(--color-success);
-}
-
-.timeline-task-card.orange {
-  background: linear-gradient(135deg, var(--color-warning-bg) 0%, rgba(245, 158, 11, 0.05) 100%);
-  border-left: 4px solid var(--color-warning);
-}
-
-.timeline-task-card.purple {
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(139, 92, 246, 0.05) 100%);
-  border-left: 4px solid #8b5cf6;
-}
-
-/* 任务时长徽章 */
-.task-duration-badge {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  font-size: 8px;
-  font-weight: 700;
-  padding: 1px 4px;
-  background: rgba(0, 0, 0, 0.6);
-  color: white;
-  border-radius: 3px;
-  z-index: 5;
-}
-
-/* 任务状态指示器 */
-.task-status-indicator {
-  position: absolute;
-  top: 6px;
-  left: 4px;
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: var(--text-tertiary);
-}
-
-.task-status-indicator.planning {
-  background: var(--text-tertiary);
-}
-
-.task-status-indicator.in_progress {
-  background: var(--color-primary);
-  animation: blink 1.5s infinite;
-}
-
-.task-status-indicator.paused {
-  background: var(--color-warning);
-}
-
-.task-status-indicator.completed {
-  background: var(--color-success);
-}
-
-.task-status-indicator.archived {
-  background: var(--text-tertiary);
-  border: 1px solid var(--text-tertiary);
-}
-
-/* 归档任务特殊样式 */
-.timeline-task-card.is-archived {
-  opacity: 0.7;
-  background: linear-gradient(135deg, rgba(107, 114, 128, 0.1) 0%, rgba(107, 114, 128, 0.05) 100%);
-  border-left: 4px solid #6b7280;
-}
-
-.timeline-task-card.is-archived .task-card-title {
-  color: #6b7280;
-  text-decoration: line-through;
-}
-
-.timeline-task-card.is-archived .task-card-time {
-  color: #9ca3af;
-}
-
-@keyframes blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
-}
-
-.task-card-title {
-  font-size: 11px;
-  font-weight: 600;
-  color: #1e293b;
-  line-height: 1.2;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 100%;
-}
-
-.timeline-task-card.blue .task-card-title {
-  color: #1e40af;
-}
-
-.timeline-task-card.green .task-card-title {
-  color: #065f46;
-}
-
-.timeline-task-card.orange .task-card-title {
-  color: #92400e;
-}
-
-.timeline-task-card.purple .task-card-title {
-  color: #5b21b6;
-}
-
-.task-card-time {
-  font-size: 10px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  line-height: 1.2;
-}
-
-.task-participants {
-  display: flex;
-  align-items: center;
-}
-
-.participant-avatar {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 2px solid var(--bg-card);
-  margin-left: -6px;
-}
-
-.participant-avatar:first-child {
-  margin-left: 0;
-}
-
-.participant-more {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--bg-input);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 9px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  border: 2px solid var(--bg-card);
-  margin-left: -6px;
-}
-
-.task-tags {
-  display: flex;
-  gap: 3px;
-  flex-wrap: wrap;
-  margin-top: auto;
-}
-
-.task-tag-item {
-  font-size: 8px;
-  font-weight: 600;
-  padding: 2px 5px;
-  border-radius: 3px;
-  line-height: 1.2;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-
-/* 标签颜色样式 */
-.task-tag-item.tag-urgent {
-  background: rgba(239, 68, 68, 0.15);
-  color: #dc2626;
-}
-
-.task-tag-item.tag-core {
-  background: rgba(59, 130, 246, 0.15);
-  color: #2563eb;
-}
-
-.task-tag-item.tag-strategy {
-  background: rgba(139, 92, 246, 0.15);
-  color: #7c3aed;
-}
-
-.task-tag-item.tag-deepwork {
-  background: rgba(16, 185, 129, 0.15);
-  color: #059669;
-}
-
-.task-tag-item.tag-external {
-  background: rgba(245, 158, 11, 0.15);
-  color: #d97706;
-}
-
-.task-tag-item.tag-email {
-  background: rgba(107, 114, 128, 0.15);
-  color: #4b5563;
-}
-
-.task-tag-item.tag-default {
-  background: var(--glass-bg);
-  color: var(--text-secondary);
 }
 
 /* Day Sidebar */
@@ -2133,7 +1588,7 @@ onMounted(() => {
   border-radius: 6px;
   font-size: 11px;
   font-weight: 500;
-  var(--bg-card)-space: nowrap;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   display: flex;
@@ -2221,6 +1676,79 @@ onMounted(() => {
 /* Month View */
 .month-view {
   padding: 8px 0;
+}
+
+.month-nav-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.month-title-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.month-date-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.month-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.loading-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 0;
+  gap: 12px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--bg-input);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-indicator span {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.empty-calendar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 0;
+  gap: 12px;
+  color: var(--text-tertiary);
+}
+
+.empty-calendar svg {
+  width: 48px;
+  height: 48px;
+}
+
+.empty-calendar p {
+  font-size: 14px;
+  margin: 0;
 }
 
 .calendar-days {
@@ -2354,7 +1882,7 @@ onMounted(() => {
   border-radius: 4px;
   font-size: 10px;
   font-weight: 600;
-  var(--bg-card)-space: nowrap;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   display: flex;

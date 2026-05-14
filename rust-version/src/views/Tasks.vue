@@ -344,7 +344,9 @@ const loadMoreArchived = () => {
 
 const formatDate = (dateStr?: string) => {
   if (!dateStr) return ''
-  return dayjs(dateStr).format('MM/DD')
+  // 数据库时间统一为 UTC，无时区标记时补 Z 以确保 dayjs 正确转换为本地时间
+  const normalized = dateStr.endsWith('Z') || dateStr.includes('+') ? dateStr : dateStr + 'Z'
+  return dayjs(normalized).format('MM/DD')
 }
 
 // 监听任务保存事件，刷新任务列表

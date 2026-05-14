@@ -188,18 +188,21 @@ impl CalendarService {
 
     /// 获取指定月份的日历数据
     pub async fn get_calendar_events(&self, year: i32, month: i32) -> Result<MonthCalendarData, sqlx::Error> {
-        // 获取指定月份的任务（基于任务计划时间）
+        // 计算月份范围（字符串格式，用于 SQL 查询）
+        let month_start_str = format!("{}-{:02}-01", year, month);
+        let month_end_str = format!("{}-{:02}-{:02}", year, month, Self::days_in_month(year, month as u32));
+
+        // 获取在指定月份有活动计划的任务（基于时间段重叠而非精确月份匹配）
+        // 这样能覆盖 start_at 在上月、due_at 在下月的跨月任务
         let tasks: Vec<TaskRow> = sqlx::query_as(
             "SELECT t.* FROM tasks t
              WHERE (t.start_at IS NOT NULL OR t.due_at IS NOT NULL)
-               AND ((strftime('%Y', t.start_at) = ? AND strftime('%m', t.start_at) = ?)
-                OR (strftime('%Y', t.due_at) = ? AND strftime('%m', t.due_at) = ?))
+               AND (t.start_at IS NULL OR date(t.start_at) <= ?)
+               AND (t.due_at IS NULL OR date(t.due_at) >= ?)
              ORDER BY COALESCE(t.start_at, t.due_at)"
         )
-        .bind(year.to_string())
-        .bind(format!("{:02}", month))
-        .bind(year.to_string())
-        .bind(format!("{:02}", month))
+        .bind(&month_end_str)
+        .bind(&month_start_str)
         .fetch_all(&self.pool)
         .await?;
 
@@ -216,7 +219,7 @@ impl CalendarService {
             .ok_or_else(|| sqlx::Error::Decode("Invalid date".into()))?;
         
         let days_in_month = Self::days_in_month(year, month as u32);
-        let today = chrono::Local::now().naive_local().date();
+        let today = Utc::now().date_naive();
         
         let mut days = Vec::new();
 
@@ -336,12 +339,20 @@ impl CalendarService {
 
     /// 获取指定日期的活动任务
     /// 基于工作记录表计算：如果某天有工作记录（start_time <= date <= end_time），则该任务在该天是活动的
+    /// 注意：只显示今天及之前日期的任务，不预测未来的工作
     fn get_active_tasks_for_date(
         &self,
         date: NaiveDate,
         tasks: &[TaskRow],
         work_records: &[WorkRecordRow],
     ) -> Vec<CalendarEvent> {
+        let today = chrono::Utc::now().date_naive();
+        
+        // 如果指定日期是未来日期，直接返回空列表（不预测未来工作）
+        if date > today {
+            return Vec::new();
+        }
+
         let mut active_tasks: Vec<CalendarEvent> = Vec::new();
         let mut processed_task_ids: std::collections::HashSet<i64> = std::collections::HashSet::new();
 
@@ -350,8 +361,8 @@ impl CalendarService {
             // 检查该工作记录是否覆盖指定日期
             let record_start_date = record.start_time.date();
             let record_end_date = record.end_time.map(|dt| dt.date()).unwrap_or_else(|| {
-                // 如果 end_time 为空，表示任务仍在进行中，使用当前日期或一个很远的未来日期
-                chrono::Local::now().naive_local().date()
+                // 如果 end_time 为空，表示任务仍在进行中，使用当前日期
+                today
             });
 
             // 如果指定日期在工作记录的时间范围内
@@ -392,39 +403,8 @@ impl CalendarService {
             }
         }
 
-        // 如果没有工作记录，回退到使用任务计划时间
-        if active_tasks.is_empty() {
-            active_tasks = tasks
-                .iter()
-                .filter(|task| {
-                    let task_start_date = task.start_at.map(|dt| dt.date());
-                    let task_end_date = task.due_at.map(|dt| dt.date());
-                    
-                    // 任务在某天活动的条件：
-                    // 1. 任务开始日期 <= 指定日期
-                    // 2. 任务截止日期 >= 指定日期 或 任务没有截止日期
-                    match (task_start_date, task_end_date) {
-                        (Some(start), Some(end)) => date >= start && date <= end,
-                        (Some(start), None) => date >= start,
-                        _ => false,
-                    }
-                })
-                .map(|task| CalendarEvent {
-                    id: task.id,
-                    task_id: task.id,
-                    title: task.title.clone(),
-                    description: task.description.clone(),
-                    start_time: DateTime::from_naive_utc_and_offset(
-                        task.start_at.unwrap_or(task.due_at.unwrap()),
-                        Utc
-                    ),
-                    end_time: task.due_at.map(|dt| DateTime::from_naive_utc_and_offset(dt, Utc)),
-                    color: self.get_task_color(task.status),
-                    task_status: self.get_status_text(task.status),
-                    task_quadrant: task.quadrant,
-                })
-                .collect();
-        }
+        // 不使用任务计划时间进行预测，只基于工作记录显示任务
+        // 任务应该记录已经完成的工作，而不是预测未来
 
         active_tasks
     }

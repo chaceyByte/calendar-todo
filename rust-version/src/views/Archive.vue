@@ -287,7 +287,9 @@ function parseTags(tagsJson?: string): Tag[] {
 // 格式化日期时间
 function formatDateTime(dateStr?: string): string {
   if (!dateStr) return '-'
-  return dayjs(dateStr).format('YYYY-MM-DD HH:mm')
+  // 数据库时间统一为 UTC，无时区标记时补 Z 以确保 dayjs 正确转换为本地时间
+  const normalized = dateStr.endsWith('Z') || dateStr.includes('+') ? dateStr : dateStr + 'Z'
+  return dayjs(normalized).format('YYYY-MM-DD HH:mm')
 }
 
 // 将分钟转换为工作天数（8小时/天）

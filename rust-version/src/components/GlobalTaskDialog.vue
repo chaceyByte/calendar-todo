@@ -244,9 +244,83 @@ const closeDialog = () => {
   showDialog.value = false
 }
 
+// 打开编辑对话框
+const openEditDialog = async (task: any) => {
+  isEditing.value = true
+  currentTaskId.value = task.id
+  selectedTags.value = []
+  originalTagIds.value = []
+  tagSearchQuery.value = ''
+  showTagDropdown.value = false
+
+  // 检查是否有完整的 isImportant 字段（来自 Tasks.vue 的全量 Task）
+  if (task.isImportant !== undefined) {
+    taskForm.value = {
+      title: task.title || '',
+      description: task.description || '',
+      status: task.status || 'planning',
+      isImportant: task.isImportant,
+      isUrgent: task.isUrgent,
+      progress: task.progress || 0,
+      startAt: task.startAt ? dayjs(task.startAt).format('YYYY-MM-DDTHH:mm') : '',
+      dueAt: task.dueAt ? dayjs(task.dueAt).format('YYYY-MM-DDTHH:mm') : ''
+    }
+    if (task.tags) {
+      selectedTags.value = task.tags.map((t: any) => ({ id: t.id, name: t.name, color: t.color }))
+      originalTagIds.value = task.tags.map((t: any) => t.id)
+    }
+  } else {
+    // 仅有部分数据（如 Calendar.vue）→ 从后端获取完整数据
+    taskForm.value = {
+      title: task.title || '',
+      description: '',
+      status: 'planning',
+      isImportant: false,
+      isUrgent: false,
+      progress: 0,
+      startAt: '',
+      dueAt: ''
+    }
+    try {
+      const fullTask = await invoke<any>('get_task', { taskId: task.id })
+      taskForm.value = {
+        title: fullTask.title || '',
+        description: fullTask.description || '',
+        status: fullTask.status || 'planning',
+        isImportant: fullTask.isImportant,
+        isUrgent: fullTask.isUrgent,
+        progress: fullTask.progress || 0,
+        startAt: fullTask.startAt ? dayjs(fullTask.startAt).format('YYYY-MM-DDTHH:mm') : '',
+        dueAt: fullTask.dueAt ? dayjs(fullTask.dueAt).format('YYYY-MM-DDTHH:mm') : ''
+      }
+      if (fullTask.tags) {
+        selectedTags.value = fullTask.tags.map((t: any) => ({ id: t.id, name: t.name, color: t.color }))
+        originalTagIds.value = fullTask.tags.map((t: any) => t.id)
+      }
+    } catch (error) {
+      console.error('获取任务详情失败:', error)
+    }
+  }
+
+  showDialog.value = true
+}
+
 const setQuadrant = (isImportant: boolean, isUrgent: boolean) => {
   taskForm.value.isImportant = isImportant
   taskForm.value.isUrgent = isUrgent
+}
+
+// 将 datetime-local 本地时间字符串转换为 UTC 格式（YYYY-MM-DD HH:MM:SS）
+const toUtcString = (localDateStr: string): string | undefined => {
+  if (!localDateStr) return undefined
+  const d = new Date(localDateStr)
+  if (isNaN(d.getTime())) return undefined
+  return d.getUTCFullYear() + '-' +
+    String(d.getUTCMonth() + 1).padStart(2, '0') + '-' +
+    String(d.getUTCDate()).padStart(2, '0') + ' ' +
+    String(d.getUTCHours()).padStart(2, '0') + ':' +
+    String(d.getUTCMinutes()).padStart(2, '0') + ':' +
+    String(d.getUTCSeconds()).padStart(2, '0')
 }
 
 const saveTask = async () => {
@@ -266,8 +340,8 @@ const saveTask = async () => {
           isImportant: taskForm.value.isImportant,
           isUrgent: taskForm.value.isUrgent,
           progress: taskForm.value.progress,
-          startAt: taskForm.value.startAt || undefined,
-          dueAt: taskForm.value.dueAt || undefined,
+          startAt: toUtcString(taskForm.value.startAt),
+          dueAt: toUtcString(taskForm.value.dueAt),
           archived: taskForm.value.status === 'archived',
           addTagIds: addTagIds.length > 0 ? addTagIds : undefined,
           removeTagIds: removeTagIds.length > 0 ? removeTagIds : undefined
@@ -281,8 +355,8 @@ const saveTask = async () => {
           status: taskForm.value.status,
           isImportant: taskForm.value.isImportant,
           isUrgent: taskForm.value.isUrgent,
-          startAt: taskForm.value.startAt || undefined,
-          dueAt: taskForm.value.dueAt || undefined,
+          startAt: toUtcString(taskForm.value.startAt),
+          dueAt: toUtcString(taskForm.value.dueAt),
           tagIds: selectedTags.value.map(t => t.id)
         }
       })

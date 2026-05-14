@@ -1,4 +1,4 @@
-use chrono::{NaiveDate, NaiveTime, Utc};
+use chrono::{DateTime, NaiveDate, NaiveTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, Row, SqlitePool};
 
@@ -15,8 +15,8 @@ pub struct WorkHoursConfig {
     pub afternoon_end_time: String,
     pub total_work_minutes: i64,
     pub description: Option<String>,
-    pub created_at: String,
-    pub updated_at: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 /// 默认工作时长配置
@@ -28,7 +28,7 @@ pub struct DefaultWorkHours {
     pub afternoon_start_time: String,
     pub afternoon_end_time: String,
     pub total_work_minutes: i64,
-    pub updated_at: String,
+    pub updated_at: DateTime<Utc>,
 }
 
 /// 工作时段
@@ -283,7 +283,7 @@ impl WorkHoursService {
             ));
         }
 
-        let now = Utc::now().naive_utc().to_string();
+        let now = Utc::now();
 
         sqlx::query(
             "UPDATE default_work_hours SET 
@@ -329,7 +329,7 @@ impl WorkHoursService {
             ));
         }
 
-        let now = Utc::now().naive_utc().to_string();
+        let now = Utc::now();
 
         // 插入或更新
         let id: i64 = sqlx::query(
